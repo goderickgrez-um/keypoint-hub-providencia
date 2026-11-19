@@ -1,0 +1,120 @@
+KEYPOINT HUB PROVIDENCIA · INSTRUCCIONES
+Equipo keypoint · Proyecto Capstone · noviembre de 2026
+=====================================================================
+
+CONTENIDO DEL ARCHIVO
+  dist/keypoint-hub-demo.html  Demo en un solo archivo: doble clic y funciona, sin internet.
+  web/                         Sitio listo para GitHub Pages (demo en línea).
+  server/, src/, database/     Sistema real con servidor y base de datos PostgreSQL.
+  docs/informe-capstone.pdf    Informe ampliado.
+  docs/manual.pdf              Manual de uso.
+  docs/tripticos/              Un tríptico por cargo (imprimir a doble cara, carta horizontal).
+
+CUENTAS DE LA DEMO (contraseña: demo1234)
+  Usuario ........... camila.rojas@ejemplo.cl   (o RUT 12.345.678-5)
+  Recepción ......... marta.pizarro@ejemplo.cl
+  Encargado de lab .. tomas.fuentes@ejemplo.cl  (impresión 3D)
+                      valentina.soto@ejemplo.cl (láser y textil)
+  Analista .......... ignacio.vera@ejemplo.cl
+  Administración .... roderick.grez@mayor.cl
+  En la pantalla de ingreso hay botones para entrar con cada una.
+
+---------------------------------------------------------------------
+1. VER LA DEMO AHORA MISMO
+---------------------------------------------------------------------
+  Abrir dist/keypoint-hub-demo.html con Chrome o Edge.
+  Los datos de ejemplo se guardan en ese navegador. "Restablecer datos
+  de ejemplo" en la pantalla de ingreso vuelve al estado inicial.
+  La cámara para leer QR solo funciona en la versión publicada (https)
+  o en el servidor; el lector USB y el RUT escrito funcionan siempre.
+
+---------------------------------------------------------------------
+2. SUBIR A GITHUB Y PUBLICAR LA DEMO EN LÍNEA
+---------------------------------------------------------------------
+  a) Crear un repositorio nuevo en https://github.com/new
+     (por ejemplo keypoint-hub-providencia). Puede ser público o privado
+     (GitHub Pages en repositorios privados requiere un plan pagado).
+  b) Desde la carpeta descomprimida, en una terminal:
+       git init
+       git add .
+       git commit -m "Keypoint Hub Providencia v1.0"
+       git branch -M main
+       git remote add origin https://github.com/USUARIO/keypoint-hub-providencia.git
+       git push -u origin main
+     (También se puede usar GitHub Desktop o arrastrar los archivos en la web.)
+  c) En GitHub: Settings › Pages › Build and deployment › Source:
+     "GitHub Actions". El flujo .github/workflows/pages.yml prueba,
+     construye y publica la carpeta web/ en cada push a main.
+     La dirección queda como https://USUARIO.github.io/keypoint-hub-providencia/
+
+---------------------------------------------------------------------
+3. SISTEMA REAL EN EL NOTEBOOK DE DEMOSTRACIÓN (WINDOWS 11)
+---------------------------------------------------------------------
+  Requisitos:
+    - Node.js 22 LTS:      https://nodejs.org
+    - PostgreSQL 16:       https://www.postgresql.org/download/windows/
+      Durante la instalación anote la contraseña del usuario "postgres".
+
+  a) Crear la base. Abrir "SQL Shell (psql)" y escribir:
+       CREATE USER hub WITH PASSWORD 'una-clave-segura';
+       CREATE DATABASE hub OWNER hub;
+  b) En la carpeta del proyecto, copiar .env.example como .env y editar:
+       DATABASE_URL=postgres://hub:una-clave-segura@localhost:5432/hub
+       SESSION_SECRET=   (una frase larga y aleatoria)
+  c) Abrir una terminal (PowerShell) en la carpeta y ejecutar:
+       npm install
+       npm run db:init -- --demo
+       npm start
+  d) Abrir http://localhost:8080 en el navegador.
+     Otros equipos de la misma red entran con http://IP-DEL-NOTEBOOK:8080
+     (permitir el puerto 8080 en el firewall de Windows).
+
+  Cargar la base con psql en vez de db:init (opcional):
+       psql -U hub -d hub -f database/schema.sql -f database/seed.sql
+     seed.sql trae fechas cercanas al día en que se generó; para fechas
+     de hoy use "npm run db:build" antes, o db:init.
+
+  Empezar de cero:   npm run db:init -- --demo --reset
+  Base limpia para operar (sin personas de ejemplo; cuenta de
+  administración con ADMIN_EMAIL y ADMIN_PASSWORD del .env):
+                     npm run db:init -- --clean --reset
+
+---------------------------------------------------------------------
+4. SISTEMA REAL CON DOCKER (SERVIDOR DEL HUB)
+---------------------------------------------------------------------
+  Con Docker Desktop o Docker Engine instalado:
+       copiar .env.example como .env y completar
+       docker compose up -d
+       docker compose exec app npm run db:init -- --demo
+  Abrir http://SERVIDOR:8080. Para uso público, poner delante un proxy
+  con HTTPS (por ejemplo Caddy o Nginx con Let's Encrypt): la cámara
+  y la instalación como app requieren HTTPS.
+
+---------------------------------------------------------------------
+5. CONFIGURACIONES DESPUÉS DE INSTALAR
+---------------------------------------------------------------------
+  Correo: en la app, Reglas › Correo y cuentas, poner la cuenta de
+    Gmail o Google Workspace que enviará los avisos. En .env poner
+    SMTP_PASS con una "contraseña de aplicación" de esa cuenta
+    (Cuenta de Google › Seguridad › Contraseñas de aplicaciones).
+    Sin SMTP_PASS los correos quedan guardados sin enviarse.
+  Ingreso con Google: crear un "ID de cliente OAuth" tipo Web en
+    https://console.cloud.google.com (orígenes autorizados: la
+    dirección del sistema) y pegarlo en Reglas.
+  Recepción: en el computador del mesón abrir /recepcion.html en
+    Chrome o Edge y elegir "Instalar". El lector USB escribe en el
+    campo de código. La app de recepción sigue funcionando sin
+    internet y sincroniza al volver la conexión.
+  Respaldos: programar a diario
+       pg_dump -U hub -d hub -F c -f respaldo-AAAA-MM-DD.dump
+    y copiar también la carpeta uploads/.
+
+---------------------------------------------------------------------
+6. PARA DESARROLLAR
+---------------------------------------------------------------------
+  npm test          pruebas de las reglas de negocio
+  npm run build     regenera web/ y dist/ después de cambiar src/
+  npm run db:build  regenera database/schema.sql y seed.sql
+  El modelo de datos está en src/core/schema.js (de ahí sale el SQL).
+  Las reglas están en src/core/services.js y se usan igual en la demo
+  y en el servidor.

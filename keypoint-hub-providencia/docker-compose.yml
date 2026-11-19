@@ -1,0 +1,23 @@
+# Levanta la base de datos y la app:  docker compose up -d
+# Luego carga los datos de ejemplo:      docker compose exec app npm run db:init -- --demo
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hub}
+      POSTGRES_DB: hub
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+    healthcheck: { test: [ "CMD-SHELL", "pg_isready -U hub" ], interval: 5s, retries: 10 }
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://hub:${POSTGRES_PASSWORD:-hub}@db:5432/hub
+      UPLOADS_DIR: /data/uploads
+    ports: [ "8080:8080" ]
+    volumes: [ "uploads:/data/uploads" ]
+volumes: { pgdata: {}, uploads: {} }
