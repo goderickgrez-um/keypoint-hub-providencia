@@ -83,6 +83,8 @@ export async function seed(nowArg = new Date()) {
   const textil = space({ name: 'Laboratorio textil', kind: 'lab', floor: 2, capacity: 6, requires_cert: true, monthly_hours: 48, gap_min: 30, manager_id: vale.id, color: '#4E8D5B' });
   const audit = space({ name: 'Auditorio', kind: 'auditorio', mode: 'evento', floor: 2, capacity: 60, color: '#7FC8A0' });
   const resid = space({ name: 'Residencias', kind: 'residencia', mode: 'evento', floor: 2, capacity: 30, color: '#0E7C86' });
+  // Encargados: cada uno puede tener uno o más espacios (Valentina tiene láser y textil)
+  for (const sp of db.all('spaces')) if (sp.manager_id) db.insert('space_managers', { space_id: sp.id, user_id: sp.manager_id });
   const eq = (sp, n, name, model, specs, capacity = 1) => { for (let i = 1; i <= n; i++) db.insert('resources', { space_id: sp.id, name: `${name} ${i}`, model, specs, capacity }); };
   eq(gaming, 6, 'PC', 'Acer Nitro 5', PC_SPECS);
   eq(fil, 6, 'Ender 3 n.º', 'Creality Ender 3', 'Volumen 220 × 220 × 250 mm · boquilla 0,4 mm · PLA y PETG');
@@ -201,6 +203,7 @@ export async function seed(nowArg = new Date()) {
   db.where('reservations', r => r.status === 'confirmada' && +new Date(r.start_at) <= +now && +now < +new Date(r.end_at)).forEach(r => {
     if (rnd() < .85 && !db.find('visits', v => v.user_id === r.user_id && !v.out_at)) db.insert('visits', { user_id: r.user_id, in_at: iso(+new Date(r.start_at) - 5 * 60000), source: 'qr', by_staff: marta.id });
   });
+  db.all('spaces').forEach(s => { s.manager_id = null; }); // reemplazado por space_managers
   tick(ctx);
   db.take();
   return db.dump();

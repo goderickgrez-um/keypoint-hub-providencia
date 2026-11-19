@@ -91,7 +91,7 @@ body = f"""
 {wide('a-prox', 'Próximas reservas del día y de los días siguientes.')}</section>
 
 <section class="chap"><h2>4. Encargados de laboratorio y sala gaming</h2>
-<p>Cada encargado ve solo los espacios que tiene asignados en Espacios.</p>
+<p>Cada encargado tiene uno o más laboratorios asignados por administración en <b>Empleados</b> y ve solo los datos de esos laboratorios: su panel «Mis laboratorios», reservas, archivos, certificaciones, fallas y personas que los usan.</p>
 <h3>Revisión de archivos</h3>
 <p>La lista muestra nombre, peso, tiempo estimado, usuario y horario. El color del nombre indica el estado: amarillo en espera, verde aprobado, rojo rechazado. Al tocar el nombre se descarga el archivo.</p>
 <ul><li><b>Aprobar:</b> confirma la reserva.</li><li><b>Observar:</b> abre un cuadro para escribir la observación; la reserva se mantiene.</li>
@@ -111,14 +111,15 @@ body = f"""
 <h3>Panel</h3><p>Personas dentro del Hub, reservas y archivos pendientes, ocupación por piso y espacio, mapa de calor de los últimos 30 días, proyección de las próximas horas y plano en vivo.</p>
 {wide('a-panel', 'Panel de administración.')}
 <h3>Espacios y plano</h3>
-<p>La lista muestra cada espacio con tipo, piso, aforo, accesibilidad y encargado; el botón <b>Editar</b> abre su detalle. Ahí se cambian aforo, horas mensuales por persona, minutos entre trabajos, espera antes de liberar, duración máxima, nivel de certificación, formatos de archivo, trabajos nocturnos, accesibilidad y encargado, y se agregan equipos con sus especificaciones. Para abrir un laboratorio nuevo: <b>Crear espacio</b>, agregar sus equipos, asignar encargado y crear su certificación. Los cambios quedan en «Cambios recientes».</p>
+<p>La lista muestra cada espacio con tipo, piso, aforo, accesibilidad y encargado; el botón <b>Editar</b> abre su detalle. Ahí se cambian aforo, horas mensuales por persona, minutos entre trabajos, espera antes de liberar, duración máxima, nivel de certificación, formatos de archivo, trabajos nocturnos, accesibilidad y se agregan equipos con sus especificaciones. Para abrir un laboratorio nuevo: <b>Crear espacio</b>, agregar sus equipos, crear su certificación y asignar su encargado en Empleados. Los cambios quedan en «Cambios recientes».</p>
 <p><b>Editar el plano del Hub</b> abre un editor de rectángulos por piso: agregar, arrastrar, cambiar tamaño desde la esquina, traer al frente o enviar atrás, unir dos rectángulos del mismo color en una zona, y asignar nombre, tipo, aforo, colores y el espacio vinculado. El plano alimenta el plano en vivo y el mapa de calor de Datos.</p>
 {shots(('a-esp', 'Espacios.'), ('a-plano', 'Editor del plano.'))}
 <h3>Eventos y banners</h3><p>Crea eventos con fecha, cupos y lugar, o avisos sin fecha. Cada uno lleva una imagen de banner (1200 × 400 px) y una imagen de anuncio que se abre al tocarlo. Se puede descargar la lista de inscritos y asistentes.</p>
 <h3>Apariencia, reglas y empleados</h3>
 <ul><li><b>Apariencia:</b> colores de fondo (con degradado de dos colores), tarjetas, texto, acento, texto sobre el acento y barras, por separado para tema claro y oscuro. El tema claro solo ofrece fondos claros y el oscuro, fondos oscuros. Avisa cuando un texto queda con poco contraste. También logo, nombre y lema.</li>
 <li><b>Reglas:</b> horario de atención, aforo por piso, bloques, avisos, tolerancias, reservas activas, horas extra del personal, archivos, cuenta de correo y cuentas de Google o Microsoft.</li>
-<li><b>Empleados:</b> agrega a una persona ya registrada como usuario, con su cargo y credenciales.</li>
+<li><b>Empleados:</b> agrega a una persona ya registrada como usuario, con su cargo y credenciales. Al darle la credencial de encargado de laboratorio se abre una lista para marcar sus laboratorios (uno o más) y se pide confirmación. El botón <b>Laboratorios</b> permite cambiarlos después.</li>
+<li><b>Reglas:</b> también define la zona donde queda registrada una persona que entra sin reserva (cowork por defecto) y la vigencia de los códigos del correo.</li>
 <li><b>Restringir acceso:</b> desde Usuarios, por horas, días o de forma permanente. Recepción verá el aviso al escanear.</li>
 <li><b>Auditoría:</b> registro de las acciones del equipo.</li></ul>
 {shots(('a-apar', 'Apariencia.'), ('a-reglas', 'Reglas.'))}</section>

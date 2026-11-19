@@ -2,13 +2,13 @@
 // El navegador recibe solo lo que la sesión puede ver y lo guarda en el mismo almacén que usa la interfaz.
 import { App } from '../ui/kit.js';
 
-const base = (window.HUB_CONFIG?.api || '').replace(/\/$/, '');
+const base = () => (typeof window.HUB_CONFIG === 'string' ? window.HUB_CONFIG : window.HUB_CONFIG?.api || '').replace(/\/$/, '');
 let token = null, onChange = () => {}, tag = '', busy = false;
 const store = v => { try { if (v === undefined) return sessionStorage.getItem('hub-token'); v ? sessionStorage.setItem('hub-token', v) : sessionStorage.removeItem('hub-token'); } catch { return null; } };
 const headers = extra => ({ ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra });
 async function http(path, opt = {}) {
   let r; busy = true;
-  try { r = await fetch(base + path, opt); } catch { busy = false; const e = new Error('Sin conexión con el servidor.'); e.offline = true; throw e; }
+  try { r = await fetch(base() + path, opt); } catch { busy = false; const e = new Error('Sin conexión con el servidor.'); e.offline = true; throw e; }
   busy = false;
   const j = r.headers.get('content-type')?.includes('json') ? await r.json() : null;
   if (!r.ok) { const e = new Error(j?.error || 'Algo salió mal. Intenta de nuevo.'); e.user = !!j?.error; if (r.status === 401) { token = null; store(null); } throw e; }

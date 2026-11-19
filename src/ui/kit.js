@@ -11,7 +11,9 @@ export const db = () => App.db;
 export const me = () => (App.uid ? App.db.get('users', App.uid) : null);
 export const myRoles = () => (App.uid ? Q.rolesOf(App.db, App.uid) : []);
 export const can = (...r) => { const rs = myRoles(); return rs.includes('admin') || r.some(x => rs.includes(x)); };
-export const manages = id => { const rs = myRoles(); return rs.includes('admin') || (rs.includes('encargado') && App.db.get('spaces', id)?.manager_id === App.uid); };
+export const manages = id => { const rs = myRoles(); return rs.includes('admin') || (rs.includes('encargado') && App.db.find('space_managers', m => m.space_id === id && m.user_id === App.uid) != null); };
+/** Solo encargado de laboratorio (sin otra credencial): ve únicamente sus espacios. */
+export const labOnly = () => { const rs = myRoles(); return rs.length > 0 && rs.every(r => r === 'encargado'); };
 export const mySpaces = () => App.db.where('spaces', s => manages(s.id));
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

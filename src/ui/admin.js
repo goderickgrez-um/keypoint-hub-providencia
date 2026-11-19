@@ -6,7 +6,7 @@ import { applyTheme, themeOf, themeMode } from './theme.js';
 import { heatPlan } from './plan.js';
 import { uname, sname, rangeOf, rangeBar, anon } from './staff.js';
 import { logoSrc } from './user.js';
-import { fileInput, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
+import { fileInput, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 const closeQuiet = () => { S.modal = null; };
@@ -40,13 +40,13 @@ actions['ev-csv'] = id => download('asistentes-evento-' + id + '.csv', csv(['ID'
 screens['a-esp'] = { roles: ['admin', 'encargado'], render() {
   const log = db().where('audit_log', a => a.entity === 'spaces').sort((a, b) => T(b.at) - T(a.at)).slice(0, 12);
   return `<div class="head"><h1>Espacios</h1>${can() ? btn('Crear espacio', 'sp-open', { v: 0, cls: 's', icon: 'plus' }) : ''}</div>
-    ${table(['Espacio', 'Tipo', 'Piso', 'Aforo', 'Accesible', 'Encargado', ''], db().all('spaces').map(s => [`<b>${esc(s.name)}</b>${s.active ? '' : ' ' + pill('Inactivo')}`, `${KINDS[s.kind] || s.kind} · ${MODES[s.mode]}`, s.floor, s.capacity, s.accessible ? 'Sí' : 'No', esc(s.manager_id ? uname(s.manager_id) : 'Administración'), manages(s.id) ? btn('Editar', 'sp-open', { v: s.id, cls: 's plain', icon: 'edit' }) : '']))}
+    ${table(['Espacio', 'Tipo', 'Piso', 'Aforo', 'Accesible', 'Encargados', ''], (labOnly() ? mySpaces() : db().all('spaces')).map(s => [`<b>${esc(s.name)}</b>${s.active ? '' : ' ' + pill('Inactivo')}`, `${KINDS[s.kind] || s.kind} · ${MODES[s.mode]}`, s.floor, s.capacity, s.accessible ? 'Sí' : 'No', esc(Q.managersOf(db(), s.id).map(uname).join(', ') || 'Administración'), manages(s.id) ? btn('Editar', 'sp-open', { v: s.id, cls: 's plain', icon: 'edit' }) : '']))}
     <p class="sm mu">Aforo máximo por piso: ${Object.entries(cfg('floor_capacity')).map(([f, c]) => `piso ${f}, ${c} personas`).join(' · ')}. Se cambia en Reglas.</p>
     <h2>Cambios recientes</h2>${table(['Fecha', 'Quién', 'Cambio', 'Detalle'], log.map(a => [fDT(a.at), esc(uname(a.actor_id)), `${esc(a.action)} · ${esc(sname(+a.entity_id))}`, `<span class="sm">${esc(a.detail || '')}</span>`]), 'Aún no hay cambios registrados.')}
     ${can() ? btn('Editar el plano del Hub', 'go', { v: 'a-plano', cls: 'block sec', icon: 'map' }) : ''}`;
 } };
 actions['sp-open'] = id => { const s = db().get('spaces', +id); S.space = +id;
-  fill({ sp_name: s?.name || '', sp_kind: s?.kind || 'lab', sp_mode: s?.mode || 'reserva', sp_floor: s?.floor || 2, sp_cap: s?.capacity ?? 6, sp_acc: s ? s.accessible : true, sp_cert: s ? s.requires_cert : false, sp_lvl: s?.min_level || 1, sp_mgr: s?.manager_id || '', sp_hours: s?.monthly_hours ?? 48,
+  fill({ sp_name: s?.name || '', sp_kind: s?.kind || 'lab', sp_mode: s?.mode || 'reserva', sp_floor: s?.floor || 2, sp_cap: s?.capacity ?? 6, sp_acc: s ? s.accessible : true, sp_cert: s ? s.requires_cert : false, sp_lvl: s?.min_level || 1, sp_hours: s?.monthly_hours ?? 48,
     sp_gap: s?.gap_min ?? 30, sp_tol: s?.tolerance_min ?? '', sp_max: s?.max_hours ?? '', sp_night: s ? s.allow_overnight : false, sp_accept: s?.accept || '', sp_notes: s?.notes || '', sp_on: s ? s.active : true, eq_name: '', eq_model: '', eq_specs: '', eq_cap: 1 }); S.eq = 0; go('a-espd'); };
 screens['a-espd'] = { roles: ['admin', 'encargado'], render() {
   const s = db().get('spaces', S.space), adm = can(), eqs = s ? db().where('resources', r => r.space_id === s.id) : [], grp = val('sp_kind') === 'residencia';
@@ -57,7 +57,8 @@ screens['a-espd'] = { roles: ['admin', 'encargado'], render() {
       ${field('sp_gap', 'Minutos entre trabajos', { type: 'number', attrs: 'min="0"' })}${field('sp_tol', `Espera antes de liberar (min; vacío = ${cfg('tolerance_min')})`, { type: 'number' })}
       ${field('sp_max', `Duración máxima en horas (vacío = ${cfg('max_hours')})`, { type: 'number' })}${field('sp_lvl', 'Nivel de certificación exigido', { type: 'number', attrs: 'min="1"' })}
       ${field('sp_accept', 'Formatos de archivo aceptados (vacío = no pide archivo)', { cls: 'full', ph: '.stl,.3mf,.obj' })}
-      ${adm ? field('sp_mgr', 'Encargado (ID, RUT o correo de alguien del equipo)', { cls: 'full' }) : ''}${area('sp_notes', 'Notas internas')}</div>
+      ${area('sp_notes', 'Notas internas')}</div>
+      ${s && ['lab', 'gaming'].includes(s.kind) ? `<p class="sm"><b>Encargados:</b> ${esc(Q.managersOf(db(), s.id).map(uname).join(', ') || 'sin asignar')}${adm ? ` · <button class="pill info" data-a="go" data-v="a-emp">Asignar en Empleados</button>` : ''}</p>` : ''}
       ${check('sp_acc', 'Accesible para personas con movilidad reducida')}${check('sp_cert', 'Exige certificación para reservar')}${check('sp_night', 'Permite trabajos que terminan después del cierre (sin supervisión)')}${check('sp_on', 'Espacio activo')}
       ${btn(s ? 'Guardar cambios' : 'Crear espacio', 'sp-save', { cls: 'block' })}</div>
     ${s ? `<div class="stack"><h3>${grp ? 'Grupos de residencia' : 'Equipos'} (${eqs.filter(e => e.active).length})</h3>
@@ -65,7 +66,7 @@ screens['a-espd'] = { roles: ['admin', 'encargado'], render() {
       <div class="card stack"><h3>${S.eq ? 'Editar' : 'Agregar'} ${grp ? 'grupo' : 'equipo'}</h3><div class="form">${field('eq_name', 'Nombre')}${field('eq_model', 'Modelo')}${field('eq_cap', 'Cupos', { type: 'number', attrs: 'min="1"' })}${area('eq_specs', 'Especificaciones')}</div>
         ${check('eq_on', 'En servicio', { value: true })}<div class="row">${btn(S.eq ? 'Guardar equipo' : 'Agregar', 'eq-save', { cls: 'sp sec' })}${S.eq ? btn('Cancelar', 'eq-edit', { v: 0, cls: 'plain' }) : ''}</div></div></div>` : ''}</div>`;
 } };
-actions['sp-save'] = async () => { const r = await run('space.save', { id: S.space || undefined, name: val('sp_name'), kind: val('sp_kind'), mode: val('sp_mode'), floor: val('sp_floor'), capacity: val('sp_cap'), accessible: val('sp_acc'), requires_cert: val('sp_cert'), min_level: val('sp_lvl'), manager_id: val('sp_mgr'),
+actions['sp-save'] = async () => { const r = await run('space.save', { id: S.space || undefined, name: val('sp_name'), kind: val('sp_kind'), mode: val('sp_mode'), floor: val('sp_floor'), capacity: val('sp_cap'), accessible: val('sp_acc'), requires_cert: val('sp_cert'), min_level: val('sp_lvl'),
   monthly_hours: val('sp_hours'), gap_min: val('sp_gap'), tolerance_min: val('sp_tol'), max_hours: val('sp_max'), allow_overnight: val('sp_night'), accept: val('sp_accept'), notes: val('sp_notes'), active: val('sp_on') }); if (r) { S.space = r.id; toast('Espacio guardado'); } };
 actions['eq-edit'] = id => { const e = db().get('resources', +id); S.eq = +id; fill({ eq_name: e?.name || '', eq_model: e?.model || '', eq_specs: e?.specs || '', eq_cap: e?.capacity || 1, eq_on: e ? e.active : true }); go(S.k); };
 actions['eq-save'] = async () => { const r = await run('resource.save', { id: S.eq || undefined, space_id: S.space, name: val('eq_name'), model: val('eq_model'), specs: val('eq_specs'), capacity: val('eq_cap'), active: val('eq_on', true) }); if (r) actions['eq-edit'](0); };
@@ -132,15 +133,17 @@ actions['ap-save'] = async () => { await run('config.set', { key: 'system_name',
 // ============================================================ Reglas
 const NUM = [['block_min', 'Duración del bloque de salas y gaming (min)'], ['block_gap_min', 'Pausa entre bloques (min)'], ['cancel_notice_min', 'Aviso mínimo para cancelar sin perder horas (min)'], ['tolerance_min', 'Espera antes de liberar una reserva (min)'],
   ['max_active', 'Reservas activas por persona'], ['max_hours', 'Duración máxima de una reserva (h)'], ['staff_extra_hours', 'Horas extra del personal por laboratorio'], ['release_room_after_min', 'Liberar sala sin anfitrión tras (min)'],
-  ['file_max_mb', 'Tamaño máximo de archivo (MB)'], ['keep_rejected_days', 'Días que se guarda un archivo rechazado'], ['keep_approved_days', 'Días mínimos que se guarda un archivo aprobado']];
+  ['code_minutes', 'Vigencia de los códigos enviados por correo (min)'], ['file_max_mb', 'Tamaño máximo de archivo (MB)'], ['keep_rejected_days', 'Días que se guarda un archivo rechazado'], ['keep_approved_days', 'Días mínimos que se guarda un archivo aprobado']];
 screens['a-reglas'] = { roles: ['admin'], render() {
   if (!S.rgLoaded) { const h = cfg('hours'), m = cfg('mail'), fc = cfg('floor_capacity'); NUM.forEach(([k]) => { S.f['rg_' + k] = cfg(k); });
     for (let d = 0; d < 7; d++) { S.f['rg_o' + d] = h[d] ? R.hm(h[d][0]) : ''; S.f['rg_c' + d] = h[d] ? R.hm(h[d][1]) : ''; }
-    fill({ rg_f1: fc[1], rg_f2: fc[2], rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
+    fill({ rg_zone: cfg('default_zone') ?? '', rg_f1: fc[1], rg_f2: fc[2], rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
   const out = [...db().all('outbox')].reverse().slice(0, 8);
   return `<h1>Reglas del sistema</h1><p class="mu">Estos valores rigen para todo el Hub. Las horas mensuales y los minutos entre trabajos se definen en cada espacio.</p>
     <div class="grid"><div class="card stack"><h3>Horario de atención</h3><p class="sm mu">Deja un día vacío para marcarlo como cerrado.</p>
       ${[1, 2, 3, 4, 5, 6, 0].map(d => `<div class="row"><span style="flex:0 0 84px">${WEEKDAYS[d]}</span>${field('rg_o' + d, '', { type: 'time', cls: 'sp' })}${field('rg_c' + d, '', { type: 'time', cls: 'sp' })}</div>`).join('')}
+      <h3>Personas sin reserva</h3><p class="sm mu">Quien entra sin una reserva para esa hora queda registrado en esta zona.</p>
+      ${select('rg_zone', 'Zona por defecto', db().where('spaces', s => s.active && s.mode !== 'reserva').map(s => [s.id, s.name]), { raw: true, blank: 'Cowork (predeterminado)' })}
       <h3>Aforo por piso</h3><div class="form">${field('rg_f1', 'Piso 1', { type: 'number' })}${field('rg_f2', 'Piso 2', { type: 'number' })}</div></div>
     <div class="card stack"><h3>Reservas y archivos</h3><div class="form">${NUM.map(([k, l]) => field('rg_' + k, l, { type: 'number', attrs: 'min="0"' })).join('')}</div>${check('rg_host', 'Liberar la sala de reuniones si el anfitrión no llega (por defecto se mantiene para los invitados)')}</div>
     <div class="card stack"><h3>Correo y cuentas</h3><p class="sm mu">Cuenta que envía confirmaciones y avisos. La contraseña de aplicación va en el archivo .env del servidor, nunca aquí.</p>
@@ -153,23 +156,54 @@ actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).
   for (let d = 0; d < 7; d++) if (val('rg_o' + d) && val('rg_c' + d)) { hours[d] = [mins(val('rg_o' + d)), mins(val('rg_c' + d))]; if (hours[d][1] <= hours[d][0]) return toast(`Revisa el horario del ${WEEKDAYS[d].toLowerCase()}`); }
   const set = (key, value) => App.data.call('config.set', { key, value });
   try { await set('hours', hours); for (const [k] of NUM) await set(k, Math.max(0, +val('rg_' + k) || 0));
-    await set('floor_capacity', { 1: +val('rg_f1') || 0, 2: +val('rg_f2') || 0 }); await set('release_room_without_host', !!val('rg_host'));
+    await set('floor_capacity', { 1: +val('rg_f1') || 0, 2: +val('rg_f2') || 0 }); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null);
     await set('mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }); await set('google_client_id', val('rg_g').trim()); await set('microsoft_client_id', val('rg_ms').trim()); toast('Reglas guardadas'); }
   catch (e) { toast(e.user ? e.message : 'No se pudieron guardar las reglas'); } };
 
 // ============================================================ Empleados
+const LABS = () => db().where('spaces', x => ['lab', 'gaming'].includes(x.kind) && x.active);
+const labChecklist = pref => `<div class="list">${LABS().map(l => `<label class="li ck" style="margin:0"><input type="checkbox" data-i="${pref}${l.id}"${val(pref + l.id) ? ' checked' : ''}><span class="sp"><b>${esc(l.name)}</b><span>Piso ${l.floor} · ${esc(Q.managersOf(db(), l.id).map(uname).join(', ') || 'sin encargado')}</span></span></label>`).join('')}</div>`;
+const pickedLabs = pref => LABS().filter(l => val(pref + l.id)).map(l => l.id);
 screens['a-emp'] = { roles: ['admin'], render() {
-  const staff = db().where('staff', s => s.active);
-  return `<h1>Empleados</h1><p class="mu">Cada persona del equipo debe tener primero su perfil de usuario. Aquí se le asignan cargo y credenciales; una misma persona puede tener varias.</p>
-    <div class="grid"><div class="list">${staff.map(s => { const u = db().get('users', s.user_id), rs = Q.rolesOf(db(), s.user_id), labs = db().where('spaces', x => x.manager_id === s.user_id).map(x => x.name);
-      return `<div class="li" style="flex-wrap:wrap">${avatar(u, 's')}<span class="sp"><b>${esc(u?.name)}</b><span>${esc(s.position || 'Sin cargo')} · ${s.user_id}${labs.length ? ' · A cargo de: ' + esc(labs.join(', ')) : ''}</span></span>
+  const staff = db().where('staff', s => s.active), newLab = !!val('em_encargado');
+  return `<h1>Empleados</h1><p class="mu">Cada persona del equipo debe tener primero su perfil de usuario. Aquí se le asignan cargo y credenciales; una misma persona puede tener varias. Un encargado de laboratorio puede tener uno o más laboratorios y solo ve los datos de esos laboratorios.</p>
+    <div class="grid"><div class="list">${staff.map(s => { const u = db().get('users', s.user_id), rs = Q.rolesOf(db(), s.user_id), labs = Q.managedBy(db(), s.user_id).map(id => db().get('spaces', id)?.name).filter(Boolean);
+      return `<div class="li" style="flex-wrap:wrap">${avatar(u, 's')}<span class="sp"><b>${esc(u?.name)}</b><span>${esc(s.position || 'Sin cargo')} · ${s.user_id}</span>${rs.includes('encargado') ? `<span>${icon('flask')} ${esc(labs.join(', ') || 'Sin laboratorios')}</span>` : ''}</span>
+        ${rs.includes('encargado') ? btn('Laboratorios', 'emp-labs', { v: s.user_id, cls: 's plain', icon: 'edit' }) : ''}
         <div class="chips" style="flex:1 0 100%">${Object.entries(ROLES).map(([k, l]) => `<button class="chip ${rs.includes(k) ? 'on' : ''}" data-a="emp-role" data-v="${s.user_id}:${k}">${l}</button>`).join('')}</div></div>`; }).join('')}</div>
     <div class="card stack"><h3>Registrar empleado</h3>${field('em_user', 'ID, RUT o correo de su perfil de usuario')}${field('em_pos', 'Cargo')}
-      <div>${Object.entries(ROLES).map(([k, l]) => check('em_' + k, l, { raw: true })).join('')}</div>${btn('Agregar al equipo', 'emp-add', { cls: 'block' })}
-      <p class="sm mu">Los encargados se asignan a su laboratorio en Espacios. Al asignarlos reciben la certificación de ese laboratorio y ${cfg('staff_extra_hours')} horas extra al mes.</p></div></div>`;
+      <div>${Object.entries(ROLES).map(([k, l]) => check('em_' + k, l, { raw: true, live: k === 'encargado' })).join('')}</div>
+      ${newLab ? `<div class="stack"><h3>Laboratorios a cargo</h3><p class="sm mu">Marca uno o más.</p>${labChecklist('eml_')}</div>` : ''}
+      ${btn('Agregar al equipo', 'emp-add', { cls: 'block' })}
+      <p class="sm mu">Al asignar un laboratorio, el encargado recibe su certificación y ${cfg('staff_extra_hours')} horas extra al mes en ese laboratorio.</p></div></div>`;
 } };
-actions['emp-role'] = v => { const [uid, role] = v.split(':'), rs = Q.rolesOf(db(), uid), s = db().find('staff', x => x.user_id === uid); run('staff.save', { user: uid, position: s?.position, roles: rs.includes(role) ? rs.filter(r => r !== role) : [...rs, role] }, 'Credenciales actualizadas'); };
-actions['emp-add'] = async () => { const r = await run('staff.save', { user: val('em_user'), position: val('em_pos'), roles: Object.keys(ROLES).filter(k => val('em_' + k)) }); if (r) { S.f = {}; toast('Empleado registrado'); } };
+/** Ventana con la lista de laboratorios para un encargado; al continuar pide confirmación. */
+function labsModal(uid, roles, position) {
+  S.empEdit = { uid, roles, position };
+  const mine = Q.managedBy(db(), uid); LABS().forEach(l => { S.f['ml_' + l.id] = mine.includes(l.id); });
+  modal({ html: `<h2 style="margin:0">Laboratorios de ${esc(uname(uid))}</h2><p class="sm mu">Marca los laboratorios que tendrá a cargo. Solo verá los datos de estos espacios.</p>${labChecklist('ml_')}
+    <div class="row">${btn('Continuar', 'emp-labs-next', { cls: 'sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` });
+}
+function confirmLabs(uid, labs, then) {
+  S.empConfirm = then;
+  modal({ html: `<h2 style="margin:0">¿Confirmar asignación?</h2><p><b>${esc(uname(uid))}</b> quedará como encargado de:</p><ul style="margin:0">${labs.map(id => `<li>${esc(db().get('spaces', id).name)}</li>`).join('')}</ul>
+    <p class="sm mu">Podrá revisar archivos, certificar, bloquear horarios y ajustar horas solo en estos espacios.</p><div class="row">${btn('Sí, asignar', 'emp-confirm', { cls: 'sp' })}${btn('Volver', 'modal-close', { cls: 'plain' })}</div>` });
+}
+actions['emp-confirm'] = async () => { const fn = S.empConfirm; S.empConfirm = null; S.modal = null; await fn(); };
+actions['emp-labs'] = uid => { const s = db().find('staff', x => x.user_id === uid); labsModal(uid, Q.rolesOf(db(), uid), s?.position); };
+actions['emp-labs-next'] = () => { const { uid, roles, position } = S.empEdit, labs = pickedLabs('ml_');
+  if (!labs.length) return toast('Elige al menos un laboratorio');
+  S.modal = null; confirmLabs(uid, labs, () => run('staff.save', { user: uid, position, roles: [...new Set([...roles, 'encargado'])], labs }, 'Laboratorios asignados')); };
+actions['emp-role'] = v => { const [uid, role] = v.split(':'), rs = Q.rolesOf(db(), uid), s = db().find('staff', x => x.user_id === uid);
+  if (role === 'encargado' && !rs.includes('encargado')) return labsModal(uid, rs, s?.position);
+  run('staff.save', { user: uid, position: s?.position, roles: rs.includes(role) ? rs.filter(r => r !== role) : [...rs, role] }, 'Credenciales actualizadas'); };
+actions['emp-add'] = async () => { const roles = Object.keys(ROLES).filter(k => val('em_' + k)), labs = roles.includes('encargado') ? pickedLabs('eml_') : [], user = val('em_user');
+  if (!user) return toast('Escribe el ID, RUT o correo de la persona');
+  const save = async () => { const r = await run('staff.save', { user, position: val('em_pos'), roles, labs }); if (r) { S.f = {}; toast('Empleado registrado'); } };
+  if (!roles.includes('encargado')) return save();
+  if (!labs.length) return toast('Elige al menos un laboratorio para el encargado');
+  const u = Q.findUser(db(), user); if (!u) return toast('Esa persona debe crear primero su perfil de usuario');
+  confirmLabs(u.id, labs, save); };
 
 // ============================================================ Datos
 screens['a-datos'] = { roles: ['admin', 'analista'], render() {

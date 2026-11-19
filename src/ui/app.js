@@ -89,6 +89,7 @@ actions.menu = () => { S.drawer = !S.drawer; render(); };
 actions['to-staff'] = () => { S.staff = true; go('a-panel'); };
 actions['to-user'] = () => { S.staff = false; S.drawer = false; go('u-inicio'); };
 actions['modal-close'] = () => closeModal();
+actions.reload = () => location.reload();
 actions['modal-bg'] = (v, el, e) => { if (e.target === el) closeModal(); };
 
 const root = document.getElementById('app');
@@ -113,12 +114,14 @@ window.addEventListener('online', () => { App.data.tick(); flushQueue(); });
 
 (async () => {
   setLang(getLang()); applyTheme();
-  const api = window.HUB_CONFIG?.api;
+  if (!location.hash && document.body.dataset.start) location.hash = document.body.dataset.start; // recepcion.html abre en Recepción
+  const api = typeof window.HUB_CONFIG === 'string' ? window.HUB_CONFIG : window.HUB_CONFIG?.api;
+  if (typeof window.HUB_CONFIG === 'string') window.HUB_CONFIG = { api };
   App.mode = api != null && location.protocol !== 'file:' ? 'remote' : 'demo';
   App.data = App.mode === 'remote' ? remote : local;
   try { await App.data.init(render); }
   catch (e) { console.error(e);
-    if (App.mode === 'remote') { document.getElementById('app').innerHTML = `<main class="wrap"><div class="login stack c" style="align-items:center"><img class="logo" src="${logoSrc()}" alt=""><h1>${t('El sistema no está disponible')}</h1><p class="mu">${t('No pudimos conectar con el servidor del Hub. Revisa tu conexión a internet o intenta de nuevo en unos minutos.')}</p><button class="btn" onclick="location.reload()">${t('Reintentar')}</button><p class="sm mu">${esc(api)}</p></div></main>`; return; } }
+    if (App.mode === 'remote') { document.getElementById('app').innerHTML = `<main class="wrap"><div class="login stack c" style="align-items:center"><img class="logo" src="${logoSrc()}" alt=""><h1>${t('El sistema no está disponible')}</h1><p class="mu">${t('No pudimos conectar con el servidor del Hub. Revisa tu conexión a internet o intenta de nuevo en unos minutos.')}</p><button class="btn" data-a="reload">${t('Reintentar')}</button><p class="sm mu">${esc(api)}</p></div></main>`; return; } }
   if (me()) { setLang(me().lang || getLang()); S.staff = location.hash.startsWith('#a-') && myRoles().length > 0; }
   applyTheme(); render();
   setInterval(async () => { if (S.modal || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || ed()) return; await App.data.tick(); render(); }, 30000);

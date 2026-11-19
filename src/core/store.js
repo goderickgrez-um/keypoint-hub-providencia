@@ -8,33 +8,35 @@ export class Store {
   constructor(data = {}) { this.load(data); }
 
   load(data = {}) {
-    this.d = {}; this.seq = {}; this.log = []; this.undo = [];
+    this.d = {}; this.seq = {}; this.log = []; this.undo = []; this.ix = {};
     for (const t in TABLES) this.d[t] = (data[t] || []).map(r => ({ ...r }));
     return this;
   }
   dump() { return this.d; }
 
   all(t) { return this.d[t]; }
-  get(t, id) { const pk = pkOf(t); return this.d[t].find(r => r[pk] === id) || null; }
+  /** Búsqueda por llave primaria con índice (O(1)); el índice se arma la primera vez que se usa. */
+  get(t, id) {
+    let m = this.ix[t];
+    if (!m) { const pk = pkOf(t); m = this.ix[t] = new Map(); for (const r of this.d[t]) m.set(r[pk], r); }
+    return m.get(id) || null;
+  }
   find(t, fn) { return this.d[t].find(fn) || null; }
   where(t, fn) { return this.d[t].filter(fn); }
 
   nextId(t) {
-    if (t === 'users') {
-      const n = Math.max(0, ...this.d.users.map(u => +String(u.id).slice(4) || 0), this.seq.users || 0) + 1;
-      this.seq.users = n; return 'HUB-' + String(n).padStart(5, '0');
-    }
-    const n = Math.max(0, this.seq[t] || 0, ...(this.seq[t] ? [] : this.d[t].map(r => r.id || 0))) + 1;
-    this.seq[t] = n; return n;
+    if (this.seq[t] == null) { let m = 0; for (const r of this.d[t]) { const v = t === 'users' ? +String(r.id).slice(4) || 0 : +r.id || 0; if (v > m) m = v; } this.seq[t] = m; }
+    const n = ++this.seq[t];
+    return t === 'users' ? 'HUB-' + String(n).padStart(5, '0') : n;
   }
 
   insert(t, row) {
     const pk = pkOf(t), r = { ...blank(t), ...row };
     if (r[pk] == null) r[pk] = this.nextId(t);
     if ('created_at' in r && !r.created_at) r.created_at = new Date().toISOString();
-    this.d[t].push(r);
+    this.d[t].push(r); this.ix[t]?.set(r[pk], r);
     this.log.push({ op: 'insert', t, row: r });
-    this.undo.push(() => { const i = this.d[t].indexOf(r); if (i >= 0) this.d[t].splice(i, 1); });
+    this.undo.push(() => { const i = this.d[t].indexOf(r); if (i >= 0) this.d[t].splice(i, 1); this.ix[t]?.delete(r[pk]); });
     return r;
   }
   update(t, id, patch) {
@@ -47,9 +49,9 @@ export class Store {
   }
   remove(t, id) {
     const r = this.get(t, id); if (!r) return;
-    const i = this.d[t].indexOf(r); this.d[t].splice(i, 1);
+    const i = this.d[t].indexOf(r); this.d[t].splice(i, 1); this.ix[t]?.delete(id);
     this.log.push({ op: 'delete', t, id });
-    this.undo.push(() => this.d[t].splice(i, 0, r));
+    this.undo.push(() => { this.d[t].splice(i, 0, r); this.ix[t]?.set(id, r); });
   }
 
   /** Entrega los cambios acumulados y limpia el registro (operación confirmada). */

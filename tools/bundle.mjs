@@ -15,13 +15,17 @@ const css = (await transform(await readFile(P('src/ui/styles.css'), 'utf8'), { l
 await writeFile(P('web/app.js'), app); await writeFile(P('web/vendor.js'), vendor); await writeFile(P('web/styles.css'), css);
 await cp(P('assets'), P('web/assets'), { recursive: true });
 
+// Política de seguridad de contenido para GitHub Pages: permite conectarse solo al servidor indicado en config.web.js.
+const cfgTxt = await readFile(P('config.web.js'), 'utf8'), apiOrigin = (() => { const m = /^\s*window\.HUB_CONFIG\s*=\s*(?:\{[^}]*api\s*:\s*)?["']([^"']+)["']/m.exec(cfgTxt); try { return m ? new URL(m[1]).origin : ''; } catch { return ''; } })();
+const CSP = `default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' ${apiOrigin} https://accounts.google.com; frame-src https://accounts.google.com; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'`.replace('  ', ' ');
 const page = (title, manifest, start) => `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${title}</title><meta name="description" content="Registro de entradas y reservas del Hub Providencia">
+<meta http-equiv="Content-Security-Policy" content="${CSP}"><meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="theme-color" content="#FFFFFF"><link rel="manifest" href="${manifest}"><link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="stylesheet" href="styles.css?v=${VERSION}"></head>
-<body><div id="app"></div>${start ? `<script>if(!location.hash)location.hash='${start}'</script>` : ''}
+<body${start ? ` data-start="${start}"` : ''}><div id="app"></div>
 <script src="config.js?v=${VERSION}"></script><script src="vendor.js?v=${VERSION}"></script><script src="app.js?v=${VERSION}"></script></body></html>`;
 await writeFile(P('web/index.html'), page('Keypoint Hub Providencia', 'manifest.webmanifest'));
 await writeFile(P('web/recepcion.html'), page('Recepción · Hub Providencia', 'recepcion.webmanifest', 'a-scan'));

@@ -6,7 +6,7 @@ import { t } from './i18n.js';
 import { openCamera } from './camera.js';
 import { regForm, occupancyCard } from './user.js';
 import { heatPlan } from './plan.js';
-import { App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, stat, table, avatar, stPill, qrSvg, openDays, dayChips, heatGrid, barsH, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download } from './kit.js';
+import { labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, stat, table, avatar, stPill, qrSvg, openDays, dayChips, heatGrid, barsH, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 export const anon = () => { const r = myRoles(); return r.length > 0 && r.every(x => x === 'analista'); };
@@ -31,7 +31,7 @@ const ALL = ['admin', 'encargado', 'recepcion', 'analista'];
 
 // ============================================================ Mi perfil (personal)
 screens['a-perfil'] = { roles: ALL, render() {
-  const u = me(), s = db().find('staff', x => x.user_id === u.id), rs = myRoles(), labs = db().where('spaces', x => x.manager_id === u.id);
+  const u = me(), s = db().find('staff', x => x.user_id === u.id), rs = myRoles(), labs = Q.managedBy(db(), u.id).map(id => db().get('spaces', id)).filter(Boolean);
   const ROLE = { admin: 'Administración', encargado: 'Encargado de laboratorio', recepcion: 'Recepción', analista: 'Analista de datos' };
   return `<h1>Mi perfil</h1><div class="card row">${avatar(u)}<div class="sp"><h2 style="margin:0">${esc(u.name)}</h2><span class="mu sm">${u.id} · ${esc(s?.position || 'Equipo del Hub')}</span><br><span class="mu sm">${esc(u.email || '')}</span></div></div>
     <h2>Credenciales</h2><div class="chips">${rs.map(r => pill(ROLE[r] || r, 'info')).join('')}</div>
@@ -41,7 +41,18 @@ screens['a-perfil'] = { roles: ALL, render() {
 } };
 
 // ============================================================ Panel
+function labPanel() {
+  const now = new Date(), o = occ(), ids = mySpaces().map(s => s.id), res = todayRes().filter(r => ids.includes(r.space_id));
+  const pend = db().where('files', f => f.status === 'pendiente' && ids.includes(f.space_id)).length, fails = db().where('failure_reports', f => f.status === 'abierta' && ids.includes(f.space_id)).length;
+  const next = db().where('reservations', r => ids.includes(r.space_id) && ACTIVE.includes(r.status) && T(r.end_at) > +now).sort((a, b) => T(a.start_at) - T(b.start_at)).slice(0, 8);
+  return `<div class="head"><h1>Mis laboratorios</h1><span class="mu sm">${fDT(now)}</span></div><p class="mu">${esc(mySpaces().map(s => s.name).join(' · '))}</p>
+    <div class="kpis">${stat('Reservas de hoy', res.length)}${stat('Archivos por revisar', pend)}${stat('Fallas abiertas', fails)}${stat('Inasistencias de hoy', res.filter(r => r.status === 'no_asistio').length)}</div>
+    <div class="grid"><div class="card stack"><h3>Ocupación ahora</h3>${mySpaces().map(sp => { const s = o.spaces.find(x => x.id === sp.id); return meter(sp.name, s?.n || 0, sp.capacity); }).join('')}</div>
+      <div class="card stack"><h3>Próximas reservas</h3>${next.length ? `<div class="list">${next.map(r => `<div class="li"><span class="sp"><b>${esc(sname(r.space_id))}${r.resource_id ? ' · ' + esc(rname(r.resource_id)) : ''}</b><span>${fRange(r.start_at, r.end_at)} · ${esc(uname(r.user_id))}</span></span>${stPill(r.status)}</div>`).join('')}</div>` : empty('No hay reservas próximas.')}</div></div>
+    ${pend ? btn('Revisar archivos', 'go', { v: 'a-rev', cls: 'block', icon: 'file' }) : ''}`;
+}
 screens['a-panel'] = { roles: ALL, render() {
+  if (labOnly()) return labPanel();
   const now = new Date(), o = occ(), res = todayRes(), mine = mySpaces().map(s => s.id), floor = S.planFloor || 1;
   const pend = db().where('files', f => f.status === 'pendiente' && mine.includes(f.space_id)).length, m = Q.heat(db(), R.addDays(now, -30), now);
   const h = R.hoursFor(cfg('hours'), now), next = [];
@@ -61,7 +72,7 @@ screens['a-ahora'] = { roles: ALL, render() {
   const state = (sp, eq) => { const mine = res.filter(r => r.space_id === sp.id && (r.resource_id == null || !eq || r.resource_id === eq.id) && ACTIVE.includes(r.status));
     const cur = mine.find(r => T(r.start_at) <= now && now < T(r.end_at)), nx = mine.find(r => T(r.start_at) > now);
     return cur ? pill(cur.status === 'en_curso' ? `En uso hasta ${fTime(cur.end_at)}` : `Reservado ${fTime(cur.start_at)}–${fTime(cur.end_at)}, sin llegar`, cur.status === 'en_curso' ? 'info' : 'warn') : nx ? pill(`Libre · próxima ${fTime(nx.start_at)}`, 'ok') : pill('Libre', 'ok'); };
-  return `<h1>Reservas actuales</h1><p class="mu">Estado de cada espacio en este momento. Se actualiza solo.</p><div class="grid">${db().where('spaces', s => s.active).map(sp => { const s = o.spaces.find(x => x.id === sp.id), eqs = db().where('resources', r => r.space_id === sp.id && r.active);
+  return `<h1>Reservas actuales</h1><p class="mu">Estado de cada espacio en este momento. Se actualiza solo.</p><div class="grid">${(labOnly() ? mySpaces() : db().where('spaces', s => s.active)).map(sp => { const s = o.spaces.find(x => x.id === sp.id), eqs = db().where('resources', r => r.space_id === sp.id && r.active);
     return `<div class="card stack"><div class="row between"><h3>${esc(sp.name)}</h3><span class="mu sm">Piso ${sp.floor}</span></div>${meter('Personas', s?.n || 0, sp.capacity)}
       ${sp.mode !== 'reserva' ? '' : sp.kind === 'sala' ? state(sp, null) : `<div class="list">${eqs.map(e => `<div class="li"><span class="sp"><b>${esc(e.name)}</b></span>${state(sp, e)}</div>`).join('')}</div>`}</div>`; }).join('')}</div>`;
 } };
@@ -108,7 +119,8 @@ function scanResult(r) {
   const u = r.user, A = { entrada: ['ok', 'Entrada registrada'], salida: ['tone', 'Salida registrada'], restringido: ['bad', 'Acceso restringido'], pendiente: ['warn', 'Perfil pendiente'], duplicado: ['warn', 'Ya se registró hace un momento'] }[r.action] || ['flat', r.inside ? 'Está dentro del Hub' : 'Está fuera del Hub'];
   return `<div class="result card ${A[0]}">${avatar(u)}<h2>${A[1]}</h2><p class="b">${esc(u.name)}</p>
       ${r.ban ? `<p>${r.ban.until_at ? 'Hasta el ' + fDT(r.ban.until_at) : 'De forma permanente'}${r.ban.reason ? ' · ' + esc(r.ban.reason) : ''}</p>` : ''}
-      ${r.action === 'pendiente' ? `<p>${u.status === 'pendiente_adulto' ? 'Falta la autorización de un adulto responsable.' : 'Falta confirmar el correo.'}</p>` : ''}</div>
+      ${r.action === 'pendiente' ? `<p>${u.status === 'pendiente_adulto' ? 'Falta la autorización de un adulto responsable.' : 'Falta confirmar el correo.'}</p>` : ''}
+      ${r.action === 'entrada' && r.zone ? `<p>${icon('map')} ${r.zoneByReservation ? 'Con reserva en' : 'Sin reserva: queda registrada en'} <b>${esc(r.zone)}</b></p>` : ''}</div>
     <div class="list"><div class="li"><span class="mu" style="flex:0 0 34%">ID</span><span class="sp b">${u.id}</span></div><div class="li"><span class="mu" style="flex:0 0 34%">${DOC_TYPES[u.doc_type] || 'Documento'}</span><span class="sp">${esc(R.fmtDoc(u.doc_number, u.doc_type))}</span></div>
       <div class="li"><span class="mu" style="flex:0 0 34%">Correo</span><span class="sp">${esc(u.email || 'No tiene')}</span></div><div class="li"><span class="mu" style="flex:0 0 34%">Teléfono</span><span class="sp">${esc(u.phone || 'No tiene')}</span></div>
       ${u.minor ? `<div class="li"><span class="mu" style="flex:0 0 34%">Adulto responsable</span><span class="sp">${esc(u.guardian || 'Sin asignar')}</span></div>` : ''}${u.reduced_mobility ? '<div class="li"><span class="sp">Persona con movilidad reducida</span></div>' : ''}</div>

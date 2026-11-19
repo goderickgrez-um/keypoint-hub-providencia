@@ -28,10 +28,13 @@ export const TABLES = {
 
   spaces: { doc: 'Espacios del Hub: cowork, salas, sala gaming, laboratorios, auditorio, residencias.',
     cols: { id: 'int', name: 'text', kind: 'text', mode: 'text=reserva', floor: 'int=1', capacity: 'int=0',
-      accessible: 'bool=true', requires_cert: 'bool=false', min_level: 'int=1', manager_id: 'users?',
+      accessible: 'bool=true', requires_cert: 'bool=false', min_level: 'int=1', manager_id: 'users?', /* obsoleto: ver space_managers */
       monthly_hours: 'num=0', gap_min: 'int=0', tolerance_min: 'int?', max_hours: 'num?',
       allow_overnight: 'bool=false', accept: 'text?', color: 'text?', notes: 'text?', active: 'bool=true' },
     check: ["mode in ('libre','reserva','evento')"] },
+
+  space_managers: { doc: 'Encargados de cada laboratorio o sala. Un encargado puede tener varios espacios y un espacio varios encargados.',
+    cols: { id: 'int', space_id: 'spaces', user_id: 'users' }, unique: ['space_id, user_id'], index: ['user_id'] },
 
   resources: { doc: 'Equipos o subdivisiones de un espacio: máquinas, computadores, grupos de residencia.',
     cols: { id: 'int', space_id: 'spaces', name: 'text', model: 'text?', specs: 'text?', capacity: 'int=1', active: 'bool=true' } },
@@ -72,7 +75,7 @@ export const TABLES = {
       text: 'text', created_at: 'ts' } },
 
   visits: { doc: 'Entradas y salidas del edificio.',
-    cols: { id: 'int', user_id: 'users', in_at: 'ts', out_at: 'ts?', source: 'text=qr', out_source: 'text?', by_staff: 'users?' },
+    cols: { id: 'int', user_id: 'users', in_at: 'ts', out_at: 'ts?', source: 'text=qr', out_source: 'text?', by_staff: 'users?', space_id: 'spaces?' },
     index: ['user_id', 'in_at'] },
 
   hour_adjustments: { doc: 'Penalizaciones y premios de horas por laboratorio. period nulo = se aplica todos los meses.',
@@ -151,6 +154,8 @@ export function toSQL() {
     (def.unique || []).forEach(u => lines.push(`  unique (${u})`));
     (def.check || []).forEach(c => lines.push(`  check (${c})`));
     out.push(`-- ${def.doc}`, `create table if not exists ${t} (`, lines.join(',\n'), ');');
+    // Si la tabla ya existía (base creada con una versión anterior), agrega las columnas que falten.
+    for (const c of COLS[t]) if (c.name !== pk) out.push(`alter table ${t} add column if not exists ${c.name} ${SQL[c.type]}${c.def !== undefined ? ` default ${typeof c.def === 'string' ? `'${c.def}'` : c.def}` : ''}${c.ref ? ` references ${c.ref}(id)${c.nullable ? ' on delete set null' : ' on delete cascade'}` : ''};`);
     (def.index || []).forEach(i => out.push(`create index if not exists ${t}_${i.replace(/\W+/g, '_')}_idx on ${t} (${i});`));
     out.push('');
   }

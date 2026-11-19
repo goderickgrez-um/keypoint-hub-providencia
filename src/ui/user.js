@@ -44,11 +44,11 @@ const enter = r => { if (!r?.session) return; S.demoCode = null; S.codeSent = fa
 actions.login = async () => {
   const ident = val('l_ident').trim(); if (!ident) return toast(t('Escribe tu RUT o correo'));
   if (S.loginMode === 'code') {
-    if (!S.codeSent) { const r = await run('auth.code', { ident }); if (r) { S.codeSent = true; S.demoCode = r.demo_code; toast(t('Si el correo está registrado, te enviamos un código')); } return; }
+    if (!S.codeSent) { const r = await run('auth.code', { ident }); if (r) { S.codeSent = true; S.demoCode = r.demo_code; S.codeMin = r.minutes; toast(t('Si el correo está registrado, te enviamos un código. Vence en {0} minutos', r.minutes)); } return; }
     return enter(await run('auth.codeLogin', { ident, code: val('l_code') }));
   }
   const r = await run('auth.login', { ident, password: val('l_pass') });
-  if (r?.need === 'correo') { S.verify = r.id; S.demoCode = r.demo_code; return go('u-verif'); }
+  if (r?.need === 'correo') { S.verify = r.id; S.demoCode = r.demo_code; S.codeMin = r.minutes; return go('u-verif'); }
   enter(r);
 };
 actions.logout = async () => { await App.data.logout(); S.staff = false; S.assist = null; S.f = {}; go('u-login'); };
@@ -87,12 +87,15 @@ actions.register = async assisted => {
   if (!r) return;
   S.f = {}; S.regPhoto = null;
   if (assisted === '1') { S.newUser = r.id; return go('a-reg'); }
-  if (r.status === 'pendiente_correo') { S.verify = r.id; S.demoCode = r.demo_code; return go('u-verif'); }
+  if (r.status === 'pendiente_correo') { S.verify = r.id; S.demoCode = r.demo_code; S.codeMin = r.minutes; return go('u-verif'); }
   enter(r);
 };
 screens['u-verif'] = { open: true, render: () => `<div class="login stack">${back('u-login')}<h1>${t('Confirma tu correo')}</h1><p class="mu">${t('Te enviamos un código de 6 dígitos. Escríbelo para activar tu cuenta.')}</p>
-  <div class="card stack">${demoCode()}${field('v_code', 'Código de 6 dígitos', { attrs: 'inputmode="numeric" autocomplete="one-time-code" data-enter="verify"' })}${btn('Confirmar correo', 'verify', { cls: 'block' })}</div></div>` };
-actions.verify = async () => enter(await run('auth.verify', { id: S.verify, code: val('v_code') }));
+  <div class="card stack">${demoCode()}${S.verify ? '' : field('v_ident', 'RUT o correo')}${field('v_code', 'Código de 6 dígitos', { attrs: 'inputmode="numeric" autocomplete="one-time-code" maxlength="7" data-enter="verify"' })}
+    <p class="sm mu">${t('El código vence en {0} minutos. Si no llega, revisa la carpeta de spam.', S.codeMin || db().cfg('code_minutes') || 15)}</p>
+    ${btn('Confirmar correo', 'verify', { cls: 'block' })}${btn('Reenviar código', 'resend', { cls: 'block plain' })}</div></div>` };
+actions.resend = async () => { const r = await run('auth.code', S.verify ? { id: S.verify } : { ident: val('v_ident') }); if (r) { S.codeMin = r.minutes; if (r.demo_code) S.demoCode = r.demo_code; toast(t('Te reenviamos el código. Usa el del correo más reciente o cualquiera vigente')); } };
+actions.verify = async () => enter(await run('auth.verify', { id: S.verify, ident: val('v_ident'), code: val('v_code') }));
 
 /** Pantalla de espera para perfiles de menores sin autorización. */
 export function pendingScreen(u) {

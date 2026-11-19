@@ -8,6 +8,11 @@ export const rolesOf = (db, uid) => {
   const s = db.find('staff', x => x.user_id === uid && x.active);
   return s ? db.where('staff_roles', r => r.user_id === uid).map(r => r.role) : [];
 };
+/** Encargados de un espacio y espacios a cargo de una persona. */
+export const managersOf = (db, spaceId) => db.where('space_managers', m => m.space_id === spaceId).map(m => m.user_id);
+export const managedBy = (db, uid) => db.where('space_managers', m => m.user_id === uid).map(m => m.space_id);
+/** Espacio donde queda registrada una persona sin reserva: el configurado o, si no hay, el cowork. */
+export const defaultZone = db => { const id = db.cfg('default_zone'), sp = id != null && db.get('spaces', +id); return sp && sp.active ? sp : db.find('spaces', s => s.kind === 'cowork' && s.active); };
 export const findUser = (db, code) => {
   const raw = String(code || '').trim(); if (!raw) return null;
   const n = R.normDoc(raw), e = raw.toLowerCase();

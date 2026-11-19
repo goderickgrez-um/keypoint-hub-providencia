@@ -125,6 +125,9 @@ CADA DÍA DE PRUEBA
   4. Probar la dirección de GitHub desde un celular.
 
 RESPALDO (recomendado a diario)
+  IMPORTANTE: el archivo C:\hub\keypoint-hub-providencia\.data-key es la clave que
+  cifra RUT, correos y teléfonos. Cópialo una vez a un pendrive o lugar seguro.
+  Sin ese archivo, un respaldo de la base no sirve.
   En cmd dentro de la carpeta de PostgreSQL (C:\Program Files\PostgreSQL\16\bin):
       pg_dump -U hub -d hub -F c -f C:\hub\respaldo.dump
   Copia ese archivo y la carpeta C:\hub\keypoint-hub-providencia\uploads

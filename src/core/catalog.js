@@ -44,6 +44,8 @@ export const DEFAULTS = {
   cancel_notice_min: 15, tolerance_min: 15,  // aviso mínimo para cancelar y espera antes de liberar
   max_active: 3, max_hours: 12, staff_extra_hours: 6,
   release_room_without_host: false, release_room_after_min: 30,
+  default_zone: null,                        // espacio donde queda registrada quien entra sin reserva (null = cowork)
+  code_minutes: 15,                          // vigencia de los códigos enviados por correo
   file_max_mb: 4096, keep_rejected_days: 7, keep_approved_days: 30,
   floor_capacity: { 1: 130, 2: 80 },
   mail: { host: 'smtp.gmail.com', port: 465, user: '', from: '' },

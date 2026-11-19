@@ -31,6 +31,10 @@ docs/          Informe, manual de uso, trípticos por cargo y capturas
 tools/         Construcción, pruebas y generación de documentos
 ```
 
+## Seguridad
+
+Ver **SEGURIDAD.md**. Los datos personales se guardan cifrados con la clave del archivo `.data-key` (o `DATA_KEY` en `.env`), que no se sube a GitHub y debe respaldarse.
+
 ## Comandos
 
 ```

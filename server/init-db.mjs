@@ -20,7 +20,7 @@ if (!demo) {
   data.users[0].password_hash = await hashPass(pass);
   data.staff = data.staff.filter(s => keepUsers.has(s.user_id)); data.staff_roles = data.staff_roles.filter(s => keepUsers.has(s.user_id));
   data.user_certs = []; data.events = data.events.filter(e => e.kind === 'aviso');
-  data.spaces = data.spaces.map(s => ({ ...s, manager_id: null })); data.certifications = data.certifications.map(c => ({ ...c, instructor_id: null }));
+  data.space_managers = []; data.certifications = data.certifications.map(c => ({ ...c, instructor_id: null }));
 }
 await insertAll(data);
 console.log(demo ? `Datos de ejemplo cargados: ${data.users.length} usuarios, ${data.reservations.length} reservas, ${data.visits.length} visitas.` : 'Base limpia lista con la cuenta de administración.');

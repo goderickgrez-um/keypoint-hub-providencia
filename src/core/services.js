@@ -3,22 +3,32 @@
 // de negocio y los permisos, de modo que la interfaz nunca decide qué está permitido.
 import * as R from './rules.js';
 import * as Q from './queries.js';
-import { ACTIVE, FAILURES } from './catalog.js';
+import { ACTIVE, FAILURES, DEFAULTS } from './catalog.js';
 
 const N = ctx => (ctx.now ? new Date(ctx.now) : new Date());
 const iso = d => new Date(d).toISOString();
 const T = d => +new Date(d);
+/** Solo acepta imágenes (o PDF en diplomas) en formato data URL y de tamaño razonable. Evita guardar contenido activo. */
+function dataUrl(v, max, pdf) {
+  if (v == null || v === '') return null;
+  const ok = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v) || (pdf && /^data:application\/pdf;base64,[A-Za-z0-9+/=]+$/.test(v));
+  if (!ok) fail('Formato de imagen no válido');
+  if (v.length > max * 1.37) fail('La imagen es demasiado grande');
+  return v;
+}
 export function fail(msg) { const e = new Error(msg); e.user = true; throw e; }
 
 const me = ctx => (ctx.uid && ctx.db.get('users', ctx.uid)) || fail('Inicia sesión para continuar');
 const roles = ctx => (ctx.uid ? Q.rolesOf(ctx.db, ctx.uid) : []);
 const has = (ctx, ...r) => { const rs = roles(ctx); return rs.includes('admin') || r.some(x => rs.includes(x)); };
 const need = (ctx, ...r) => has(ctx, ...r) || fail('Tu credencial no permite esta acción');
-const manages = (ctx, spaceId) => { const rs = roles(ctx); return rs.includes('admin') || (rs.includes('encargado') && ctx.db.get('spaces', spaceId)?.manager_id === ctx.uid); };
+const manages = (ctx, spaceId) => { const rs = roles(ctx); return rs.includes('admin') || (rs.includes('encargado') && ctx.db.find('space_managers', m => m.space_id === spaceId && m.user_id === ctx.uid) != null); };
 const needSpace = (ctx, spaceId) => manages(ctx, spaceId) || fail('Solo el encargado de este espacio o administración puede hacerlo');
 const audit = (ctx, action, entity, id, detail) => ctx.db.insert('audit_log', { at: iso(N(ctx)), actor_id: ctx.uid, action, entity, entity_id: id == null ? null : String(id), detail: detail || null });
 
 function mail(ctx, user, subject, body) { if (user?.email) ctx.db.insert('outbox', { to_email: user.email, subject, body, created_at: iso(N(ctx)) }); }
+/** Avisa a todos los encargados de un espacio. */
+const notifyManagers = (ctx, spaceId, title, text, kind) => Q.managersOf(ctx.db, spaceId).forEach(id => notify(ctx, id, title, text, kind));
 function notify(ctx, uid, title, text, kind = 'aviso', data = null) {
   ctx.db.insert('notifications', { user_id: uid, kind, title, text, data, created_at: iso(N(ctx)) });
   mail(ctx, ctx.db.get('users', uid), title, text || title);
@@ -43,17 +53,24 @@ async function derive(pass, salt) {
 export const hashPass = async (p, salt = rnd(8)) => `pbkdf2$${salt}$${await derive(p, salt)}`;
 export const checkPass = async (p, h) => { if (!h || !p) return false; const [, salt, x] = h.split('$'); return (await derive(p, salt)) === x; };
 
+/** Envía un código de 6 dígitos al correo. Si la persona ya tiene uno vigente, reenvía ese mismo y renueva su plazo,
+ *  para que un correo que llega tarde no quede invalidado por una segunda solicitud. */
 function sendCode(ctx, u, purpose) {
-  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
-  ctx.db.where('auth_codes', c => c.user_id === u.id && !c.used).forEach(c => ctx.db.update('auth_codes', c.id, { used: true }));
-  ctx.db.insert('auth_codes', { user_id: u.id, code, purpose, expires_at: iso(T(N(ctx)) + 15 * 60000) });
-  mail(ctx, u, 'Tu código de Hub Providencia', `Tu código es ${code}. Vence en 15 minutos.`);
-  return ctx.demo ? code : undefined;
+  const db = ctx.db, mins = Math.max(5, +db.cfg('code_minutes') || 15), exp = iso(T(N(ctx)) + mins * 60000);
+  let c = db.where('auth_codes', x => x.user_id === u.id && !x.used && T(x.expires_at) > T(N(ctx))).sort((a, b) => T(b.expires_at) - T(a.expires_at))[0];
+  if (c) db.update('auth_codes', c.id, { expires_at: exp, purpose });
+  else c = db.insert('auth_codes', { user_id: u.id, code: String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000)), purpose, expires_at: exp });
+  const until = new Date(exp).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Santiago' });
+  mail(ctx, u, `Tu código de Hub Providencia: ${c.code}`, `Hola ${u.name.split(' ')[0]}:\n\nTu código es ${c.code}.\nVence en ${mins} minutos (a las ${until}).\n\nSi no lo pediste, ignora este correo.`);
+  return { demo_code: ctx.demo ? c.code : undefined, minutes: mins };
 }
+/** Acepta cualquier código vigente y sin usar de la persona (con o sin espacios). */
 function useCode(ctx, u, code) {
-  const c = ctx.db.find('auth_codes', x => x.user_id === u.id && !x.used && x.code === String(code || '').trim() && T(x.expires_at) > T(N(ctx)));
+  const typed = String(code || '').replace(/\D/g, '');
+  if (typed.length !== 6) fail('Escribe los 6 dígitos del código');
+  const c = ctx.db.find('auth_codes', x => x.user_id === u.id && !x.used && x.code === typed && T(x.expires_at) > T(N(ctx)));
   if (!c) fail('El código no es correcto o ya venció');
-  ctx.db.update('auth_codes', c.id, { used: true });
+  ctx.db.where('auth_codes', x => x.user_id === u.id && !x.used).forEach(x => ctx.db.update('auth_codes', x.id, { used: true }));
 }
 
 async function createUser(ctx, d, assisted) {
@@ -75,8 +92,8 @@ async function createUser(ctx, d, assisted) {
   const verified = !!assisted || !email;
   return db.insert('users', {
     doc_type: type, doc_number: num, name, email: email || null, phone: d.phone || null, comuna: d.comuna, activity: d.activity,
-    occupation: d.occupation, gender: d.gender, birth_date: d.birth_date, reduced_mobility: !!d.reduced_mobility, photo: d.photo || null,
-    password_hash: d.password ? await hashPass(d.password) : null, email_verified: verified,
+    occupation: d.occupation, gender: d.gender, birth_date: d.birth_date, reduced_mobility: !!d.reduced_mobility,
+    password_hash: d.password ? await hashPass(d.password) : null, photo: dataUrl(d.photo, 600e3), email_verified: verified,
     status: !verified ? 'pendiente_correo' : years < 18 ? 'pendiente_adulto' : 'activo', guardian_ok: false,
     consent_data: true, consent_image: true, consent_belongings: true, lang: d.lang || 'es', created_at: iso(N(ctx)),
   });
@@ -125,8 +142,11 @@ function scan(ctx, { code, at, source = 'qr', dry }) {
   const open = db.find('visits', v => v.user_id === u.id && !v.out_at);
   if (open && T(t) - T(open.in_at) < 60000) return { ...base, action: 'duplicado' };
   if (open) { db.update('visits', open.id, { out_at: iso(t), out_source: source }); return { ...base, inside: false, action: 'salida' }; }
-  db.insert('visits', { user_id: u.id, in_at: iso(t), source, by_staff: ctx.uid || null });
-  return { ...base, inside: true, action: 'entrada', attended: attend(ctx, u.id, t) };
+  const v = db.insert('visits', { user_id: u.id, in_at: iso(t), source, by_staff: ctx.uid || null });
+  const attended = attend(ctx, u.id, t), r0 = attended.length && db.get('reservations', attended[0]);
+  const zone = r0 ? db.get('spaces', r0.space_id) : Q.defaultZone(db); // sin reserva: zona por defecto (cowork)
+  db.update('visits', v.id, { space_id: zone?.id ?? null });
+  return { ...base, inside: true, action: 'entrada', attended, zone: zone?.name || null, zoneByReservation: !!r0 };
 }
 
 export const PUBLIC = ['auth.register', 'auth.verify', 'auth.login', 'auth.code', 'auth.codeLogin', 'auth.google', 'auth.guardian', 'system.tick'];
@@ -138,13 +158,13 @@ export const SERVICES = {
     const u = await createUser(ctx, d, assisted);
     if (assisted) audit(ctx, 'registro asistido', 'users', u.id);
     const out = { id: u.id, status: u.status };
-    if (u.status === 'pendiente_correo') out.demo_code = sendCode(ctx, u, 'correo');
+    if (u.status === 'pendiente_correo') Object.assign(out, sendCode(ctx, u, 'correo'));
     if (d.guardian && minorAt(ctx, u)) out.guardian = askGuardian(ctx, u, d.guardian).adult;
     if (u.status !== 'pendiente_correo' && !assisted) out.session = u.id;
     return out;
   },
-  'auth.verify'(ctx, { id, code }) {
-    const u = ctx.db.get('users', id) || fail('No encontramos ese perfil');
+  'auth.verify'(ctx, { id, ident, code }) {
+    const u = (id && ctx.db.get('users', id)) || Q.findUser(ctx.db, ident) || fail('No encontramos ese perfil');
     useCode(ctx, u, code);
     ctx.db.update('users', u.id, { email_verified: true }); settle(ctx, u);
     return { session: u.id };
@@ -152,12 +172,12 @@ export const SERVICES = {
   async 'auth.login'(ctx, { ident, password }) {
     const u = Q.findUser(ctx.db, ident);
     if (!u || !(await checkPass(password, u.password_hash))) fail('RUT, correo o contraseña incorrectos');
-    if (u.status === 'pendiente_correo') return { need: 'correo', id: u.id, demo_code: sendCode(ctx, u, 'correo') };
+    if (u.status === 'pendiente_correo') return { need: 'correo', id: u.id, ...sendCode(ctx, u, 'correo') };
     return { session: u.id };
   },
-  'auth.code'(ctx, { ident }) {
-    const u = Q.findUser(ctx.db, ident);
-    return { sent: true, demo_code: u?.email ? sendCode(ctx, u, 'ingreso') : undefined };
+  'auth.code'(ctx, { ident, id }) {
+    const u = (id && ctx.db.get('users', id)) || Q.findUser(ctx.db, ident);
+    return { sent: true, minutes: +ctx.db.cfg('code_minutes') || 15, ...(u?.email ? sendCode(ctx, u, u.email_verified ? 'ingreso' : 'correo') : {}) };
   },
   'auth.codeLogin'(ctx, { ident, code }) {
     const u = Q.findUser(ctx.db, ident) || fail('El código no es correcto o ya venció');
@@ -239,7 +259,7 @@ export const SERVICES = {
     guests.forEach(id => { db.insert('reservation_guests', { reservation_id: r.id, user_id: id }); notify(ctx, id, 'Te sumaron a una reserva', `${user.name} te incluyó en ${sp.name}, ${new Date(start).toLocaleString('es-CL')}.`); });
     if (file) {
       db.insert('files', { user_id: user.id, reservation_id: r.id, space_id: sp.id, name: file.name, size: file.size || 0, storage: file.storage || null, created_at: iso(now) });
-      if (sp.manager_id) notify(ctx, sp.manager_id, 'Archivo por revisar', `${file.name} para ${sp.name}.`, 'revision');
+      notifyManagers(ctx, sp.id, 'Archivo por revisar', `${file.name} para ${sp.name}.`, 'revision');
     }
     notify(ctx, user.id, 'Reserva confirmada', `${sp.name}${res ? ' · ' + res.name : ''}, ${new Date(start).toLocaleString('es-CL')}.`);
     if (a.for_user) audit(ctx, 'reserva asistida', 'reservations', r.id, user.id);
@@ -274,7 +294,7 @@ export const SERVICES = {
     if ((description || '').length > 1000) fail('La descripción admite hasta 1.000 caracteres');
     const f = db.insert('failure_reports', { user_id: u.id, reservation_id: id, space_id: r.space_id, resource_id: r.resource_id, category, description: description || null, created_at: iso(N(ctx)) });
     const sp = db.get('spaces', r.space_id);
-    if (sp?.manager_id) notify(ctx, sp.manager_id, 'Reporte de falla', `${db.get('resources', r.resource_id)?.name || sp.name}: ${category}.`, 'falla');
+    if (sp) notifyManagers(ctx, sp.id, 'Reporte de falla', `${db.get('resources', r.resource_id)?.name || sp.name}: ${category}.`, 'falla');
     return { id: f.id };
   },
   'failure.close'(ctx, { id }) { const f = ctx.db.get('failure_reports', id); needSpace(ctx, f.space_id); ctx.db.update('failure_reports', id, { status: 'resuelta' }); },
@@ -370,7 +390,7 @@ export const SERVICES = {
     audit(ctx, 'certifica', 'users', u.id, c.name);
     return { name: u.name };
   },
-  'cert.diploma'(ctx, { id, data }) { const uc = ctx.db.get('user_certs', id), c = ctx.db.get('certifications', uc.certification_id); needSpace(ctx, c.space_id); ctx.db.update('user_certs', id, { diploma: data }); },
+  'cert.diploma'(ctx, { id, data }) { const uc = ctx.db.get('user_certs', id), c = ctx.db.get('certifications', uc.certification_id); needSpace(ctx, c.space_id); ctx.db.update('user_certs', id, { diploma: dataUrl(data, 4e6, true) }); },
   'cert.revoke'(ctx, { id }) { const uc = ctx.db.get('user_certs', id), c = ctx.db.get('certifications', uc.certification_id); needSpace(ctx, c.space_id); ctx.db.remove('user_certs', id); audit(ctx, 'revoca certificación', 'users', uc.user_id, c.name); },
   'hours.adjust'(ctx, { user_id, space_id, hours, kind, reason, permanent }) {
     const db = ctx.db; needSpace(ctx, space_id);
@@ -399,13 +419,10 @@ export const SERVICES = {
     const db = ctx.db, old = s.id ? db.get('spaces', s.id) : null;
     old ? needSpace(ctx, old.id) : need(ctx);
     if (!(s.name || '').trim()) fail('Escribe el nombre del espacio');
-    const mgr = s.manager_id ? (Q.findUser(db, s.manager_id) || fail('El encargado debe tener un perfil en el Hub')) : null;
-    if (mgr && !Q.rolesOf(db, mgr.id).length) fail('El encargado debe ser parte del equipo del Hub. Agrégalo primero en Empleados');
-    const row = { name: s.name.trim(), kind: s.kind || 'otro', mode: s.mode || 'reserva', floor: +s.floor || 1, capacity: +s.capacity || 0, accessible: !!s.accessible, requires_cert: !!s.requires_cert, min_level: +s.min_level || 1, manager_id: mgr?.id || null, monthly_hours: +s.monthly_hours || 0, gap_min: +s.gap_min || 0, tolerance_min: s.tolerance_min === '' || s.tolerance_min == null ? null : +s.tolerance_min, max_hours: s.max_hours ? +s.max_hours : null, allow_overnight: !!s.allow_overnight, accept: (s.accept || '').replace(/\s/g, '') || null, notes: s.notes || null, active: s.active !== false };
-    if (old && !has(ctx)) { row.manager_id = old.manager_id; row.kind = old.kind; row.mode = old.mode; row.floor = old.floor; }
+    const row = { name: s.name.trim(), kind: s.kind || 'otro', mode: s.mode || 'reserva', floor: +s.floor || 1, capacity: +s.capacity || 0, accessible: !!s.accessible, requires_cert: !!s.requires_cert, min_level: +s.min_level || 1, monthly_hours: +s.monthly_hours || 0, gap_min: +s.gap_min || 0, tolerance_min: s.tolerance_min === '' || s.tolerance_min == null ? null : +s.tolerance_min, max_hours: s.max_hours ? +s.max_hours : null, allow_overnight: !!s.allow_overnight, accept: (s.accept || '').replace(/\s/g, '') || null, notes: s.notes || null, active: s.active !== false };
+    if (old && !has(ctx)) { row.kind = old.kind; row.mode = old.mode; row.floor = old.floor; }
     const diff = old ? Object.keys(row).filter(k => String(old[k] ?? '') !== String(row[k] ?? '')).map(k => `${k}: ${old[k] ?? '—'} → ${row[k] ?? '—'}`).join('; ') : 'creado';
     const r = old ? db.update('spaces', old.id, row) : db.insert('spaces', row);
-    if (mgr) grantStaffCerts(ctx, mgr.id, r.id);
     if (diff) audit(ctx, old ? 'edita espacio' : 'crea espacio', 'spaces', r.id, diff);
     return { id: r.id };
   },
@@ -434,14 +451,14 @@ export const SERVICES = {
     need(ctx); const db = ctx.db;
     if (!(e.title || '').trim()) fail('Escribe el título');
     const row = { kind: e.kind || 'evento', title: e.title.trim(), description: e.description || null, start_at: e.start_at ? iso(e.start_at) : null, end_at: e.end_at ? iso(e.end_at) : null, seats: e.seats ? +e.seats : null, space_id: e.space_id ? +e.space_id : null, published: e.published !== false };
-    if (e.banner_img !== undefined) row.banner_img = e.banner_img;
-    if (e.poster_img !== undefined) row.poster_img = e.poster_img;
+    if (e.banner_img !== undefined) row.banner_img = dataUrl(e.banner_img, 2.5e6) ?? (String(e.banner_img).startsWith('data:image/svg+xml,') && !/<script|on\w+=|javascript:/i.test(decodeURIComponent(e.banner_img)) ? e.banner_img : null);
+    if (e.poster_img !== undefined) row.poster_img = dataUrl(e.poster_img, 4e6) ?? null;
     const r = e.id ? db.update('events', e.id, row) : db.insert('events', { ...row, created_at: iso(N(ctx)) });
     audit(ctx, 'guarda evento', 'events', r.id, row.title);
     return { id: r.id };
   },
   'event.remove'(ctx, { id }) { need(ctx); ctx.db.where('event_attendance', a => a.event_id === id).forEach(a => ctx.db.remove('event_attendance', a.id)); ctx.db.remove('events', id); audit(ctx, 'borra evento', 'events', id); },
-  'staff.save'(ctx, { user, position, roles: rs }) {
+  'staff.save'(ctx, { user, position, roles: rs, labs }) {
     need(ctx); const db = ctx.db, u = Q.findUser(db, user) || fail('Esa persona debe crear primero su perfil de usuario');
     const valid = (rs || []).filter(r => ['admin', 'encargado', 'recepcion', 'analista'].includes(r));
     if (u.id === ctx.uid && !valid.includes('admin')) fail('No puedes quitarte la credencial de administración');
@@ -449,10 +466,24 @@ export const SERVICES = {
     s ? db.update('staff', s.id, { position: position || null, active: valid.length > 0 }) : db.insert('staff', { user_id: u.id, position: position || null, active: valid.length > 0 });
     db.where('staff_roles', r => r.user_id === u.id).forEach(r => db.remove('staff_roles', r.id));
     valid.forEach(role => db.insert('staff_roles', { user_id: u.id, role }));
-    if (!valid.includes('encargado')) db.where('spaces', sp => sp.manager_id === u.id).forEach(sp => db.update('spaces', sp.id, { manager_id: null }));
-    audit(ctx, 'guarda empleado', 'users', u.id, valid.join(', ') || 'sin credenciales');
+    // Laboratorios a cargo: obligatorios para la credencial de encargado
+    const prev = Q.managedBy(db, u.id), want = valid.includes('encargado') ? [...new Set((labs ?? prev).map(Number))] : [];
+    if (valid.includes('encargado')) {
+      if (!want.length) fail('Elige al menos un laboratorio para el encargado');
+      for (const id of want) { const sp = db.get('spaces', id); if (!sp || !['lab', 'gaming'].includes(sp.kind)) fail('Solo se puede asignar laboratorios o la sala gaming'); }
+    }
+    db.where('space_managers', m => m.user_id === u.id && !want.includes(m.space_id)).forEach(m => db.remove('space_managers', m.id));
+    want.filter(id => !prev.includes(id)).forEach(id => { db.insert('space_managers', { space_id: id, user_id: u.id }); grantStaffCerts(ctx, u.id, id); });
+    const names = want.map(id => db.get('spaces', id).name).join(', ');
+    if (want.length && want.join() !== prev.join()) notify(ctx, u.id, 'Laboratorios a tu cargo', names);
+    audit(ctx, 'guarda empleado', 'users', u.id, (valid.join(', ') || 'sin credenciales') + (names ? ' · ' + names : ''));
   },
-  'config.set'(ctx, { key, value }) { need(ctx); ctx.db.setCfg(key, value); audit(ctx, 'cambia configuración', 'config', key, key === 'theme' || key === 'logo' ? '' : JSON.stringify(value).slice(0, 200)); },
+  'config.set'(ctx, { key, value }) {
+    need(ctx);
+    if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key)) fail('Configuración desconocida');
+    if (key === 'logo') value = dataUrl(value, 400e3);
+    if (key === 'theme') for (const m of Object.values(value || {})) for (const c of Object.values(m || {})) if (!/^#[0-9A-Fa-f]{6}$/.test(c)) fail('Color no válido');
+    ctx.db.setCfg(key, value); audit(ctx, 'cambia configuración', 'config', key, key === 'theme' || key === 'logo' ? '' : JSON.stringify(value).slice(0, 200)); },
   'plan.save'(ctx, { floor, shapes }) {
     need(ctx); const db = ctx.db;
     db.where('plan_shapes', s => s.floor === floor).forEach(s => db.remove('plan_shapes', s.id));
@@ -472,7 +503,10 @@ export const SERVICES = {
 
 function updateUser(ctx, u, p) {
   const db = ctx.db, row = {};
-  for (const k of ['name', 'phone', 'comuna', 'activity', 'occupation', 'gender', 'lang', 'photo', 'birth_date']) if (p[k] !== undefined) row[k] = p[k] === '' ? null : p[k];
+  for (const k of ['name', 'phone', 'comuna', 'activity', 'occupation', 'gender', 'lang', 'birth_date']) if (p[k] !== undefined) row[k] = p[k] === '' ? null : String(p[k]).slice(0, 200);
+  if (p.photo !== undefined) row.photo = dataUrl(p.photo, 600e3);
+  if (row.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(row.birth_date)) fail('Revisa la fecha de nacimiento');
+  if (row.lang && !['es', 'en', 'pt'].includes(row.lang)) row.lang = 'es';
   if (p.reduced_mobility !== undefined) row.reduced_mobility = !!p.reduced_mobility;
   if (row.name != null && String(row.name).trim().length < 3) fail('Escribe el nombre completo');
   if (p.email !== undefined) {
@@ -551,7 +585,27 @@ export function snapshot(ctx) {
   const safe = u => { const { password_hash, ...x } = u; return x; };
   const out = { config: all('config'), spaces: all('spaces'), resources: all('resources'), certifications: all('certifications'), cert_sessions: all('cert_sessions'), blocks: all('blocks'), plan_shapes: all('plan_shapes'), events: staff ? all('events') : db.where('events', e => e.published) };
   if (!uid) return { tables: out, occ: Q.occupancy(db, N(ctx)) };
+  const labOnly = staff && rs.every(r => r === 'encargado');
+  if (labOnly) {
+    // Encargado de laboratorio: solo los datos de los espacios a su cargo, más los propios como usuario.
+    const ids = new Set(Q.managedBy(db, uid)), inLab = r => ids.has(r.space_id) || r.user_id === uid;
+    const certs = new Set(db.where('certifications', c => ids.has(c.space_id)).map(c => c.id)), sessions = new Set(db.where('cert_sessions', s => certs.has(s.certification_id)).map(s => s.id));
+    out.reservations = db.where('reservations', inLab); const res = new Set(out.reservations.map(r => r.id));
+    out.reservation_guests = db.where('reservation_guests', g => res.has(g.reservation_id));
+    out.files = db.where('files', inLab); out.observations = db.where('observations', inLab); out.failure_reports = db.where('failure_reports', inLab);
+    out.hour_adjustments = db.where('hour_adjustments', inLab);
+    out.user_certs = db.where('user_certs', c => certs.has(c.certification_id) || c.user_id === uid);
+    out.cert_enrollments = db.where('cert_enrollments', e => sessions.has(e.session_id) || e.user_id === uid);
+    out.visits = mine('visits'); out.bans = []; out.event_attendance = mine('event_attendance'); out.history_stats = [];
+    out.audit_log = db.where('audit_log', a => a.actor_id === uid).slice(-200); out.notifications = mine('notifications'); out.outbox = [];
+    out.staff = all('staff'); out.staff_roles = all('staff_roles'); out.space_managers = all('space_managers');
+    const people = new Set([uid]);
+    for (const t of ['reservations', 'reservation_guests', 'files', 'hour_adjustments', 'user_certs', 'cert_enrollments', 'failure_reports']) out[t].forEach(r => people.add(r.user_id));
+    out.users = db.where('users', u => people.has(u.id)).map(safe);
+    return { tables: out, occ: Q.occupancy(db, N(ctx)) };
+  }
   if (staff) {
+    out.space_managers = all('space_managers');
     for (const t of ['staff', 'staff_roles', 'cert_enrollments', 'user_certs', 'reservations', 'reservation_guests', 'files', 'observations', 'visits', 'hour_adjustments', 'bans', 'event_attendance', 'failure_reports', 'history_stats', 'audit_log']) out[t] = all(t);
     out.notifications = mine('notifications'); out.outbox = rs.includes('admin') ? all('outbox').slice(-30) : [];
     out.users = all('users').map(u => pii || u.id === uid ? safe(u) : { ...safe(u), name: 'Usuario ' + u.id.slice(-5), doc_number: '', email: null, phone: null, photo: null });
@@ -561,7 +615,7 @@ export function snapshot(ctx) {
     const named = new Set(db.where('reservation_guests', g => myRes.has(g.reservation_id)).map(g => g.user_id));
     db.where('reservations', r => myRes.has(r.id)).forEach(r => named.add(r.user_id));
     out.users = db.where('users', u => visible.has(u.id) || named.has(u.id)).map(u => visible.has(u.id) ? safe(u) : { id: u.id, name: u.name, status: u.status });
-    out.staff = mine('staff'); out.staff_roles = mine('staff_roles');
+    out.staff = mine('staff'); out.staff_roles = mine('staff_roles'); out.space_managers = [];
     out.reservations = all('reservations').map(r => myRes.has(r.id) ? r : { id: r.id, space_id: r.space_id, resource_id: r.resource_id, start_at: r.start_at, end_at: r.end_at, status: r.status, user_id: null, charged_min: 0 });
     out.reservation_guests = db.where('reservation_guests', g => myRes.has(g.reservation_id));
     out.cert_enrollments = all('cert_enrollments').map(e => e.user_id === uid ? e : { ...e, user_id: null });

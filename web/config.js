@@ -7,4 +7,4 @@
 //   window.HUB_CONFIG = { api: "https://NOMBRE-DE-TU-EQUIPO.ts.net" };
 //   (la dirección que entrega Tailscale, sin barra al final)
 
-window.HUB_CONFIG = null;
+window.HUB_CONFIG = { api: "https://aser.tail8411a8.ts.net" };

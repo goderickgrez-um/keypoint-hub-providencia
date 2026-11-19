@@ -55,7 +55,7 @@ assert.equal(lab.status, 'en_revision');
 assert.equal((+new Date(lab.end_at) - +t0) / 60000, 120);
 const file = db.find('files', f => f.reservation_id === lab.id);
 await rejects(call(ctx(tomas), 'file.review', { id: file.id, decision: 'aprobado' }), /encargado/);
-await call(ctx(db.get('spaces', laser.id).manager_id), 'file.review', { id: file.id, decision: 'aprobado' });
+await call(ctx(Q.managersOf(db, laser.id)[0]), 'file.review', { id: file.id, decision: 'aprobado' });
 assert.equal(db.get('reservations', lab.id).status, 'confirmada');
 await rejects(call(ctx(cam), 'res.create', { space_id: gaming.id, resource_id: pc[1].id, start: free(gaming, pc[1], 1, 50), slots: 1 }), /hasta 3/);
 
@@ -77,6 +77,29 @@ const snapUser = snapshot(ctx(cam)).tables, snapAna = snapshot(ctx(ign)).tables;
 assert.ok(snapUser.users.every(u => !('password_hash' in u)));
 assert.ok(snapUser.reservations.filter(r => r.user_id && r.user_id !== cam).every(r => snapUser.reservation_guests.some(x => x.reservation_id === r.id)));
 assert.ok(snapAna.users.filter(u => u.id !== ign).every(u => u.email === null && u.name.startsWith('Usuario')));
+
+// Códigos de correo: pedirlo dos veces entrega el mismo código, y acepta espacios
+const c1 = await call(ctx(null), 'auth.code', { ident: 'camila.rojas@ejemplo.cl' }), c2 = await call(ctx(null), 'auth.code', { ident: 'camila.rojas@ejemplo.cl' });
+assert.equal(c1.demo_code, c2.demo_code); assert.equal(c1.minutes, 15);
+assert.equal((await call(ctx(null), 'auth.codeLogin', { ident: 'camila.rojas@ejemplo.cl', code: c1.demo_code.slice(0, 3) + ' ' + c1.demo_code.slice(3) })).session, cam);
+await rejects(call(ctx(null), 'auth.codeLogin', { ident: 'camila.rojas@ejemplo.cl', code: c1.demo_code }), /no es correcto/);
+
+// Encargados: uno o varios laboratorios; ven solo los datos de su laboratorio
+const vale = U('valentina.soto@ejemplo.cl'), fil = db.find('spaces', s => s.name.includes('filamento')).id;
+assert.deepEqual(Q.managedBy(db, vale).map(id => db.get('spaces', id).name).sort(), ['Cortadora láser', 'Laboratorio textil']);
+await rejects(call(ctx(admin), 'staff.save', { user: reg.id, roles: ['encargado'], labs: [] }), /al menos un laboratorio/);
+await call(ctx(admin), 'staff.save', { user: reg.id, position: 'Encargada', roles: ['encargado'], labs: [fil, laser.id] });
+assert.deepEqual(Q.managedBy(db, reg.id).sort(), [fil, laser.id].sort());
+const sv = snapshot(ctx(vale)).tables, labs = new Set(Q.managedBy(db, vale));
+assert.ok(sv.reservations.every(r => labs.has(r.space_id) || r.user_id === vale) && sv.files.every(f => labs.has(f.space_id) || f.user_id === vale) && sv.visits.every(v => v.user_id === vale));
+assert.ok(sv.users.length < db.all('users').length);
+await call(ctx(admin), 'staff.save', { user: reg.id, roles: [] }); assert.equal(Q.managedBy(db, reg.id).length, 0);
+
+// Sin reserva: queda registrado en la zona por defecto
+const lone = db.find('users', u => u.status === 'activo' && !db.find('visits', v => v.user_id === u.id && !v.out_at) && !db.find('reservations', r => r.user_id === u.id && R.dayKey(r.start_at) === R.dayKey(now)) && !Q.rolesOf(db, u.id).length);
+assert.equal((await call(ctx(marta), 'access.scan', { code: lone.id })).zone, 'Cowork');
+await rejects(call(ctx(admin), 'config.set', { key: 'cosa', value: 1 }), /desconocida/);
+await rejects(call(ctx(cam), 'me.update', { photo: 'javascript:alert(1)' }), /no válido/);
 
 const st = Q.stats(db, R.addDays(now, -30), now, now), occ = Q.occupancy(db, now);
 console.log('ocupación', occ.inside, occ.spaces.filter(s => s.n).map(s => s.name + ':' + s.n).join(', '));

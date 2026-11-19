@@ -4,7 +4,7 @@ import { App } from '../ui/kit.js';
 import { call, tick } from '../core/services.js';
 import { seed } from '../core/seed.js';
 
-const VERSION = 3;
+const VERSION = 4;
 let chan = null, timer = null;
 const open = () => new Promise((ok, ko) => { const r = indexedDB.open('keypoint-hub', 1); r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('files'); }; r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
 const tx = async (store, mode, fn) => { const d = await open(); return new Promise((ok, ko) => { const t = d.transaction(store, mode), rq = fn(t.objectStore(store)); t.oncomplete = () => ok(rq?.result); t.onerror = () => ko(t.error); }); };

@@ -1,6 +1,7 @@
 // Conexión con PostgreSQL: carga todas las tablas en memoria y guarda cada cambio en una transacción.
 import pg from 'pg';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 // Lee el archivo .env de la carpeta del proyecto (funciona en Windows y Linux).
@@ -19,12 +20,41 @@ pg.types.setTypeParser(1700, v => parseFloat(v));              // numeric → n�
 export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL || 'postgres://hub:hub@localhost:5432/hub', max: 5 });
 const ORDER = Object.keys(TABLES);
 const typeOf = (t, c) => COLS[t].find(x => x.name === c)?.type;
-const enc = (t, c, v) => (v != null && typeOf(t, c) === 'jsonb' ? JSON.stringify(v) : v);
+
+// ---- Cifrado de columnas con datos personales (AES-256-GCM). La clave vive fuera de la base:
+// en DATA_KEY (.env) o, si no está, en el archivo .data-key que se crea solo. Sin la clave los datos no se pueden leer:
+// respáldala junto con la base.
+export const ENCRYPTED = { users: ['doc_number', 'email', 'phone'], outbox: ['to_email', 'body'] };
+const keyFile = ROOT + '.data-key';
+let KEY = process.env.DATA_KEY;
+if (!KEY && existsSync(keyFile)) KEY = readFileSync(keyFile, 'utf8').trim();
+if (!KEY) { KEY = randomBytes(32).toString('hex'); writeFileSync(keyFile, KEY + '\n', { mode: 0o600 }); console.warn('Se creó la clave de cifrado en ' + keyFile + '. RESPÁLDALA junto con la base de datos: sin ella no se pueden leer los datos personales.'); }
+const K = Buffer.from(KEY, 'hex'); if (K.length !== 32) throw new Error('DATA_KEY debe tener 64 caracteres hexadecimales');
+const isEnc = v => typeof v === 'string' && v.startsWith('enc:v1:');
+export function encrypt(v) {
+  if (v == null || v === '' || isEnc(v)) return v;
+  const iv = randomBytes(12), c = createCipheriv('aes-256-gcm', K, iv), ct = Buffer.concat([c.update(String(v), 'utf8'), c.final()]);
+  return `enc:v1:${iv.toString('base64')}:${c.getAuthTag().toString('base64')}:${ct.toString('base64')}`;
+}
+export function decrypt(v) {
+  if (!isEnc(v)) return v;
+  const [, , iv, tag, ct] = v.split(':'), d = createDecipheriv('aes-256-gcm', K, Buffer.from(iv, 'base64'));
+  d.setAuthTag(Buffer.from(tag, 'base64')); return Buffer.concat([d.update(Buffer.from(ct, 'base64')), d.final()]).toString('utf8');
+}
+const enc = (t, c, v) => (v != null && typeOf(t, c) === 'jsonb' ? JSON.stringify(v) : ENCRYPTED[t]?.includes(c) ? encrypt(v) : v);
 
 export async function createSchema() { await pool.query(toSQL()); }
 export async function loadAll() {
   const out = {};
-  for (const t of ORDER) out[t] = (await pool.query(`select * from ${t} order by ${pkOf(t)}`)).rows;
+  let plain = 0;
+  for (const t of ORDER) {
+    out[t] = (await pool.query(`select * from ${t} order by ${pkOf(t)}`)).rows;
+    for (const c of ENCRYPTED[t] || []) for (const r of out[t]) { if (r[c] != null && !isEnc(r[c])) plain++; r[c] = decrypt(r[c]); }
+  }
+  if (plain) { // datos de versiones anteriores sin cifrar: se cifran ahora
+    const log = []; for (const t in ENCRYPTED) for (const r of out[t]) { const patch = {}; for (const c of ENCRYPTED[t]) if (r[c] != null) patch[c] = r[c]; log.push({ op: 'update', t, id: r[pkOf(t)], patch }); }
+    await persist(log); console.log(`Se cifraron ${plain} datos personales que estaban sin cifrar.`);
+  }
   return out;
 }
 export async function isEmpty() { return (await pool.query('select count(*)::int n from users')).rows[0].n === 0; }
