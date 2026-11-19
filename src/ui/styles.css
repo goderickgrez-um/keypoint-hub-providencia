@@ -134,3 +134,11 @@ details summary { cursor: pointer; color: var(--ac); font-size: .82rem; padding:
 video.cam { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
 @media (prefers-reduced-motion: no-preference) { .banners, .hs { scroll-behavior: smooth; } .meter .trk i { transition: width .4s ease; } }
 @media print { .top, .tabs, .side, .no-print { display: none !important; } body { background: #fff; } }
+
+/* Botón de cerrar en ventanas y selector de archivo */
+.modal > div { position: relative; } .modal > div > .mx { position: absolute; top: 10px; right: 10px; z-index: 2; background: var(--sf); box-shadow: 0 1px 6px rgba(0, 0, 0, .25); }
+.modal > div > .mx + h2, .modal > div > .mx + img { margin-top: 30px !important; }
+.fp { position: relative; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--tx); }
+.fp input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 1; }
+.fp:focus-within .btn { outline: 2px solid var(--ac); outline-offset: 2px; }
+.cw { display: flex; align-items: center; gap: 8px; } .cw input[type="color"] { width: 44px; height: 34px; padding: 2px; border-radius: 8px; flex: none; cursor: pointer; }

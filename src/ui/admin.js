@@ -6,7 +6,7 @@ import { applyTheme, themeOf, themeMode } from './theme.js';
 import { heatPlan } from './plan.js';
 import { uname, sname, rangeOf, rangeBar, anon } from './staff.js';
 import { logoSrc } from './user.js';
-import { App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
+import { fileInput, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 const closeQuiet = () => { S.modal = null; };
@@ -23,8 +23,8 @@ screens['a-eventos'] = { roles: ['admin'], render() {
       ${btn('Nuevo evento o aviso', 'ev-pick', { v: 0, cls: 'sec block', icon: 'plus' })}</div>
     <div class="card stack"><h3>${cur ? 'Editar' : 'Nuevo'}</h3><div class="form">${select('ev_kind', 'Tipo', [['evento', 'Evento con fecha'], ['aviso', 'Aviso sin fecha']], { raw: true, live: true })}${field('ev_title', 'Título', { cls: 'full' })}${area('ev_desc', 'Descripción')}
       ${val('ev_kind') === 'evento' ? field('ev_start', 'Inicio', { type: 'datetime-local' }) + field('ev_end', 'Término', { type: 'datetime-local' }) + field('ev_seats', 'Cupos (vacío = sin límite)', { type: 'number' }) + select('ev_space', 'Lugar', db().all('spaces').map(s => [s.id, s.name]), { raw: true, blank: 'Sin lugar fijo' }) : ''}</div>
-      <label class="f">Imagen del banner (recomendado 1200 × 400 px)<input type="file" accept="image/*" data-file="ev-banner"></label>${img('banner_img') ? `<img src="${esc(img('banner_img'))}" alt="" style="width:100%;border-radius:10px;aspect-ratio:3/1;object-fit:cover">` : ''}
-      <label class="f">Imagen del anuncio que se abre al tocar el banner (mayor calidad, hasta 1600 px)<input type="file" accept="image/*" data-file="ev-poster"></label>${img('poster_img') ? `<img src="${esc(img('poster_img'))}" alt="" style="max-height:160px;border-radius:10px;align-self:flex-start">` : ''}
+      <label class="f">Imagen del banner (recomendado 1200 × 400 px)${fileInput('ev-banner', 'image/*')}</label>${img('banner_img') ? `<img src="${esc(img('banner_img'))}" alt="" style="width:100%;border-radius:10px;aspect-ratio:3/1;object-fit:cover">` : ''}
+      <label class="f">Imagen del anuncio que se abre al tocar el banner (mayor calidad, hasta 1600 px)${fileInput('ev-poster', 'image/*')}</label>${img('poster_img') ? `<img src="${esc(img('poster_img'))}" alt="" style="max-height:160px;border-radius:10px;align-self:flex-start">` : ''}
       ${check('ev_pub', 'Publicado: visible para los usuarios')}<div class="row">${btn('Guardar', 'ev-save', { cls: 'sp' })}${cur ? btn('Borrar', 'ev-del', { v: cur.id, cls: 'danger' }) : ''}</div>
       ${cur?.kind === 'evento' ? `<p class="sm mu">${att.length} inscritos · ${att.filter(a => a.status === 'asistio').length} asistieron</p>${att.length ? btn('Descargar lista de asistentes', 'ev-csv', { v: cur.id, cls: 's plain', icon: 'down' }) : ''}` : ''}</div></div>`;
 } };
@@ -106,17 +106,23 @@ screens['a-apar'] = { roles: ['admin'], render() {
   fill({ ap_name: val('ap_name', cfg('system_name')), ap_tag: val('ap_tag', cfg('tagline')) });
   return `<h1>Apariencia</h1><p class="mu">Define los colores de cada elemento para el tema claro y el oscuro. El tema claro solo ofrece fondos claros y el oscuro solo fondos oscuros.</p>
     ${seg('th-mode', mode, [['light', 'Tema claro'], ['dark', 'Tema oscuro']])}
-    <div class="grid"><div class="card stack">${TOKENS.map(([k, label, pal]) => `<div class="stack" style="gap:5px"><span class="sm b">${label}</span>${swatches('th-set:' + k, th[k], [...new Set(P[pal])])}</div>`).join('')}
+    <div class="grid"><div class="card stack">${TOKENS.map(([k, label, pal]) => `<div class="stack" style="gap:5px"><span class="sm b">${label}</span><div class="row w" style="align-items:flex-start">${swatches('th-set:' + k, th[k], [...new Set(P[pal])])}<label class="cw sm mu" title="Elegir cualquier color"><input type="color" data-color="${k}" value="${th[k]}" aria-label="${label}: más colores">Más colores</label></div></div>`).join('')}
       ${low.map(([, , what]) => `<div class="card warn sm">${icon('alert')} ${what} tiene poco contraste y puede costar leerlo.</div>`).join('')}${btn('Restablecer este tema', 'th-reset', { cls: 's plain' })}</div>
     <div class="stack"><h3>Vista previa</h3><div style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px var(--ln);background:linear-gradient(165deg,${th.bg},${th.bg2});color:${th.text}">
         <div style="background:${th.bar};color:${th.barText};padding:12px 14px;font-weight:650">${esc(cfg('system_name'))}</div>
         <div style="padding:14px"><div style="background:${th.surface};border-radius:14px;padding:14px"><b>Tu próxima reserva</b><p style="color:${th.muted};font-size:.85rem;margin:2px 0 10px">Sala de reuniones 2 · 10:30 – 12:20</p><span style="display:inline-block;background:${th.accent};color:${th.onAccent};padding:9px 16px;border-radius:12px;font-weight:650">Confirmar reserva</span></div></div></div>
-      <div class="card stack"><h3>Identidad</h3><div class="row">${`<img class="logo" src="${logoSrc()}" alt="">`}<label class="f sp">Logo (imagen cuadrada)<input type="file" accept="image/*" data-file="logo"></label></div>
+      <div class="card stack"><h3>Identidad</h3><div class="row">${`<img class="logo" src="${logoSrc()}" alt="">`}<label class="f sp">Logo (imagen cuadrada)${fileInput('logo', 'image/*')}</label></div>
         ${field('ap_name', 'Nombre del sistema')}${field('ap_tag', 'Lema')}<div class="row">${btn('Guardar identidad', 'ap-save', { cls: 'sp sec' })}${cfg('logo') ? btn('Volver al logo original', 'logo-reset', { cls: 'plain s' }) : ''}</div>
         <p class="sm mu">Los banners del inicio se administran en Eventos y banners.</p></div></div></div>`;
 } };
 actions['th-mode'] = v => { S.thMode = v; go(S.k); };
 const saveTheme = async th => { const mode = S.thMode || themeMode(), all = { ...THEME, ...(cfg('theme') || {}) }; await run('config.set', { key: 'theme', value: { ...all, [mode]: th } }); applyTheme(); };
+/** Rueda de colores: cualquier color, salvo que el fondo no corresponda al tema (claro con fondos claros, oscuro con fondos oscuros). */
+actions['th-color'] = (k, v) => {
+  const mode = S.thMode || themeMode(), lum = R.contrast(v.toUpperCase(), '#000000');
+  if (['bg', 'bg2', 'surface'].includes(k) && (mode === 'light' ? lum < 9 : lum > 3.6)) return toast(mode === 'light' ? 'En el tema claro el fondo debe ser un color claro' : 'En el tema oscuro el fondo debe ser un color oscuro');
+  saveTheme({ ...themeOf(mode), [k]: v.toUpperCase() });
+};
 for (const [k] of TOKENS) actions['th-set:' + k] = v => { const mode = S.thMode || themeMode(); saveTheme({ ...themeOf(mode), [k]: v }); };
 actions['th-reset'] = () => saveTheme({ ...THEME[S.thMode || themeMode()] });
 actions['file:logo'] = async f => run('config.set', { key: 'logo', value: await readImage(f, 256) }, 'Logo actualizado');
@@ -191,7 +197,7 @@ screens['a-imp'] = { roles: ['admin', 'analista'], render() {
   const tot = Object.entries(db().all('history_stats').reduce((o, h) => { const k = h.source || 'Sin origen'; (o[k] ||= { n: 0, v: 0 }); o[k].n++; o[k].v += h.visits; return o; }, {}));
   return `<h1>Importar históricos</h1><p class="mu">Los registros anteriores de Power BI y Google Forms se cargan solo como estadística, sin nombres ni RUT. No se crean cuentas: cada persona se registra en el sistema nuevo por decisión propia.</p>
     <div class="card stack">${select('im_src', 'Origen', ['Power BI', 'Google Forms', 'Libro de registro'], { raw: true })}
-      <label class="f">Archivo CSV con las columnas: fecha (AAAA-MM-DD); espacio; visitas<input type="file" accept=".csv,text/csv" data-file="imp"></label>
+      <label class="f">Archivo CSV con las columnas: fecha (AAAA-MM-DD); espacio; visitas${fileInput('imp', '.csv,text/csv')}</label>
       ${S.impRows ? `<p>${S.impRows.length} filas leídas.</p>${btn('Importar', 'imp-go', { cls: 'block' })}` : ''}${S.impDone ? `<div class="card ok">Se importaron ${S.impDone.added} filas. Se omitieron ${S.impDone.skipped} por formato.</div>` : ''}
       <details><summary>Ver un ejemplo del archivo</summary><pre class="sm">fecha;espacio;visitas\n2026-08-03;Cowork;41\n2026-08-03;Sala gaming;6</pre></details></div>
     <h2>Históricos cargados</h2>${table(['Origen', 'Filas', 'Visitas'], tot.map(([k, v]) => [esc(k), v.n, fmtN(v.v)]), 'Aún no se ha importado nada.')}`;

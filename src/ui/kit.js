@@ -59,6 +59,9 @@ export const meter = (label, n, cap, right, plain) => { const p = cap ? Math.min
 export const stat = (label, value, sub) => `<div class="card stat"><span>${t(label)}</span><b>${value}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
 export const table = (head, rows, none = 'Aún no hay registros.') => rows.length ? `<div class="tbl"><table><thead><tr>${head.map(h => `<th>${t(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : empty(none);
 export const avatar = (u, cls = '') => u?.photo ? `<img class="av ${cls}" src="${esc(u.photo)}" alt="">` : `<span class="av ${cls}" aria-hidden="true">${esc((u?.name || '?').trim()[0] || '?')}</span>`;
+/** Selector de archivo con botón propio: muestra el nombre del archivo elegido en vez de «Ningún archivo seleccionado». */
+export const fileInput = (key, accept, label) => { const f = S.picked?.[key];
+  return `<span class="fp"><input type="file" accept="${esc(accept)}" data-file="${key}" aria-label="${esc(label || t('Elegir archivo'))}"><span class="btn s ${f ? '' : 'sec'}">${icon(f ? 'check' : 'file')}${f ? t('Cambiar archivo') : t('Elegir archivo')}</span>${f ? `<span class="sm"><b>${esc(f.name)}</b> · ${f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' KB'} · ${t('listo para subir')}</span>` : `<span class="sm mu">${t('Ningún archivo elegido')}</span>`}</span>`; };
 export const swatches = (act, cur, colors) => `<div class="sw">${colors.map(c => `<button data-a="${act}" data-v="${c}" class="${String(cur).toLowerCase() === c.toLowerCase() ? 'on' : ''}" style="background:${c}" aria-label="${c}" title="${c}"></button>`).join('')}</div>`;
 
 export const ST = { confirmada: ['Confirmada', 'ok'], en_revision: ['Archivo en revisión', 'warn'], en_curso: ['En curso', 'info'], completada: ['Completada', ''], cancelada: ['Cancelada', ''], no_asistio: ['No asistió', 'bad'], rechazada: ['Rechazada', 'bad'] };
@@ -120,8 +123,9 @@ export const UI = { render() {} };
 export const go = r => { if (location.hash.slice(1) === r) UI.render(); else location.hash = r; };
 let toastTimer;
 export function toast(msg) { S.toast = msg; UI.render(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = ''; document.querySelector('.toast')?.remove(); }, 3400); }
-export const modal = m => { S.modal = m; UI.render(); };
-export const closeModal = () => { S.modal = null; UI.render(); };
+/** Abre una ventana sobre la pantalla. Queda en el historial para cerrarla con el botón Atrás del teléfono. */
+export const modal = m => { if (!S.modal) try { history.pushState({ hubModal: 1 }, ''); } catch { /* sin historial */ } S.modal = m; UI.render(); };
+export const closeModal = () => { S.modal = null; if (history.state?.hubModal) history.back(); else UI.render(); };
 /** Ejecuta un servicio. Devuelve su resultado o null si falló (el motivo se muestra en pantalla). */
 export async function run(name, args, okMsg) {
   try { const r = await App.data.call(name, args); okMsg ? toast(t(okMsg)) : UI.render(); return r; }

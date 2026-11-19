@@ -6,7 +6,7 @@ import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../core/seed.js';
 import { t, LANGS, getLang, setLang } from './i18n.js';
 import { themePref, setThemePref, a11y, setA11y } from './theme.js';
 import { openCamera } from './camera.js';
-import { App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download } from './kit.js';
+import { fileInput, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download } from './kit.js';
 
 const cfg = k => db().cfg(k);
 const T = d => +new Date(d);
@@ -60,7 +60,7 @@ const CONSENTS = [['c_data', 'Declaro haber leído y aceptado el tratamiento de 
 export function regForm(assisted) {
   const years = R.age(val('r_birth') || null), minor = years != null && years < 18, type = val('r_type', 'rut');
   return `<div class="card stack"><h3>${t('Identificación')}</h3><div class="form">
-      ${select('r_type', 'Documento', Object.entries(DOC_TYPES), { live: true })}${field('r_doc', type === 'pasaporte' ? 'Número de pasaporte' : 'RUT', { ph: type === 'pasaporte' ? '' : '12.345.678-5', live: true })}
+      ${select('r_type', 'Documento', Object.entries(DOC_TYPES), { live: true })}${field('r_doc', type === 'pasaporte' ? 'Número de pasaporte' : 'RUT', { ph: type === 'pasaporte' ? '' : '12.345.678-5', live: true, attrs: 'autocomplete="off" autocapitalize="characters" spellcheck="false"' })}
       ${field('r_name', 'Nombre completo', { cls: 'full', attrs: 'autocomplete="name"' })}
       ${field('r_birth', 'Fecha de nacimiento', { type: 'date', live: true })}${select('r_gender', 'Género', GENDERS, { blank: 'Elige una opción' })}</div>
       ${val('r_doc') && type !== 'pasaporte' && !R.rutOk(val('r_doc')) ? `<p class="sm" style="color:var(--bad)">${t('El dígito verificador no coincide con el RUT.')}</p>` : ''}
@@ -69,8 +69,8 @@ export function regForm(assisted) {
       ${field('r_email', assisted ? 'Correo (opcional)' : 'Correo', { type: 'email', attrs: 'autocomplete="email"' })}${field('r_phone', assisted ? 'Celular (opcional)' : 'Celular', { type: 'tel', ph: '+56 9 1234 5678' })}
       ${field('r_comuna', 'Comuna')}${select('r_activity', '¿Qué actividad realizas en Providencia?', ACTIVITIES, { blank: 'Elige una opción' })}
       ${select('r_occ', '¿A qué te dedicas?', OCCUPATIONS, { blank: 'Elige una opción', cls: 'full' })}
-      ${assisted ? '' : field('r_pass', 'Crea una contraseña (mínimo 8 caracteres)', { type: 'password', cls: 'full', attrs: 'autocomplete="new-password"' })}</div>
-      <label class="f">${t('Foto de perfil (opcional)')}<input type="file" accept="image/*" data-file="reg-photo"></label>${S.regPhoto ? `<img class="av" src="${S.regPhoto}" alt="">` : ''}</div>
+      ${assisted ? '' : field('r_pass', 'Crea una contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' }) + field('r_pass2', 'Confirmar contraseña', { type: 'password', attrs: 'autocomplete="new-password"' })}</div>
+      <label class="f">${t('Foto de perfil (opcional)')}${fileInput('reg-photo', 'image/*')}</label>${S.regPhoto ? `<img class="av" src="${S.regPhoto}" alt="">` : ''}</div>
     ${minor ? `<div class="card warn stack"><h3>${t('Autorización de un adulto')}</h3><p class="sm">${t('Las personas menores de 18 años necesitan que un adulto con perfil en el Hub autorice su registro. Escanea el QR de su credencial o escribe su ID.')}</p>
       <div class="row">${field('r_guardian', 'ID o RUT del adulto', { cls: 'sp' })}<button class="icb" style="margin-top:18px" data-a="scan-into" data-v="r_guardian" aria-label="${t('Escanear QR')}">${icon('cam')}</button></div></div>` : ''}
     <div class="card stack"><h3>${t('Declaraciones')}</h3><p class="sm mu">${t('Aceptarlas es requisito para participar en actividades y usar las dependencias municipales.')}</p>${CONSENTS.map(([k, x]) => check(k, x)).join('')}</div>
@@ -80,6 +80,7 @@ screens['u-reg'] = { open: true, render: () => `${back('u-login')}<h1>${t('Crear
 actions['file:reg-photo'] = async f => { S.regPhoto = await readImage(f, 320); go(S.k); };
 actions['scan-into'] = k => openCamera(code => { S.f[k] = code; go(S.k); });
 actions.register = async assisted => {
+  if (assisted !== '1' && val('r_pass') !== val('r_pass2')) return toast(t('Las contraseñas no coinciden'));
   const r = await run('auth.register', { assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), gender: val('r_gender'), reduced_mobility: val('r_mob'),
     email: val('r_email'), phone: val('r_phone'), comuna: val('r_comuna'), activity: val('r_activity'), occupation: val('r_occ'), password: val('r_pass'), photo: S.regPhoto || null, guardian: val('r_guardian') || null,
     consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), lang: getLang() });
@@ -163,7 +164,7 @@ actions['bk-day'] = v => { S.bk.day = v; S.bk.sel = []; S.bk.start = null; go(S.
 actions['bk-slot'] = v => { v = +v; let s = S.bk.sel; const a = s[0], z = s[s.length - 1];
   if (!s.length) s = [v]; else if (s.length === 1 && v === a) s = []; else if (v === z + 1) s = [...s, v]; else if (v === a - 1) s = [v, ...s]; else if (v === z) s = s.slice(0, -1); else if (v === a) s = s.slice(1); else s = [v];
   S.bk.sel = s; go(S.k); };
-actions['bk-set'] = v => { const [k, x] = v.split('='); S.bk[k] = isNaN(+x) ? x : +x; S.bk.sel = []; S.bk.start = null; S.bk.res = null; S.f.lab_res = 0; go(S.k); };
+actions['bk-set'] = v => { const [k, x] = v.split('='); if (k === 'space') { S.bk.file = null; clearPick(); } S.bk[k] = isNaN(+x) ? x : +x; S.bk.sel = []; S.bk.start = null; S.bk.res = null; S.f.lab_res = 0; go(S.k); };
 const guestBox = (b, cap) => `<div class="card stack"><h3>${t('Asistentes')} <span class="mu sm">${b.guests.length + 1} / ${cap}</span></h3><p class="sm mu">${t('Todas las personas deben tener perfil en el Hub. Agrégalas con su ID o RUT.')}</p>
   <div class="row">${field('bk_guest', 'ID o RUT', { cls: 'sp', attrs: 'data-enter="bk-guest"' })}<button class="icb" style="margin-top:18px" data-a="bk-guest" aria-label="${t('Agregar')}">${icon('plus')}</button></div>
   <div class="chips">${pill(target()?.name + ' · ' + t('anfitrión'), 'info')}${b.guests.map((g, i) => `<button class="pill" data-a="bk-unguest" data-v="${i}">${esc(Q.findUser(db(), g)?.name || g)} ✕</button>`).join('')}</div></div>`;
@@ -173,7 +174,7 @@ const balanceCard = sp => { const b = Q.balance(db(), target().id, sp.id, S.bk?.
 async function confirmBooking(args, okRoute = 'u-activas') {
   const r = await run('res.create', { ...args, for_user: S.assist || undefined });
   if (!r) return;
-  S.bk = null; S.f = {};
+  S.bk = null; S.f = {}; clearPick();
   if (S.assist) { S.assist = null; toast(t('Reserva asistida creada')); return go('a-prox'); }
   toast(t(r.status === 'en_revision' ? 'Reserva lista. El encargado revisará tu archivo' : 'Reserva confirmada')); go(okRoute);
 }
@@ -216,7 +217,7 @@ screens['u-lab'] = { tab: 'u-reservar', render() {
     ${okCert ? notice(`${icon('award')} ${t('Tienes la certificación de este laboratorio.')}`, 'ok') : `<div class="card warn stack"><p>${icon('lock')} ${t('Para reservar aquí necesitas la certificación de este laboratorio.')}</p>${btn('Ver certificaciones', 'go', { v: 'u-cert', cls: 's' })}</div>`}
     ${balanceCard(sp)}
     ${okCert ? `<div class="card stack"><h3>${t('Tu trabajo')}</h3>
-      ${sp.accept ? `<label class="f">${t('Archivo a imprimir o cortar')} (${esc(sp.accept.replace(/,/g, ' '))})<input type="file" accept="${esc(sp.accept)}" data-file="lab-file"></label>${b.file ? `<p class="sm"><b>${esc(b.file.name)}</b> · ${R.sizeText(b.file.size)}</p>` : ''}` : ''}
+      ${sp.accept ? `<label class="f">${t('Archivo a imprimir o cortar')} (${esc(sp.accept.replace(/,/g, ' '))})${fileInput('lab-file', sp.accept)}</label>` : ''}
       <div class="form">${select('lab_h', '¿Cuánto demora? Horas', Array.from({ length: (sp.max_hours || cfg('max_hours')) + 1 }, (_, i) => [i, i + ' h']), { value: 1, live: true, raw: true })}${select('lab_m', 'Minutos', [0, 15, 30, 45].map(m => [m, m + ' min']), { value: 0, live: true, raw: true })}</div>
       <p class="sm mu">${t('Indica el tiempo que entrega tu programa de laminado o corte. Se reserva por horas completas: {0} → {1}.', R.dur(est || 0), `<b>${R.dur(min)}</b>`)} ${t('Al terminar se descuenta el tiempo real.')}</p></div>
     <div class="card stack"><h3>${t('Máquina y horario')}</h3>
@@ -227,6 +228,7 @@ screens['u-lab'] = { tab: 'u-reservar', render() {
     ${btn(`${t('Reservar')} ${R.dur(min)}`, 'bk-lab', { cls: 'block', raw: true, off: b.start == null || !est || (sp.accept && !b.file) })}` : ''}`;
 } };
 actions['file:lab-file'] = f => { S.bk.file = f; go(S.k); };
+const clearPick = () => { if (S.picked) delete S.picked['lab-file']; };
 actions['bk-start'] = v => { S.bk.start = +v; go(S.k); };
 actions['bk-lab'] = async () => {
   const b = S.bk, sp = db().get('spaces', b.space), est = (+val('lab_h', 1)) * 60 + (+val('lab_m', 0)), min = R.roundUpHours(est), st = R.atMin(dayOf(b), b.start), want = +val('lab_res', 0);
@@ -304,7 +306,7 @@ screens['u-perfil'] = { tab: 'u-perfil', render() {
   const pens = db().where('hour_adjustments', a => a.user_id === u.id && a.minutes < 0 && !a.forgiven && a.period === R.period(new Date()));
   const row = (a, b) => `<div class="li"><span class="mu" style="flex:0 0 38%">${t(a)}</span><span class="sp">${b || '—'}</span></div>`;
   return `<div class="row">${avatar(u)}<div class="sp"><h1 style="font-size:1.4rem">${esc(u.name)}</h1><p class="mu">${u.id} · ${esc(R.fmtDoc(u.doc_number, u.doc_type))}</p></div></div>
-    <label class="f">${t('Cambiar foto de perfil')}<input type="file" accept="image/*" data-file="my-photo"></label>
+    <label class="f">${t('Cambiar foto de perfil')}${fileInput('my-photo', 'image/*')}</label>
     ${ban ? notice(`${icon('lock')} <b>${t('Tu acceso al Hub está restringido')}</b> ${ban.until_at ? t('hasta el {0}.', fDT(ban.until_at)) : t('de forma permanente.')} ${ban.reason ? esc(ban.reason) : ''}`, 'bad') : ''}
     ${pens.length ? notice(`${icon('alert')} ${t('Tienes penalizaciones de horas este mes. Se reinician el día 1.')} ${pens.map(a => `<br>${esc(db().get('spaces', a.space_id)?.name)}: ${R.dur(a.minutes)}${a.reason ? ' · ' + esc(a.reason) : ''}`).join('')}`, 'warn') : ''}
     <h2>${t('Mis datos')}</h2><div class="list">${row('Correo', esc(u.email))}${row('Celular', esc(u.phone))}${row('Comuna', esc(u.comuna))}${row('Actividad en Providencia', esc(t(u.activity || '')))}${row('Ocupación', esc(t(u.occupation || '')))}${row('Género', esc(t(u.gender || '')))}
@@ -329,14 +331,14 @@ screens['u-config'] = { tab: 'u-perfil', render: () => `${back('u-perfil')}<h1>$
   <div class="card stack"><h3>${t('Tema')}</h3>${seg('theme', themePref(), [['auto', t('Según el dispositivo')], ['light', t('Claro')], ['dark', t('Oscuro')]])}
     <h3>${t('Idioma')}</h3>${seg('lang', getLang(), Object.entries(LANGS))}
     <h3>${t('Accesibilidad')}</h3><label class="ck"><input type="checkbox" data-a="a11y" data-v="big" ${a11y('big') ? 'checked' : ''}><span>${t('Texto más grande')}</span></label><label class="ck"><input type="checkbox" data-a="a11y" data-v="contrast" ${a11y('contrast') ? 'checked' : ''}><span>${t('Mayor contraste')}</span></label></div>
-  <div class="card stack"><h3>${t('Contraseña')}</h3>${field('np', 'Nueva contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' })}${btn('Guardar contraseña', 'pass-save', { cls: 's sec' })}</div>
+  <div class="card stack"><h3>${t('Contraseña')}</h3>${field('np', 'Nueva contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' })}${field('np2', 'Confirmar contraseña', { type: 'password', attrs: 'autocomplete="new-password" data-enter="pass-save"' })}${btn('Guardar contraseña', 'pass-save', { cls: 's sec' })}</div>
   <div class="list">${[['u-perfil', 'user', 'Perfil y actualizar datos'], ['u-notif', 'bell', 'Notificaciones'], ['u-priv', 'shield', 'Privacidad y mis datos']].map(([k, i, l]) => `<button class="li" data-a="go" data-v="${k}">${icon(i)}<span class="sp"><b>${t(l)}</b></span>${icon('chev')}</button>`).join('')}</div>
   <div class="card"><h3>${t('Acerca de')}</h3><p class="sm mu">${esc(cfg('system_name'))} · ${t('versión')} 1.0. ${t('Desarrollado por el equipo keypoint: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez.')}</p>
     <p class="sm mu">${t('Para instalar la app, abre el menú del navegador y elige «Instalar» o «Agregar a la pantalla de inicio».')}</p></div>
   ${btn('Cerrar sesión', 'logout', { cls: 'block plain', icon: 'out' })}` };
 actions.theme = v => { setThemePref(v); go(S.k); };
 actions.a11y = (k, el) => { setA11y(k, el.checked); };
-actions['pass-save'] = async () => { const r = await run('me.password', { password: val('np') }); if (r) { S.f.np = ''; toast(t('Contraseña guardada')); } };
+actions['pass-save'] = async () => { if (val('np') !== val('np2')) return toast(t('Las contraseñas no coinciden')); const r = await run('me.password', { password: val('np') }); if (r) { S.f.np = S.f.np2 = ''; toast(t('Contraseña guardada')); } };
 
 screens['u-notif'] = { tab: 'u-perfil', render() {
   const list = db().where('notifications', n => n.user_id === App.uid && n.kind !== 'tutor').sort((a, b) => T(b.created_at) - T(a.created_at)).slice(0, 40);

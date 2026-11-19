@@ -19,6 +19,34 @@ function nav(k) {
 
 const avatarMini = () => { const u = me(); return u?.photo ? `<img src="${esc(u.photo)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : `<b>${esc((u?.name || '?')[0])}</b>`; };
 
+/** Actualiza la pantalla cambiando solo lo que cambió. Así el campo que se está escribiendo no se reemplaza
+ *  y el teclado del teléfono no salta de números a letras en cada tecla. */
+function morph(root, html) {
+  const tpl = document.createElement('template'); tpl.innerHTML = html;
+  const same = (a, b) => a.nodeType === b.nodeType && a.nodeName === b.nodeName && (a.nodeType !== 1 || (a.getAttribute('data-i') === b.getAttribute('data-i') && a.type === b.type));
+  const patch = (cur, next) => {
+    const a = [...cur.childNodes], b = [...next.childNodes];
+    b.forEach((n, i) => {
+      const o = a[i];
+      if (!o) return cur.appendChild(n);
+      if (!same(o, n)) return cur.replaceChild(n, o);
+      if (n.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
+      for (const { name } of [...o.attributes]) if (!n.hasAttribute(name) && !(name === 'open' && o.tagName === 'DETAILS')) o.removeAttribute(name);
+      for (const { name, value } of [...n.attributes]) if (o.getAttribute(name) !== value) o.setAttribute(name, value);
+      if (o.tagName === 'INPUT' || o.tagName === 'TEXTAREA') {
+        if (o.type === 'checkbox' || o.type === 'radio') o.checked = n.hasAttribute('checked');
+        else if (o.type !== 'file' && o !== document.activeElement) o.value = n.tagName === 'TEXTAREA' ? n.value : (n.getAttribute('value') ?? '');
+        if (o.tagName === 'TEXTAREA') return;
+      }
+      patch(o, n);
+      if (o.tagName === 'SELECT') { const s = n.querySelector('option[selected]'); o.value = s ? s.value : o.options[0]?.value ?? ''; }
+    });
+    for (let i = a.length - 1; i >= b.length; i--) a[i].remove();
+  };
+  patch(root, tpl.content);
+}
+let skipPop = false;
+
 function render() {
   let k = location.hash.slice(1) || (App.uid ? (S.staff ? 'a-panel' : 'u-inicio') : 'u-login');
   if (!screens[k]) k = 'u-login';
@@ -40,7 +68,8 @@ function render() {
   else html = `<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
       <main class="wrap">${body}</main><nav class="tabs">${TABS.map(([key, ic, label]) => `<button class="${(scr.tab || k) === key ? 'on' : ''}" data-a="go" data-v="${key}">${icon(ic)}${t(label)}</button>`).join('')}</nav>`;
   const root = document.getElementById('app');
-  root.innerHTML = html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true">${S.modal.html}</div></div>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
+  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true"><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${S.modal.html}</div></div>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
+  if (!S.modal && history.state?.hubModal) { skipPop = true; history.back(); } // la ventana se cerró con un botón: quita su paso del historial
   if (focus) { const el = root.querySelector(`[data-i="${focus}"]`); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* no aplica */ } } }
   else if (!S.modal) root.querySelector('[data-af]')?.focus();
   bindPlan();
@@ -65,6 +94,7 @@ actions['modal-bg'] = (v, el, e) => { if (e.target === el) closeModal(); };
 const root = document.getElementById('app');
 root.addEventListener('click', e => {
   const el = e.target.closest('[data-a]'); if (!el || (el.tagName === 'INPUT' && el.type !== 'checkbox')) return;
+  const ctl = e.target.closest('input, select, textarea, label'); if (ctl && ctl !== el && el.contains(ctl)) return;
   if (el.classList.contains('scrim') && e.target !== el) return;
   const fn = actions[el.dataset.a]; if (fn) { if (el.tagName !== 'INPUT') e.preventDefault(); fn(el.dataset.v, el, e); }
 });
@@ -73,10 +103,12 @@ root.addEventListener('input', e => { const el = e.target, k = el.dataset.i; if 
   if (el.dataset.live || el.tagName === 'SELECT') { if (k.startsWith('pl_')) actions['plan-live'](); render(); } });
 root.addEventListener('change', e => { const el = e.target, k = el.dataset.i;
   if (k && el.type === 'radio') S.f[k] = el.value;
-  if (el.dataset.file && el.files?.[0]) { const f = el.files[0]; el.value = ''; actions['file:' + el.dataset.file]?.(f); } });
+  if (el.dataset.color) actions['th-color']?.(el.dataset.color, el.value);
+  if (el.dataset.file && el.files?.[0]) { const f = el.files[0]; el.value = ''; (S.picked ||= {})[el.dataset.file] = { name: f.name, size: f.size }; actions['file:' + el.dataset.file]?.(f); } });
 root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset?.enter) { e.preventDefault(); S.f[e.target.dataset.i] = e.target.value; actions[e.target.dataset.enter]?.(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal(); });
 window.addEventListener('hashchange', () => { S.drawer = false; render(); });
+window.addEventListener('popstate', () => { if (skipPop) { skipPop = false; return; } S.modal = null; render(); });
 window.addEventListener('online', () => { App.data.tick(); flushQueue(); });
 
 (async () => {

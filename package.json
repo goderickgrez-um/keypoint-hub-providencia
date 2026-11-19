@@ -12,13 +12,13 @@
     "db:init": "node server/init-db.mjs"
   },
   "dependencies": {
-    "nodemailer": "^10.6.0",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "nodemailer": "^6.9.16"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.24.0"
   }
 }
