@@ -86,7 +86,7 @@ window.addEventListener('online', () => { App.data.tick(); flushQueue(); });
   App.data = App.mode === 'remote' ? remote : local;
   try { await App.data.init(render); }
   catch (e) { console.error(e);
-    if (App.mode === 'remote') { document.getElementById('app').innerHTML = `<main class="wrap"><div class="login stack c" style="align-items:center"><img class="logo" src="${logoSrc()}" alt=""><h1>${t('El sistema no está disponible')}</h1><p class="mu">${t('No pudimos conectar con el servidor del Hub. Revisa tu conexión a internet o intenta de nuevo en unos minutos.')}</p><button class="btn" onclick="location.reload()">${t('Reintentar')}</button></div></main>`; return; } }
+    if (App.mode === 'remote') { document.getElementById('app').innerHTML = `<main class="wrap"><div class="login stack c" style="align-items:center"><img class="logo" src="${logoSrc()}" alt=""><h1>${t('El sistema no está disponible')}</h1><p class="mu">${t('No pudimos conectar con el servidor del Hub. Revisa tu conexión a internet o intenta de nuevo en unos minutos.')}</p><button class="btn" onclick="location.reload()">${t('Reintentar')}</button><p class="sm mu">${esc(api)}</p></div></main>`; return; } }
   if (me()) { setLang(me().lang || getLang()); S.staff = location.hash.startsWith('#a-') && myRoles().length > 0; }
   applyTheme(); render();
   setInterval(async () => { if (S.modal || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || ed()) return; await App.data.tick(); render(); }, 30000);

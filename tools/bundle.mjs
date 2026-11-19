@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 // Construye el sitio estático en web/ (GitHub Pages o el servidor) y la demo de un solo archivo en dist/.
 // Uso: npm run build
 import { build, transform } from 'esbuild';
 import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 
-const root = new URL('..', import.meta.url).pathname, P = f => root + f;
+const root = fileURLToPath(new URL('..', import.meta.url)), P = f => root + f;
 const VERSION = new Date().toISOString().slice(0, 16).replace(/\D/g, '');
 await rm(P('web'), { recursive: true, force: true });
 await mkdir(P('web/assets'), { recursive: true }); await mkdir(P('dist'), { recursive: true });

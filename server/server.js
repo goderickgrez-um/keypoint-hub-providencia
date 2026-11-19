@@ -2,19 +2,18 @@
 // Arranque: npm start   (lee la configuración del archivo .env)
 import http from 'node:http';
 import { createReadStream, createWriteStream, existsSync, readFileSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { extname, join, normalize } from 'node:path';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import { extname, join, normalize, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Store } from '../src/core/store.js';
 import { call, snapshot, tick } from '../src/core/services.js';
 import * as Q from '../src/core/queries.js';
-import { loadAll, persist, createSchema, isEmpty, pool } from './db.mjs';
+import { loadAll, persist, createSchema, isEmpty, pool, ROOT as root } from './db.mjs';
 
 // ---- Configuración (.env)
-const root = new URL('..', import.meta.url).pathname;
-if (existsSync(root + '.env')) for (const l of readFileSync(root + '.env', 'utf8').split(/\r?\n/)) { const m = /^\s*([A-Z_]+)\s*=\s*(.*)\s*$/.exec(l); if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, ''); }
-const PORT = +process.env.PORT || 8080, SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex'), UPLOADS = process.env.UPLOADS_DIR || root + 'uploads/';
-const WEB = root + 'web/', MAX_UPLOAD = (+process.env.MAX_UPLOAD_MB || 4096) * 1048576, HOURS = 12;
+const PORT = +process.env.PORT || 8080, SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex'), UPLOADS = resolve(process.env.UPLOADS_DIR || join(root, 'uploads'));
+const WEB = join(root, 'web') + sep, MAX_UPLOAD = (+process.env.MAX_UPLOAD_MB || 4096) * 1048576, HOURS = 12;
 if (!process.env.SESSION_SECRET) console.warn('Aviso: SESSION_SECRET no está definido; las sesiones se cierran al reiniciar el servidor.');
 mkdirSync(UPLOADS, { recursive: true });
 
@@ -76,18 +75,37 @@ setInterval(() => { // borra del disco los archivos que ya no se necesitan
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 const SEC = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'X-Frame-Options': 'DENY', 'Permissions-Policy': 'camera=(self), microphone=()' };
 // Permite que la app publicada en GitHub Pages (otro dominio) use esta API.
-const ORIGINS = (process.env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+const originOf = s => { try { return new URL(s.trim()).origin.toLowerCase(); } catch { return ''; } };
+const ORIGINS = (process.env.ALLOWED_ORIGIN || '').split(',').map(originOf).filter(Boolean), warned = new Set();
 function cors(req, res) {
-  const o = req.headers.origin; if (!o || !ORIGINS.includes(o)) return;
+  const o = req.headers.origin; if (!o) return;
+  if (!ORIGINS.includes(o.toLowerCase())) {
+    if (!warned.has(o) && !o.includes('localhost') && originOf(o) !== originOf('http://' + req.headers.host)) { warned.add(o); console.warn(`\nSe rechazó una conexión desde ${o}\n  Si es tu app de GitHub, escribe en .env:  ALLOWED_ORIGIN=${o}\n  y vuelve a abrir iniciar-hub.bat\n`); }
+    return;
+  }
   res.setHeader('Access-Control-Allow-Origin', o); res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-File-Name'); res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); res.setHeader('Access-Control-Max-Age', '86400');
 }
-const json = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SEC }); res.end(JSON.stringify(body)); };
+const gz = req => /\bgzip\b/.test(req?.headers['accept-encoding'] || '');
+const json = (res, code, body) => {
+  let out = Buffer.from(JSON.stringify(body)); const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SEC };
+  if (out.length > 1024 && gz(res.req)) { out = gzipSync(out, { level: 6 }); h['Content-Encoding'] = 'gzip'; h.Vary = 'Accept-Encoding, Origin'; }
+  res.writeHead(code, h); res.end(out);
+};
+/** Datos de la sesión más una huella: si nada cambió desde la última consulta, se responde solo "sin cambios". */
+function view(ctx, uid, since) {
+  const s = { ...snapshot(ctx), uid }, cut = Date.now() - 100 * 864e5, t = s.tables;
+  if (t.visits) t.visits = t.visits.filter(v => +new Date(v.in_at) > cut);
+  if (t.reservations) t.reservations = t.reservations.filter(r => +new Date(r.end_at) > cut);
+  if (t.audit_log) t.audit_log = t.audit_log.slice(-300);
+  const tag = createHash('sha1').update(JSON.stringify(s)).digest('base64url').slice(0, 16);
+  return since === tag ? { same: true, tag } : { ...s, tag };
+}
 const readBody = req => new Promise((ok, ko) => { let n = 0; const ch = []; req.on('data', c => { n += c.length; if (n > 30 * 1048576) { ko(Object.assign(new Error('Solicitud demasiado grande'), { user: true })); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch).toString('utf8'))); req.on('error', ko); });
 
 async function api(req, res, path) {
   const uid = uidOf(req), ctx = { db, uid, now: new Date(), verifyGoogle };
-  if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, { ...snapshot(ctx), uid });
+  if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, new URL(req.url, 'http://x').searchParams.get('since')));
   if (path === '/api/rpc' && req.method === 'POST') {
     const { name, args } = JSON.parse(await readBody(req) || '{}');
     if (String(name).startsWith('auth.') && limited(req.socket.remoteAddress)) return json(res, 429, { error: 'Demasiados intentos. Espera unos minutos.' });
@@ -95,7 +113,8 @@ async function api(req, res, path) {
       const result = await commit(() => call(ctx, name, args));
       const token = result?.session ? sign(result.session) : undefined;
       if (result) { delete result.demo_code; if (result.session) result.session = true; }
-      return json(res, 200, { result, token });
+      const nuid = token ? verify(token) : uid;
+      return json(res, 200, { result, token, snap: view({ db, uid: nuid, now: new Date() }, nuid) });
     } catch (e) { if (!e.user) console.error(name, e); return json(res, e.user ? 400 : 500, { error: e.user ? e.message : 'Algo salió mal. Intenta de nuevo.' }); }
   }
   if (path === '/api/files' && req.method === 'POST') {
@@ -117,11 +136,18 @@ async function api(req, res, path) {
   json(res, 404, { error: 'Ruta desconocida' });
 }
 
+const zcache = new Map();
 function serve(req, res, path) {
   if (path === '/config.js') { res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' }); return res.end('window.HUB_CONFIG = { api: "" };'); }
   let p = normalize(join(WEB, decodeURIComponent(path === '/' ? '/index.html' : path)));
-  if (!p.startsWith(WEB) || !existsSync(p) || statSync(p).isDirectory()) p = WEB + 'index.html';
-  res.writeHead(200, { 'Content-Type': TYPES[extname(p)] || 'application/octet-stream', 'Cache-Control': p.endsWith('.html') || p.endsWith('sw.js') ? 'no-cache' : 'public, max-age=3600', ...SEC });
+  if (!p.startsWith(WEB) || !existsSync(p) || statSync(p).isDirectory()) p = join(WEB, 'index.html');
+  const h = { 'Content-Type': TYPES[extname(p)] || 'application/octet-stream', 'Cache-Control': p.endsWith('.html') || p.endsWith('sw.js') ? 'no-cache' : 'public, max-age=3600', ...SEC };
+  if (gz(req) && /\.(js|css|html|svg|json|webmanifest)$/.test(p)) {
+    const m = statSync(p).mtimeMs, c = zcache.get(p); let z = c?.m === m ? c.z : null;
+    if (!z) { z = gzipSync(readFileSync(p), { level: 9 }); zcache.set(p, { m, z }); }
+    res.writeHead(200, { ...h, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(z);
+  }
+  res.writeHead(200, h);
   createReadStream(p).pipe(res);
 }
 

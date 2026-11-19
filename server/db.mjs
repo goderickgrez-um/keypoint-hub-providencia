@@ -1,5 +1,15 @@
 // Conexión con PostgreSQL: carga todas las tablas en memoria y guarda cada cambio en una transacción.
 import pg from 'pg';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// Lee el archivo .env de la carpeta del proyecto (funciona en Windows y Linux).
+export const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const envFile = ROOT + '.env';
+if (existsSync(envFile)) for (const l of readFileSync(envFile, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/)) {
+  const m = /^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/.exec(l); if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+}
+if (!process.env.DATABASE_URL) console.warn('Aviso: no se encontró DATABASE_URL. Revisa que exista el archivo .env (no .env.txt) en ' + ROOT);
 import { TABLES, COLS, pkOf, toSQL } from '../src/core/schema.js';
 
 pg.types.setTypeParser(1082, v => v);                          // date → 'AAAA-MM-DD'
