@@ -8,7 +8,7 @@ export class Store {
   constructor(data = {}) { this.load(data); }
 
   load(data = {}) {
-    this.d = {}; this.seq = {}; this.log = []; this.undo = []; this.ix = {};
+    this.d = {}; this.seq = {}; this.log = []; this.undo = []; this.ix = {}; this.rev = (this.rev || 0) + 1; // rev cambia con cada cambio: sirve para recordar cálculos
     for (const t in TABLES) this.d[t] = (data[t] || []).map(r => ({ ...r }));
     return this;
   }
@@ -35,7 +35,7 @@ export class Store {
     if (r[pk] == null) r[pk] = this.nextId(t);
     if ('created_at' in r && !r.created_at) r.created_at = new Date().toISOString();
     this.d[t].push(r); this.ix[t]?.set(r[pk], r);
-    this.log.push({ op: 'insert', t, row: r });
+    this.log.push({ op: 'insert', t, row: r }); this.rev++;
     this.undo.push(() => { const i = this.d[t].indexOf(r); if (i >= 0) this.d[t].splice(i, 1); this.ix[t]?.delete(r[pk]); });
     return r;
   }
@@ -43,21 +43,21 @@ export class Store {
     const r = this.get(t, id); if (!r) return null;
     const prev = { ...r };
     Object.assign(r, patch);
-    this.log.push({ op: 'update', t, id, patch });
+    this.log.push({ op: 'update', t, id, patch }); this.rev++;
     this.undo.push(() => Object.assign(r, prev));
     return r;
   }
   remove(t, id) {
     const r = this.get(t, id); if (!r) return;
     const i = this.d[t].indexOf(r); this.d[t].splice(i, 1); this.ix[t]?.delete(id);
-    this.log.push({ op: 'delete', t, id });
+    this.log.push({ op: 'delete', t, id }); this.rev++;
     this.undo.push(() => { this.d[t].splice(i, 0, r); this.ix[t]?.set(id, r); });
   }
 
   /** Entrega los cambios acumulados y limpia el registro (operación confirmada). */
   take() { const l = this.log; this.log = []; this.undo = []; return l; }
   /** Deshace los cambios de la operación en curso. */
-  rollback() { while (this.undo.length) this.undo.pop()(); this.log = []; }
+  rollback() { while (this.undo.length) this.undo.pop()(); this.log = []; this.rev++; }
 
   cfg(key) { const r = this.get('config', key); return r && r.value != null ? r.value : DEFAULTS[key]; }
   setCfg(key, value) { return this.get('config', key) ? this.update('config', key, { value }) : this.insert('config', { key, value }); }

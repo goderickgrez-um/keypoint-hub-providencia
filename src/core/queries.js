@@ -13,10 +13,12 @@ export const managersOf = (db, spaceId) => db.where('space_managers', m => m.spa
 export const managedBy = (db, uid) => db.where('space_managers', m => m.user_id === uid).map(m => m.space_id);
 /** Espacio donde queda registrada una persona sin reserva: el configurado o, si no hay, el cowork. */
 export const defaultZone = db => { const id = db.cfg('default_zone'), sp = id != null && db.get('spaces', +id); return sp && sp.active ? sp : db.find('spaces', s => s.kind === 'cowork' && s.active); };
+/** Pisos del Hub, ordenados. */
+export const floorsOf = db => Object.keys(db.cfg('floor_capacity') || { 1: 0 }).map(Number).sort((a, b) => a - b);
 export const findUser = (db, code) => {
   const raw = String(code || '').trim(); if (!raw) return null;
   const n = R.normDoc(raw), e = raw.toLowerCase();
-  return db.find('users', u => u.id === raw.toUpperCase() || u.doc_number === n || (u.email && u.email.toLowerCase() === e));
+  return db.find('users', u => !u.deleted_at && (u.id === raw.toUpperCase() || u.doc_number === n || (u.email && u.email.toLowerCase() === e)));
 };
 export const activeBan = (db, uid, now = new Date()) =>
   db.find('bans', b => b.user_id === uid && !b.lifted_at && T(b.from_at) <= T(now) && (!b.until_at || T(b.until_at) > T(now)));
@@ -105,7 +107,7 @@ export function stats(db, from, to, now = new Date()) {
   db.where('history_stats', h => inR(h.day + 'T12:00:00')).forEach(h => { const e = bySpace.find(b => b.label === h.space); e ? e.value += h.visits : bySpace.push({ label: h.space, value: h.visits }); });
   const perDay = {};
   for (const v of visits) { const k = R.dayKey(v.in_at); (perDay[k] ||= new Set()).add(v.user_id); }
-  const users = db.where('users', u => u.status === 'activo');
+  const users = db.where('users', u => u.status === 'activo' && !u.deleted_at);
   const ages = users.map(u => R.age(u.birth_date, now)).filter(a => a != null);
   const hours = {};
   for (const r of res) hours[name(r.space_id)] = (hours[name(r.space_id)] || 0) + (r.real_min ?? r.est_min) / 60;

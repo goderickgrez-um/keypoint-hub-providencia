@@ -49,7 +49,7 @@ export async function loadAll() {
   let plain = 0;
   for (const t of ORDER) {
     out[t] = (await pool.query(`select * from ${t} order by ${pkOf(t)}`)).rows;
-    for (const c of ENCRYPTED[t] || []) for (const r of out[t]) { if (r[c] != null && !isEnc(r[c])) plain++; r[c] = decrypt(r[c]); }
+    for (const c of ENCRYPTED[t] || []) for (const r of out[t]) { if (r[c] != null && !isEnc(r[c])) plain++; try { r[c] = decrypt(r[c]); } catch { throw new Error('No se pueden leer los datos cifrados: la clave de cifrado (.data-key o DATA_KEY en .env) no corresponde a esta base de datos. Restaura el archivo .data-key respaldado y vuelve a iniciar.'); } }
   }
   if (plain) { // datos de versiones anteriores sin cifrar: se cifran ahora
     const log = []; for (const t in ENCRYPTED) for (const r of out[t]) { const patch = {}; for (const c of ENCRYPTED[t]) if (r[c] != null) patch[c] = r[c]; log.push({ op: 'update', t, id: r[pkOf(t)], patch }); }

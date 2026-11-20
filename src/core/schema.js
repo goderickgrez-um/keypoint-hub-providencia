@@ -12,7 +12,7 @@ export const TABLES = {
       comuna: 'text?', activity: 'text?', occupation: 'text?', gender: 'text?', birth_date: 'date?',
       reduced_mobility: 'bool=false', photo: 'text?', password_hash: 'text?', email_verified: 'bool=false',
       status: 'text=activo', guardian_id: 'users?', guardian_ok: 'bool=false', consent_data: 'bool=false', consent_image: 'bool=false',
-      consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts' },
+      consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?' },
     unique: ['doc_number'], index: ['email'],
     check: ["status in ('pendiente_correo','pendiente_adulto','activo')"] },
 

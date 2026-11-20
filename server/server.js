@@ -4,7 +4,7 @@ import http from 'node:http';
 import { createReadStream, createWriteStream, existsSync, readFileSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { basename, extname, join, normalize, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Store } from '../src/core/store.js';
 import { call, snapshot, tick } from '../src/core/services.js';
@@ -20,7 +20,7 @@ mkdirSync(UPLOADS, { recursive: true });
 // ---- Datos en memoria, respaldados por PostgreSQL
 await createSchema();
 if (await isEmpty()) console.warn('La base está vacía. Ejecuta: npm run db:init -- --demo   (o --clean)');
-const db = new Store(await loadAll());
+let db; try { db = new Store(await loadAll()); } catch (e) { console.error('\n' + e.message + '\n'); process.exit(1); }
 // Migración: versiones anteriores guardaban un solo encargado por espacio en spaces.manager_id.
 if (!db.all('space_managers').length && db.all('spaces').some(s => s.manager_id)) {
   for (const s of db.all('spaces')) if (s.manager_id) { db.insert('space_managers', { space_id: s.id, user_id: s.manager_id }); db.update('spaces', s.id, { manager_id: null }); }
@@ -38,12 +38,13 @@ async function commit(fn) {
 
 // ---- Sesiones firmadas
 const b64 = s => Buffer.from(s).toString('base64url');
-const sign = uid => { const body = b64(JSON.stringify({ uid, exp: Date.now() + HOURS * 36e5 })); return body + '.' + createHmac('sha256', SECRET).update(body).digest('base64url'); };
+const sign = uid => { const body = b64(JSON.stringify({ uid, iat: Date.now(), exp: Date.now() + HOURS * 36e5 })); return body + '.' + createHmac('sha256', SECRET).update(body).digest('base64url'); };
 function verify(tok) {
   const [body, sig] = String(tok || '').split('.'); if (!body || !sig) return null;
   const good = createHmac('sha256', SECRET).update(body).digest('base64url');
   if (good.length !== sig.length || !timingSafeEqual(Buffer.from(good), Buffer.from(sig))) return null;
-  const p = JSON.parse(Buffer.from(body, 'base64url').toString()); return p.exp > Date.now() && db.get('users', p.uid) ? p.uid : null;
+  const p = JSON.parse(Buffer.from(body, 'base64url').toString()); const u = db.get('users', p.uid); // la sesión se cierra si la cuenta se borró o cambió su contraseña después de entrar
+  return p.exp > Date.now() && u && !u.deleted_at && !(u.sessions_after && +new Date(u.sessions_after) > (p.iat || 0) + 999) ? p.uid : null;
 }
 const uidOf = req => verify((req.headers.authorization || '').replace(/^Bearer /, ''));
 
@@ -133,12 +134,13 @@ async function api(req, res, path) {
   if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, new URL(req.url, 'http://x').searchParams.get('since')));
   if (path === '/api/rpc' && req.method === 'POST') {
     let name, args; try { ({ name, args } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
-    const ip = ipOf(req), auth = String(name).startsWith('auth.'), who = auth ? String(args?.ident || args?.id || '').toLowerCase().replace(/[.\s-]/g, '') : '';
+    const ip = ipOf(req), erase = name === 'user.erase', auth = String(name).startsWith('auth.') || erase, who = erase ? 'admin:' + uid : auth ? String(args?.ident || args?.id || '').toLowerCase().replace(/[.\s-]/g, '') : '';
     if (auth && blocked(ip, who)) return json(res, 429, { error: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
     try {
       const result = await commit(() => call(ctx, name, args));
       const token = result?.session ? sign(result.session) : undefined;
       if (result) { delete result.demo_code; if (result.session) result.session = true; }
+      if (erase && result?.storage) { for (const k of result.storage) try { unlinkSync(join(UPLOADS, basename(k))); } catch { /* ya no estaba */ } delete result.storage; }
       const nuid = token ? verify(token) : uid;
       const out = { result, token, snap: view({ db, uid: nuid, now: new Date() }, nuid) };
       json(res, 200, out);
@@ -166,7 +168,7 @@ async function api(req, res, path) {
     res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': statSync(p).size, 'Content-Disposition': `attachment; filename="${encodeURIComponent(f.name)}"`, ...SEC });
     return createReadStream(p).pipe(res);
   }
-  if (path === '/api/health') return json(res, 200, { ok: true, users: db.all('users').length });
+  if (path === '/api/health') return json(res, 200, { ok: true });
   json(res, 404, { error: 'Ruta desconocida' });
 }
 

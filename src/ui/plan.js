@@ -1,8 +1,11 @@
 // Plano del Hub: vista de calor sobre las zonas y editor de rectángulos por capas.
 import { KINDS, MODES, PALETTE } from '../core/catalog.js';
-import { S, db, can, screens, actions, go, run, toast, esc, icon, btn, seg, pill, empty, back, fmtN, val, fill, field, select, swatches } from './kit.js';
+import * as Q from '../core/queries.js';
+import { confirmBox, S, db, can, screens, actions, go, run, toast, esc, icon, btn, seg, pill, empty, back, fmtN, val, fill, field, select, swatches } from './kit.js';
 
 const W = 1000, H = 600;
+/** Pestañas con los pisos que existen. */
+export const floorSeg = (act, cur) => seg(act, cur, Q.floorsOf(db()).map(f => [f, 'Piso ' + f]));
 const shapesOf = floor => db().where('plan_shapes', s => s.floor === floor).sort((a, b) => a.z - b.z);
 
 /** Plano con cada zona teñida según su valor (0 a 1). values: { space_id: { v, text } } */
@@ -25,18 +28,19 @@ const cur = () => ed().shapes?.find(s => s.id === ed().sel);
 let tmp = -1;
 
 screens['a-plano'] = { roles: ['admin'], render() {
-  const p = ed(); if (!p.shapes) load(p.floor);
+  const p = ed(); if (!Q.floorsOf(db()).includes(p.floor)) p.shapes = null, p.floor = Q.floorsOf(db())[0]; if (!p.shapes) load(p.floor);
   const s = cur(), spaces = db().all('spaces');
   if (s && S.planLoaded !== s.id) { fill({ pl_label: s.label || '', pl_kind: s.kind, pl_cap: s.capacity, pl_space: s.space_id ?? '' }); S.planLoaded = s.id; }
-  return `${back('a-esp', 'Espacios')}<div class="head"><h1>Plano del Hub</h1>${seg('pl-floor', p.floor, [[1, 'Piso 1'], [2, 'Piso 2']])}</div>
+  return `${back('a-esp', 'Espacios')}<div class="head"><h1>Plano del Hub</h1>${floorSeg('pl-floor', p.floor)}</div>
+    <div class="row w">${btn('Agregar piso', 'fl-add', { cls: 's plain', icon: 'plus' })}${Q.floorsOf(db()).length > 1 ? btn('Eliminar piso ' + p.floor, 'fl-del', { v: p.floor, cls: 's plain danger', icon: 'trash' }) : ''}</div>
     <p class="mu">Agrega rectángulos, arrástralos y cambia su tamaño desde la esquina. Dos rectángulos del mismo color se pueden unir en una sola zona.</p>
     <div class="row w">${btn('Agregar rectángulo', 'pl-add', { cls: 's sec', icon: 'plus' })}${s ? btn('Traer al frente', 'pl-z', { v: 1, cls: 's plain' }) + btn('Enviar atrás', 'pl-z', { v: -1, cls: 's plain' }) + btn('Duplicar', 'pl-dup', { cls: 's plain' }) + btn('Unir con el mismo color', 'pl-join', { cls: 's plain' }) + (s.group_id ? btn('Separar', 'pl-split', { cls: 's plain' }) : '') + btn('Borrar', 'pl-del', { cls: 's danger' }) : ''}</div>
     <div class="grid" style="grid-template-columns:minmax(0,3fr) minmax(240px,1fr)"><div class="card" style="padding:8px">
       <svg id="plan-ed" class="plan" viewBox="0 0 ${W} ${H}">${p.shapes.map(r => `<g data-shape="${r.id}" style="cursor:move"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="8" fill="${r.color}" stroke="${r.id === p.sel ? 'var(--tx)' : 'none'}" stroke-width="3" ${r.group_id ? 'stroke-dasharray="0"' : ''}/>
         <text x="${r.x + 12}" y="${r.y + 28}" fill="${r.text_color || '#fff'}">${esc(r.label || '')}</text>${r.capacity ? `<text x="${r.x + 12}" y="${r.y + 52}" fill="${r.text_color || '#fff'}" style="font-weight:400;font-size:16px">${r.capacity} personas</text>` : ''}
         ${r.id === p.sel ? `<rect class="hd" data-handle="${r.id}" x="${r.x + r.w - 14}" y="${r.y + r.h - 14}" width="22" height="22" rx="5"/>` : ''}</g>`).join('')}</svg></div>
-    <div class="card stack">${s ? `<h3>Zona seleccionada</h3>${field('pl_label', 'Nombre', { live: true })}${select('pl_kind', 'Tipo de espacio', [...Object.entries(MODES), ['otro', 'Otro']], { raw: true, live: true })}
-      ${field('pl_cap', 'Aforo', { type: 'number', live: true })}${select('pl_space', 'Vincular con el espacio', spaces.map(x => [x.id, x.name]), { raw: true, blank: 'Sin vincular', live: true })}
+    <div class="card stack">${s ? `<h3>Zona seleccionada</h3>${field('pl_label', 'Nombre', { live: true })}${select('pl_space', 'Vincular con el espacio (completa nombre, tipo y aforo)', spaces.filter(x => x.active || x.id === s.space_id).map(x => [x.id, x.name + ' · piso ' + x.floor]), { raw: true, blank: 'Sin vincular', live: true })}
+      ${select('pl_kind', 'Tipo de espacio', [...Object.entries(MODES), ['otro', 'Otro']], { raw: true, live: true })}${field('pl_cap', 'Aforo (personas)', { type: 'number', live: true })}
       <span class="sm b">Color</span>${swatches('pl-color', s.color, [...PALETTE.accent, '#7D8790', '#9AA3A8'])}<span class="sm b">Color del texto</span>${swatches('pl-tcolor', s.text_color || '#FFFFFF', PALETTE.onColor)}
       ${s.group_id ? pill('Unida con otras zonas del mismo color', 'info') : ''}<p class="sm mu">Vincular la zona con un espacio permite pintarla con la ocupación y el mapa de calor.</p>` : '<p class="mu">Toca un rectángulo para editarlo.</p>'}
       ${btn('Guardar plano', 'pl-save', { cls: 'block' })}</div></div>`;
@@ -55,7 +59,14 @@ actions['pl-split'] = () => { cur().group_id = null; go(S.k); };
 actions['pl-color'] = c => { const s = cur(); s.color = c; go(S.k); };
 actions['pl-tcolor'] = c => { const s = cur(); s.text_color = c; go(S.k); };
 actions['pl-save'] = async () => { sync(); const p = ed(); const r = await run('plan.save', { floor: p.floor, shapes: p.shapes }, 'Plano guardado'); if (r) load(p.floor); };
-actions['plan-live'] = () => sync();
+actions['plan-live'] = () => { const s = cur(), v = val('pl_space'); // al vincular un espacio, la zona toma sus datos
+  if (s && v && +v !== s.space_id) { const sp = db().get('spaces', +v); if (sp) { Object.assign(S.f, { pl_label: sp.name, pl_kind: sp.mode, pl_cap: sp.capacity }); if (sp.color) s.color = sp.color; if (sp.floor !== ed().floor) toast(`Ojo: ${sp.name} está registrado en el piso ${sp.floor}`); } }
+  sync(); };
+actions['fl-add'] = () => confirmBox({ title: '¿Agregar un piso?', text: `<p>Se creará el piso ${Math.max(...Q.floorsOf(db())) + 1}, con su plano vacío. Su aforo se ajusta en Reglas.</p>`, ok: 'Agregar piso',
+  fn: async () => { const r = await run('floor.add', { capacity: 0 }); if (r) { load(r.floor); toast('Piso ' + r.floor + ' agregado'); go(S.k); } } });
+actions['fl-del'] = f => { const n = db().where('spaces', s => s.floor === +f && s.active).length;
+  confirmBox({ title: `¿Eliminar el piso ${f}?`, danger: true, ok: 'Eliminar piso', text: `<p>Se borra su plano${n ? ` y se <b>desactivan sus ${n} espacios</b>. Las reservas futuras en ellos se cancelan con aviso; el historial se conserva` : ''}.</p><p>No se puede deshacer.</p>`,
+    fn: async () => { const r = await run('floor.remove', { floor: +f }); if (r) { ed().shapes = null; ed().floor = Q.floorsOf(db())[0]; toast(`Piso eliminado${r.deactivated ? ` · ${r.deactivated} espacios desactivados` : ''}`); go(S.k); } } }); };
 
 /** Arrastre y cambio de tamaño con puntero (mouse o dedo). */
 export function bindPlan() {

@@ -47,7 +47,8 @@ export const DEFAULTS = {
   default_zone: null,                        // espacio donde queda registrada quien entra sin reserva (null = cowork)
   code_minutes: 15,                          // vigencia de los códigos enviados por correo
   file_max_mb: 4096, keep_rejected_days: 7, keep_approved_days: 30,
-  floor_capacity: { 1: 130, 2: 80 },
+  floor_capacity: { 1: 130, 2: 80 },        // un piso por llave; se agregan o quitan desde el plano
+  min_age: 4, max_age: 95,
   mail: { host: 'smtp.gmail.com', port: 465, user: '', from: '' },
   google_client_id: '', microsoft_client_id: '',
   theme: THEME,

@@ -51,7 +51,7 @@ async function derive(pass, salt) {
   return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: 120000, hash: 'SHA-256' }, k, 256));
 }
 export const hashPass = async (p, salt = rnd(8)) => `pbkdf2$${salt}$${await derive(p, salt)}`;
-export const checkPass = async (p, h) => { if (!h || !p) return false; const [, salt, x] = h.split('$'); return (await derive(p, salt)) === x; };
+export const checkPass = async (p, h) => { if (!h || !p) return false; const [, salt, x] = h.split('$'), y = await derive(p, salt); let d = x.length ^ y.length; for (let i = 0; i < Math.min(x.length, y.length); i++) d |= x.charCodeAt(i) ^ y.charCodeAt(i); return d === 0; };
 
 /** Envía un código de 6 dígitos al correo. Si la persona ya tiene uno vigente, reenvía ese mismo y renueva su plazo,
  *  para que un correo que llega tarde no quede invalidado por una segunda solicitud. */
@@ -85,7 +85,7 @@ async function createUser(ctx, d, assisted) {
   for (const [k, label] of [['comuna', 'la comuna'], ['activity', 'tu actividad en Providencia'], ['occupation', 'a qué te dedicas'], ['gender', 'el género'], ['birth_date', 'la fecha de nacimiento']]) if (!d[k]) fail('Falta ' + label);
   if (!assisted && !d.phone) fail('Falta el celular');
   const years = R.age(d.birth_date, N(ctx));
-  if (years == null || years < 0 || years > 110) fail('Revisa la fecha de nacimiento');
+  checkAge(ctx, d.birth_date);
   if (!d.consent_data || !d.consent_image || !d.consent_belongings) fail('Debes aceptar las tres declaraciones');
   if (d.password && d.password.length < 8) fail('La contraseña debe tener al menos 8 caracteres');
   if (!assisted && !d.password) fail('Crea una contraseña de al menos 8 caracteres');
@@ -99,6 +99,12 @@ async function createUser(ctx, d, assisted) {
   });
 }
 
+/** Edad permitida: entre 4 y 95 años (configurable en Reglas). */
+function checkAge(ctx, birth) {
+  const y = R.age(birth, N(ctx)), lo = +ctx.db.cfg('min_age') || 4, hi = +ctx.db.cfg('max_age') || 95;
+  if (y == null || isNaN(y) || y < 0) fail('Revisa la fecha de nacimiento');
+  if (y < lo || y > hi) fail(`La edad debe estar entre ${lo} y ${hi} años`);
+}
 function askGuardian(ctx, minor, code) {
   const db = ctx.db, adult = Q.findUser(db, code);
   if (!adult || adult.id === minor.id) fail('No encontramos a ese adulto. Debe tener un perfil en el Hub');
@@ -199,7 +205,8 @@ export const SERVICES = {
   },
   async 'me.password'(ctx, { password }) {
     if (!password || password.length < 8) fail('La contraseña debe tener al menos 8 caracteres');
-    ctx.db.update('users', me(ctx).id, { password_hash: await hashPass(password) });
+    ctx.db.update('users', me(ctx).id, { password_hash: await hashPass(password), sessions_after: iso(N(ctx)) });
+    return { session: me(ctx).id }; // nueva sesión en este dispositivo; las demás se cierran
   },
   'me.guardianAnswer'(ctx, { id, accept }) {
     const db = ctx.db, n = db.get('notifications', id), adult = me(ctx);
@@ -322,6 +329,7 @@ export const SERVICES = {
     if (cancel) { if (mine?.status === 'inscrito') db.remove('cert_enrollments', mine.id); return; }
     usable(ctx, u);
     if (mine) fail('Ya estás inscrito en esta sesión');
+    if (db.find('cert_enrollments', e => e.user_id === u.id && e.status === 'inscrito' && e.session_id !== s.id && db.get('cert_sessions', e.session_id)?.certification_id === s.certification_id && T(db.get('cert_sessions', e.session_id).end_at) > T(N(ctx)))) fail('Ya tienes una sesión inscrita de esta certificación');
     if (T(s.start_at) < T(N(ctx))) fail('Esa sesión ya pasó');
     if (db.where('cert_enrollments', e => e.session_id === s.id).length >= s.seats) fail('No quedan cupos en esta sesión');
     db.insert('cert_enrollments', { session_id: s.id, user_id: u.id });
@@ -422,9 +430,46 @@ export const SERVICES = {
     const row = { name: s.name.trim(), kind: s.kind || 'otro', mode: s.mode || 'reserva', floor: +s.floor || 1, capacity: +s.capacity || 0, accessible: !!s.accessible, requires_cert: !!s.requires_cert, min_level: +s.min_level || 1, monthly_hours: +s.monthly_hours || 0, gap_min: +s.gap_min || 0, tolerance_min: s.tolerance_min === '' || s.tolerance_min == null ? null : +s.tolerance_min, max_hours: s.max_hours ? +s.max_hours : null, allow_overnight: !!s.allow_overnight, accept: (s.accept || '').replace(/\s/g, '') || null, notes: s.notes || null, active: s.active !== false };
     if (old && !has(ctx)) { row.kind = old.kind; row.mode = old.mode; row.floor = old.floor; }
     const diff = old ? Object.keys(row).filter(k => String(old[k] ?? '') !== String(row[k] ?? '')).map(k => `${k}: ${old[k] ?? '—'} → ${row[k] ?? '—'}`).join('; ') : 'creado';
+    if (!Q.floorsOf(db).includes(row.floor)) fail('Ese piso no existe. Agrégalo primero en el plano');
     const r = old ? db.update('spaces', old.id, row) : db.insert('spaces', row);
     if (diff) audit(ctx, old ? 'edita espacio' : 'crea espacio', 'spaces', r.id, diff);
+    // Laboratorio que exige certificación: se crea la certificación con la sesión semanal indicada
+    if (row.requires_cert && !db.find('certifications', c => c.space_id === r.id)) {
+      const wd = s.cert_weekday === '' || s.cert_weekday == null ? 1 : +s.cert_weekday, tm = /^\d{1,2}:\d{2}$/.test(s.cert_time || '') ? s.cert_time.split(':').reduce((h, m) => +h * 60 + +m) : 720;
+      const c = db.insert('certifications', { space_id: r.id, name: 'Certificación ' + row.name, level: 1, weekday: wd, time_min: tm, duration_min: 90, seats: 6, instructor_id: Q.managersOf(db, r.id)[0] || null });
+      audit(ctx, 'crea certificación', 'certifications', c.id, c.name); ensureSessions(ctx);
+    }
     return { id: r.id };
+  },
+  /** Elimina un espacio. Si tiene historial se desactiva (se conserva para estadísticas) y se cancelan sus reservas futuras. */
+  'space.remove'(ctx, { id }) {
+    need(ctx); const db = ctx.db, sp = db.get('spaces', id) || fail('No encontramos ese espacio');
+    const used = db.find('reservations', r => r.space_id === id) || db.find('visits', v => v.space_id === id) || db.find('files', f => f.space_id === id) || db.find('failure_reports', f => f.space_id === id) || db.find('hour_adjustments', a => a.space_id === id);
+    db.where('plan_shapes', s => s.space_id === id).forEach(s => db.update('plan_shapes', s.id, { space_id: null }));
+    db.where('space_managers', m => m.space_id === id).forEach(m => db.remove('space_managers', m.id));
+    if (used) { deactivate(ctx, sp); audit(ctx, 'desactiva espacio', 'spaces', id, sp.name + ' (tenía historial)'); return { removed: false }; }
+    for (const c of db.where('certifications', c => c.space_id === id)) { db.where('cert_sessions', s => s.certification_id === c.id).forEach(s => { db.where('cert_enrollments', e => e.session_id === s.id).forEach(e => db.remove('cert_enrollments', e.id)); db.remove('cert_sessions', s.id); }); db.where('user_certs', u => u.certification_id === c.id).forEach(u => db.remove('user_certs', u.id)); db.remove('certifications', c.id); }
+    db.where('resources', r => r.space_id === id).forEach(r => db.remove('resources', r.id));
+    db.where('blocks', b => b.space_id === id).forEach(b => db.remove('blocks', b.id));
+    db.where('events', e => e.space_id === id).forEach(e => db.update('events', e.id, { space_id: null }));
+    if (+db.cfg('default_zone') === id) db.setCfg('default_zone', null);
+    db.remove('spaces', id); audit(ctx, 'elimina espacio', 'spaces', id, sp.name);
+    return { removed: true };
+  },
+  'floor.add'(ctx, { capacity }) {
+    need(ctx); const fc = { ...ctx.db.cfg('floor_capacity') }, n = Math.max(0, ...Object.keys(fc).map(Number)) + 1;
+    fc[n] = Math.max(0, +capacity || 0); ctx.db.setCfg('floor_capacity', fc); audit(ctx, 'agrega piso', 'config', 'floor_capacity', 'Piso ' + n);
+    return { floor: n };
+  },
+  /** Elimina un piso: borra su plano y desactiva sus espacios (sus reservas futuras se cancelan con aviso). */
+  'floor.remove'(ctx, { floor }) {
+    need(ctx); const db = ctx.db, fc = { ...db.cfg('floor_capacity') };
+    if (!(floor in fc)) fail('Ese piso no existe'); if (Object.keys(fc).length < 2) fail('El Hub debe tener al menos un piso');
+    const sps = db.where('spaces', s => s.floor === +floor && s.active); sps.forEach(sp => deactivate(ctx, sp));
+    db.where('plan_shapes', s => s.floor === +floor).forEach(s => db.remove('plan_shapes', s.id));
+    delete fc[floor]; db.setCfg('floor_capacity', fc);
+    audit(ctx, 'elimina piso', 'config', 'floor_capacity', `Piso ${floor} · ${sps.length} espacios desactivados`);
+    return { deactivated: sps.length };
   },
   'resource.save'(ctx, r) {
     const db = ctx.db; needSpace(ctx, r.space_id);
@@ -445,6 +490,55 @@ export const SERVICES = {
     });
     audit(ctx, 'bloquea agenda', 'blocks', b.id, reason);
     return { id: b.id };
+  },
+  /** Guarda varios cambios de agenda a la vez: horas que se bloquean y horas que se liberan (parte de un bloqueo más largo se recorta). */
+  'block.batch'(ctx, { space_id, add = [], free = [], reason }) {
+    const db = ctx.db; space_id ? needSpace(ctx, space_id) : need(ctx);
+    let added = 0, freed = 0;
+    for (const [a, b] of free) {
+      for (const bl of db.where('blocks', x => (x.space_id ?? null) === (space_id ?? null) && R.overlaps(a, b, x.start_at, x.end_at))) {
+        db.remove('blocks', bl.id); freed++;
+        if (T(bl.start_at) < T(a)) db.insert('blocks', { ...bl, id: undefined, end_at: iso(a) });
+        if (T(bl.end_at) > T(b)) db.insert('blocks', { ...bl, id: undefined, start_at: iso(b) });
+      }
+    }
+    for (const [a, b] of add) { SERVICES['block.add'](ctx, { space_id, start: a, end: b, reason }); added++; }
+    audit(ctx, 'guarda agenda', 'blocks', null, `${added} bloqueos, ${freed} liberados`);
+    return { added, freed };
+  },
+  /** Borra el historial de una persona, su perfil o ambos. Exige la contraseña de quien lo hace (administración). */
+  async 'user.erase'(ctx, { id, scope, password }) {
+    need(ctx); const db = ctx.db, admin = me(ctx), u = db.get('users', id) || fail('No encontramos a esa persona');
+    if (!['datos', 'perfil', 'ambos'].includes(scope)) fail('Elige qué borrar');
+    if (!admin.password_hash) fail('Crea una contraseña en Configuración para confirmar esta acción');
+    if (!(await checkPass(password, admin.password_hash))) fail('La contraseña de administración no es correcta');
+    if (u.id === admin.id) fail('No puedes borrar tu propia cuenta');
+    if (Q.rolesOf(db, u.id).length && scope !== 'datos') fail('Primero quita sus credenciales en Empleados');
+    const storage = [];
+    if (scope !== 'perfil') { // historial
+      const res = db.where('reservations', r => r.user_id === u.id).map(r => r.id);
+      db.where('reservation_guests', g => res.includes(g.reservation_id) || g.user_id === u.id).forEach(g => db.remove('reservation_guests', g.id));
+      db.where('files', f => f.user_id === u.id).forEach(f => { if (f.storage) storage.push(f.storage); db.remove('files', f.id); });
+      for (const t of ['observations', 'visits', 'failure_reports', 'hour_adjustments', 'event_attendance', 'cert_enrollments', 'notifications', 'auth_codes']) db.where(t, r => r.user_id === u.id).forEach(r => db.remove(t, r.id));
+      res.forEach(r => db.remove('reservations', r));
+    }
+    if (scope === 'ambos') {
+      db.where('user_certs', c => c.user_id === u.id).forEach(c => db.remove('user_certs', c.id));
+      db.where('bans', b => b.user_id === u.id).forEach(b => db.remove('bans', b.id));
+      db.where('users', x => x.guardian_id === u.id).forEach(x => db.update('users', x.id, { guardian_id: null, guardian_ok: false }));
+      db.where('outbox', o => o.to_email === u.email).forEach(o => db.remove('outbox', o.id));
+      db.remove('users', u.id);
+    } else if (scope === 'perfil') { // la cuenta se borra; el historial queda anónimo para las estadísticas
+      db.where('reservations', r => r.user_id === u.id && ACTIVE.includes(r.status)).forEach(r => db.update('reservations', r.id, { status: 'cancelada', charged_min: 0, cancelled_at: iso(N(ctx)) }));
+      db.where('files', f => f.user_id === u.id && f.storage).forEach(f => { storage.push(f.storage); db.update('files', f.id, { status: 'eliminado', storage: null, name: 'archivo eliminado' }); });
+      db.where('notifications', n => n.user_id === u.id).forEach(n => db.remove('notifications', n.id));
+      db.where('auth_codes', c => c.user_id === u.id).forEach(c => db.remove('auth_codes', c.id));
+      db.where('outbox', o => o.to_email === u.email).forEach(o => db.remove('outbox', o.id));
+      db.where('users', x => x.guardian_id === u.id).forEach(x => db.update('users', x.id, { guardian_id: null, guardian_ok: false }));
+      db.update('users', u.id, { name: 'Usuario eliminado', doc_number: 'ELIM-' + u.id, email: null, phone: null, photo: null, password_hash: null, guardian_id: null, email_verified: false, deleted_at: iso(N(ctx)), sessions_after: iso(N(ctx)) });
+    }
+    audit(ctx, 'borra ' + { datos: 'historial', perfil: 'perfil', ambos: 'historial y perfil' }[scope], 'users', u.id);
+    return { storage };
   },
   'block.remove'(ctx, { id }) { const b = ctx.db.get('blocks', id); if (!b) return; b.space_id ? needSpace(ctx, b.space_id) : need(ctx); ctx.db.remove('blocks', id); audit(ctx, 'desbloquea agenda', 'blocks', id); },
   'event.save'(ctx, e) {
@@ -482,10 +576,18 @@ export const SERVICES = {
     need(ctx);
     if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key)) fail('Configuración desconocida');
     if (key === 'logo') value = dataUrl(value, 400e3);
+    if (typeof DEFAULTS[key] === 'number') { value = +value; if (!Number.isFinite(value) || value < 0 || value > 1e6) fail('Valor no válido'); }
+    if (key === 'floor_capacity') { if (!value || typeof value !== 'object' || !Object.keys(value).length || Object.entries(value).some(([f, c]) => !/^\d{1,2}$/.test(f) || !(+c >= 0))) fail('Aforo por piso no válido'); value = Object.fromEntries(Object.entries(value).map(([f, c]) => [f, +c])); }
+    if (key === 'min_age' && value > (+ctx.db.cfg('max_age') || 95)) fail('La edad mínima no puede superar a la máxima');
+    if (key === 'max_age' && value < (+ctx.db.cfg('min_age') || 0)) fail('La edad máxima no puede ser menor que la mínima');
     if (key === 'theme') for (const m of Object.values(value || {})) for (const c of Object.values(m || {})) if (!/^#[0-9A-Fa-f]{6}$/.test(c)) fail('Color no válido');
     ctx.db.setCfg(key, value); audit(ctx, 'cambia configuración', 'config', key, key === 'theme' || key === 'logo' ? '' : JSON.stringify(value).slice(0, 200)); },
   'plan.save'(ctx, { floor, shapes }) {
-    need(ctx); const db = ctx.db;
+    need(ctx); const db = ctx.db; floor = +floor;
+    if (!Q.floorsOf(db).includes(floor)) fail('Ese piso no existe');
+    if (!Array.isArray(shapes) || shapes.length > 300) fail('El plano tiene demasiadas zonas');
+    const hex = c => /^#[0-9A-Fa-f]{6}$/.test(c || '');
+    for (const s of shapes) { if (!hex(s.color) || (s.text_color && !hex(s.text_color))) fail('Color no válido'); s.label = s.label ? String(s.label).slice(0, 80) : null; }
     db.where('plan_shapes', s => s.floor === floor).forEach(s => db.remove('plan_shapes', s.id));
     shapes.forEach((s, i) => db.insert('plan_shapes', { floor, x: Math.round(s.x), y: Math.round(s.y), w: Math.round(s.w), h: Math.round(s.h), z: i, color: s.color, text_color: s.text_color || null, label: s.label || null, kind: s.kind || 'libre', capacity: +s.capacity || 0, space_id: s.space_id ? +s.space_id : null, group_id: s.group_id || null }));
     audit(ctx, 'guarda plano', 'plan_shapes', floor, shapes.length + ' zonas');
@@ -505,7 +607,7 @@ function updateUser(ctx, u, p) {
   const db = ctx.db, row = {};
   for (const k of ['name', 'phone', 'comuna', 'activity', 'occupation', 'gender', 'lang', 'birth_date']) if (p[k] !== undefined) row[k] = p[k] === '' ? null : String(p[k]).slice(0, 200);
   if (p.photo !== undefined) row.photo = dataUrl(p.photo, 600e3);
-  if (row.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(row.birth_date)) fail('Revisa la fecha de nacimiento');
+  if (row.birth_date) { if (!/^\d{4}-\d{2}-\d{2}$/.test(row.birth_date)) fail('Revisa la fecha de nacimiento'); if (row.birth_date !== u.birth_date) checkAge(ctx, row.birth_date); }
   if (row.lang && !['es', 'en', 'pt'].includes(row.lang)) row.lang = 'es';
   if (p.reduced_mobility !== undefined) row.reduced_mobility = !!p.reduced_mobility;
   if (row.name != null && String(row.name).trim().length < 3) fail('Escribe el nombre completo');
@@ -530,6 +632,15 @@ function grantStaffCerts(ctx, uid, spaceId) {
   if (top && !db.find('user_certs', x => x.user_id === uid && x.certification_id === top.id)) db.insert('user_certs', { user_id: uid, certification_id: top.id, granted_at: iso(N(ctx)), granted_by: ctx.uid || null });
 }
 
+/** Desactiva un espacio: cancela sus reservas futuras con aviso y devuelve las horas. */
+function deactivate(ctx, sp) {
+  const db = ctx.db; db.update('spaces', sp.id, { active: false });
+  db.where('certifications', c => c.space_id === sp.id).forEach(c => db.update('certifications', c.id, { active: false }));
+  db.where('reservations', r => r.space_id === sp.id && ACTIVE.includes(r.status) && T(r.end_at) > T(N(ctx))).forEach(r => {
+    db.update('reservations', r.id, { status: 'cancelada', charged_min: 0, cancelled_at: iso(N(ctx)) });
+    notify(ctx, r.user_id, 'Tu reserva fue cancelada', `${sp.name} dejó de estar disponible. Las horas se devolvieron.`);
+  });
+}
 /** Mantiene sesiones de certificación para las próximas cuatro semanas. */
 function ensureSessions(ctx) {
   const db = ctx.db, now = N(ctx);
@@ -584,6 +695,7 @@ export function snapshot(ctx) {
   const all = t => db.all(t), mine = t => db.where(t, r => r.user_id === uid);
   const safe = u => { const { password_hash, ...x } = u; return x; };
   const out = { config: all('config'), spaces: all('spaces'), resources: all('resources'), certifications: all('certifications'), cert_sessions: all('cert_sessions'), blocks: all('blocks'), plan_shapes: all('plan_shapes'), events: staff ? all('events') : db.where('events', e => e.published) };
+  if (!staff) out.blocks = out.blocks.map(({ by_id, ...b }) => b); // quién bloqueó solo lo ve el equipo
   if (!uid) return { tables: out, occ: Q.occupancy(db, N(ctx)) };
   const labOnly = staff && rs.every(r => r === 'encargado');
   if (labOnly) {

@@ -1,4 +1,5 @@
 // Pruebas de humo del núcleo: datos de ejemplo + reglas principales. Ejecutar con: npm test
+import { ACTIVE } from '../src/core/catalog.js';
 import { seed } from '../src/core/seed.js';
 import { Store } from '../src/core/store.js';
 import { call, snapshot } from '../src/core/services.js';
@@ -100,6 +101,49 @@ const lone = db.find('users', u => u.status === 'activo' && !db.find('visits', v
 assert.equal((await call(ctx(marta), 'access.scan', { code: lone.id })).zone, 'Cowork');
 await rejects(call(ctx(admin), 'config.set', { key: 'cosa', value: 1 }), /desconocida/);
 await rejects(call(ctx(cam), 'me.update', { photo: 'javascript:alert(1)' }), /no válido/);
+
+// v1.2 · Edad permitida entre 4 y 95 años
+const base = { name: 'Edad Fuera', email: 'edad@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1 };
+await rejects(call(ctx(null), 'auth.register', { ...base, doc_number: '9.999.999-' + R.dv('9999999'), birth_date: '2024-01-01', guardian: cam }), /entre 4 y 95/);
+await rejects(call(ctx(null), 'auth.register', { ...base, doc_number: '9.999.998-' + R.dv('9999998'), birth_date: '1920-01-01' }), /entre 4 y 95/);
+
+// Espacios: laboratorio nuevo con certificación automática; eliminar con y sin historial
+const nl = await call(ctx(admin), 'space.save', { name: 'Lab prueba', kind: 'laboratorio', mode: 'reserva', floor: 2, capacity: 4, requires_cert: true, cert_weekday: 3, cert_time: '16:30' });
+const nc = db.find('certifications', c => c.space_id === nl.id); assert.ok(nc && nc.weekday === 3 && nc.time_min === 990);
+assert.ok(db.find('cert_sessions', x => x.certification_id === nc.id));
+await rejects(call(ctx(admin), 'space.save', { name: 'Otro', kind: 'sala', floor: 9 }), /piso no existe/);
+assert.equal((await call(ctx(admin), 'space.remove', { id: nl.id })).removed, true); assert.ok(!db.get('spaces', nl.id) && !db.get('certifications', nc.id));
+const fut = db.find('reservations', r => r.space_id === laser.id && ACTIVE.includes(r.status) && +new Date(r.end_at) > +now);
+assert.equal((await call(ctx(admin), 'space.remove', { id: laser.id })).removed, false);
+assert.equal(db.get('spaces', laser.id).active, false); if (fut) assert.equal(db.get('reservations', fut.id).status, 'cancelada');
+db.update('spaces', laser.id, { active: true }); db.where('certifications', c => c.space_id === laser.id).forEach(c => db.update('certifications', c.id, { active: true }));
+
+// Pisos
+const fl = (await call(ctx(admin), 'floor.add', { capacity: 40 })).floor; assert.equal(fl, 3);
+await call(ctx(admin), 'space.save', { name: 'Terraza', kind: 'sala', mode: 'reserva', floor: 3, capacity: 10 });
+assert.equal((await call(ctx(admin), 'floor.remove', { floor: 3 })).deactivated, 1); assert.ok(!(3 in db.cfg('floor_capacity')));
+
+// Agenda: guardar varios bloqueos y liberar parte de uno
+const gday = R.addDays(now, 20), h = m => R.atMin(gday, m);
+const b1 = await call(ctx(admin), 'block.batch', { space_id: gaming.id, add: [[h(600), h(720)], [h(900), h(950)]], reason: 'Mantención' }); assert.equal(b1.added, 2);
+await call(ctx(admin), 'block.batch', { space_id: gaming.id, free: [[h(650), h(670)]] });
+const bl = db.where('blocks', b => b.space_id === gaming.id && R.dayKey(b.start_at) === R.dayKey(gday)).map(b => [new Date(b.start_at).getHours() * 60 + new Date(b.start_at).getMinutes(), new Date(b.end_at).getHours() * 60 + new Date(b.end_at).getMinutes()]).sort((a, b) => a[0] - b[0]);
+assert.deepEqual(bl, [[600, 650], [670, 720], [900, 950]]);
+
+// Borrar datos de una persona: exige la contraseña de administración
+const vic = db.find('users', u => u.status === 'activo' && !Q.rolesOf(db, u.id).length && db.find('visits', v => v.user_id === u.id) && u.id !== cam);
+await rejects(call(ctx(admin), 'user.erase', { id: vic.id, scope: 'datos', password: 'mala' }), /no es correcta/);
+await rejects(call(ctx(admin), 'user.erase', { id: admin, scope: 'ambos', password: 'demo1234' }), /propia cuenta|credenciales/);
+await rejects(call(ctx(cam), 'user.erase', { id: vic.id, scope: 'datos', password: 'demo1234' }), /./);
+await call(ctx(admin), 'user.erase', { id: vic.id, scope: 'datos', password: 'demo1234' });
+assert.ok(db.get('users', vic.id) && !db.find('visits', v => v.user_id === vic.id) && !db.find('reservations', r => r.user_id === vic.id));
+const vic2 = db.find('users', u => u.status === 'activo' && !Q.rolesOf(db, u.id).length && db.find('visits', v => v.user_id === u.id) && u.id !== cam && u.id !== vic.id), nv = db.where('visits', v => v.user_id === vic2.id).length, doc2 = vic2.doc_number;
+await call(ctx(admin), 'user.erase', { id: vic2.id, scope: 'perfil', password: 'demo1234' });
+assert.equal(db.where('visits', v => v.user_id === vic2.id).length, nv); assert.ok(db.get('users', vic2.id).deleted_at && !db.get('users', vic2.id).email);
+assert.equal(Q.findUser(db, vic2.id), null); assert.equal(Q.findUser(db, doc2), null);
+const vic3 = db.find('users', u => u.status === 'activo' && !Q.rolesOf(db, u.id).length && ![cam, vic.id, vic2.id].includes(u.id) && !db.where('users', x => x.guardian_id === u.id).length);
+await call(ctx(admin), 'user.erase', { id: vic3.id, scope: 'ambos', password: 'demo1234' });
+assert.ok(!db.get('users', vic3.id) && !db.find('visits', v => v.user_id === vic3.id));
 
 const st = Q.stats(db, R.addDays(now, -30), now, now), occ = Q.occupancy(db, now);
 console.log('ocupación', occ.inside, occ.spaces.filter(s => s.n).map(s => s.name + ':' + s.n).join(', '));

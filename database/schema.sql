@@ -35,6 +35,8 @@ create table if not exists users (
   consent_belongings boolean not null default false,
   lang text not null default 'es',
   created_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  sessions_after timestamptz,
   unique (doc_number),
   check (status in ('pendiente_correo','pendiente_adulto','activo'))
 );
@@ -60,6 +62,8 @@ alter table users add column if not exists consent_image boolean default false;
 alter table users add column if not exists consent_belongings boolean default false;
 alter table users add column if not exists lang text default 'es';
 alter table users add column if not exists created_at timestamptz;
+alter table users add column if not exists deleted_at timestamptz;
+alter table users add column if not exists sessions_after timestamptz;
 create index if not exists users_email_idx on users (email);
 
 -- Códigos de un solo uso para confirmar el correo o entrar sin contraseña.

@@ -6,7 +6,7 @@ import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../core/seed.js';
 import { t, LANGS, getLang, setLang } from './i18n.js';
 import { themePref, setThemePref, a11y, setA11y } from './theme.js';
 import { openCamera } from './camera.js';
-import { fileInput, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download } from './kit.js';
+import { fileInput, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, memo } from './kit.js';
 
 const cfg = k => db().cfg(k);
 const T = d => +new Date(d);
@@ -60,10 +60,11 @@ const CONSENTS = [['c_data', 'Declaro haber leído y aceptado el tratamiento de 
 export function regForm(assisted) {
   const years = R.age(val('r_birth') || null), minor = years != null && years < 18, type = val('r_type', 'rut');
   return `<div class="card stack"><h3>${t('Identificación')}</h3><div class="form">
-      ${select('r_type', 'Documento', Object.entries(DOC_TYPES), { live: true })}${field('r_doc', type === 'pasaporte' ? 'Número de pasaporte' : 'RUT', { ph: type === 'pasaporte' ? '' : '12.345.678-5', live: true, attrs: 'autocomplete="off" autocapitalize="characters" spellcheck="false"' })}
+      ${select('r_type', 'Documento', Object.entries(DOC_TYPES), { live: true })}${field('r_doc', type === 'pasaporte' ? 'Número de pasaporte' : 'RUT', { ph: type === 'pasaporte' ? '' : '12.345.678-5', hint: type === 'pasaporte' ? 'Tal como aparece en el pasaporte, con letras y números.' : 'Con o sin puntos y con guion antes del dígito verificador: 12.345.678-5 o 12345678-5. Si termina en K, escribe K.', live: true, attrs: 'autocomplete="off" autocapitalize="characters" spellcheck="false"' })}
       ${field('r_name', 'Nombre completo', { cls: 'full', attrs: 'autocomplete="name"' })}
-      ${field('r_birth', 'Fecha de nacimiento', { type: 'date', live: true })}${select('r_gender', 'Género', GENDERS, { blank: 'Elige una opción' })}</div>
-      ${val('r_doc') && type !== 'pasaporte' && !R.rutOk(val('r_doc')) ? `<p class="sm" style="color:var(--bad)">${t('El dígito verificador no coincide con el RUT.')}</p>` : ''}
+      ${field('r_birth', 'Fecha de nacimiento', { type: 'date', live: true, hint: t('Edad permitida: de {0} a {1} años.', db().cfg('min_age') || 4, db().cfg('max_age') || 95), attrs: `min="${R.dayKey(new Date(new Date().getFullYear() - (db().cfg('max_age') || 95) - 1, new Date().getMonth(), new Date().getDate() + 1))}" max="${R.dayKey(new Date(new Date().getFullYear() - (db().cfg('min_age') || 4), new Date().getMonth(), new Date().getDate()))}"` })}${select('r_gender', 'Género', GENDERS, { blank: 'Elige una opción' })}</div>
+      ${val('r_doc') && type !== 'pasaporte' && !R.rutOk(val('r_doc')) ? `<p class="sm" role="alert" style="color:var(--bad)">${t('El dígito verificador no coincide con el RUT.')}</p>` : ''}
+      ${years != null && (years < (db().cfg('min_age') || 4) || years > (db().cfg('max_age') || 95)) ? `<p class="sm" role="alert" style="color:var(--bad)">${t('La edad debe estar entre {0} y {1} años', db().cfg('min_age') || 4, db().cfg('max_age') || 95)}</p>` : ''}
       ${check('r_mob', 'Tengo movilidad reducida')}</div>
     <div class="card stack"><h3>${t('Contacto')}</h3><div class="form">
       ${field('r_email', assisted ? 'Correo (opcional)' : 'Correo', { type: 'email', attrs: 'autocomplete="email"' })}${field('r_phone', assisted ? 'Celular (opcional)' : 'Celular', { type: 'tel', ph: '+56 9 1234 5678' })}
@@ -110,7 +111,7 @@ actions['guardian-answer'] = v => { const [id, ok] = v.split(':'); closeModalQui
 const closeModalQuiet = () => { S.modal = null; };
 
 // ============================================================ Inicio
-const occ = () => App.occ || Q.occupancy(db());
+const occ = () => App.occ || memo('occ', () => Q.occupancy(db()));
 export const occupancyCard = () => { const o = occ(); return `<div class="card stack">${Object.entries(o.floors).map(([f, v]) => meter(t('Piso {0}', f), v.n, v.cap)).join('')}
   <details><summary>${t('Ver por espacio')}</summary><div class="stack" style="margin-top:6px">${o.spaces.filter(s => s.cap && s.kind !== 'residencia').map(s => meter(s.name, s.n, s.cap)).join('')}</div></details>
   <p class="sm mu">${t('Una zona con reserva figura ocupada cuando la persona registra su entrada.')}</p></div>`; };
@@ -118,9 +119,9 @@ const eventNow = () => db().find('events', e => e.published && e.kind === 'event
 screens['u-inicio'] = { tab: 'u-inicio', render() {
   const u = me(), now = new Date(), ban = Q.activeBan(db(), u.id), ev = eventNow();
   const asks = db().where('notifications', n => n.user_id === u.id && n.kind === 'tutor' && !n.read_at);
-  const banners = db().where('events', e => e.published && e.banner_img && (!e.start_at || T(e.end_at || e.start_at) > +now)).sort((a, b) => (a.start_at ? T(a.start_at) : 9e15) - (b.start_at ? T(b.start_at) : 9e15));
+  const banners = db().where('events', e => e.published && (e.kind === 'aviso' || !e.start_at || T(e.end_at || e.start_at) > +now)).sort((a, b) => (a.start_at ? T(a.start_at) : 9e15) - (b.start_at ? T(b.start_at) : 9e15));
   const visit = db().find('visits', v => v.user_id === u.id && !v.out_at);
-  const next = db().where('reservations', r => r.user_id === u.id && ACTIVE.includes(r.status) && T(r.end_at) > +now).sort((a, b) => T(a.start_at) - T(b.start_at))[0];
+  const next = [...db().where('reservations', r => r.user_id === u.id && ACTIVE.includes(r.status) && T(r.end_at) > +now), ...myCerts(+now)].sort((a, b) => T(a.start_at) - T(b.start_at))[0];
   const closures = db().where('blocks', b => T(b.end_at) > +now && T(b.start_at) < +now + 7 * 864e5).sort((a, b) => T(a.start_at) - T(b.start_at));
   const went = ev && db().find('event_attendance', a => a.event_id === ev.id && a.user_id === u.id && a.status === 'asistio');
   return `${asks.map(n => { const m = db().get('users', n.data.minor_id); return `<div class="card warn stack"><h3>${icon('shield')} ${t('{0} pide tu autorización', esc(m?.name || ''))}</h3>
@@ -128,14 +129,23 @@ screens['u-inicio'] = { tab: 'u-inicio', render() {
       <div class="row">${btn('Sí, autorizo', 'guardian-answer', { v: n.id + ':1', cls: 'sp' })}${btn('No', 'guardian-answer', { v: n.id + ':0', cls: 'plain' })}</div></div>`; }).join('')}
     ${ban ? notice(`${icon('lock')} <b>${t('Tu acceso al Hub está restringido')}</b> ${ban.until_at ? t('hasta el {0}.', fDT(ban.until_at)) : t('de forma permanente.')} ${ban.reason ? esc(ban.reason) : ''}`, 'bad') : ''}
     <div class="head"><h1>${t('Hola, {0}', esc(u.name.split(' ')[0]))}</h1></div>
-    ${banners.length ? `<div class="banners">${banners.map(e => `<button class="banner" data-a="event-open" data-v="${e.id}"><img src="${esc(e.banner_img)}" alt="${esc(e.title)}">${e.start_at ? `<span>${fDay(e.start_at)} · ${fTime(e.start_at)}</span>` : ''}</button>`).join('')}</div>` : ''}
+    ${bannerStrip(banners)}
     ${ev ? (went ? notice(`${icon('check')} ${t('Asistencia registrada en {0}', esc(ev.title))}`, 'ok') : btn(`${icon('star')} ${t('Marcar asistencia')}: ${esc(ev.title)}`, 'event-checkin', { v: ev.id, cls: 'block sec', raw: true })) : ''}
     <div class="card qr"><div class="code">${qrSvg(u.id)}</div><div class="id">${u.id}</div><p class="sm mu">${t('Muestra este código en recepción al entrar y al salir.')}</p>
       ${visit ? pill(t('Dentro del Hub desde las {0}', fTime(visit.in_at)), 'ok') : pill(t('Fuera del Hub'))}</div>
-    ${next ? `<button class="list li" data-a="go" data-v="u-activas"><span class="sp"><b>${t('Tu próxima reserva')}</b><span>${resName(next)} · ${fRange(next.start_at, next.end_at)}</span></span>${stPill(next.status)}${icon('chev')}</button>` : ''}
+    ${next ? `<button class="list li" data-a="go" data-v="u-activas"><span class="sp"><b>${t('Tu próxima reserva')}</b><span>${next.cert ? esc(next.cert.name) : resName(next)} · ${fRange(next.start_at, next.end_at)}</span></span>${next.cert ? pill(t('Certificación'), 'info') : stPill(next.status)}${icon('chev')}</button>` : ''}
     <h2>${t('El Hub ahora')}</h2>${occupancyCard()}
     ${closures.length ? `<h2>${t('Próximos cierres')}</h2><div class="list">${closures.map(b => `<div class="li"><span class="sp"><b>${esc(b.space_id ? db().get('spaces', b.space_id)?.name : t('Todo el Hub'))}</b><span>${fRange(b.start_at, b.end_at)}${b.reason ? ' · ' + esc(b.reason) : ''}</span></span></div>`).join('')}</div>` : ''}`;
 } };
+/** Carrusel de banners: todos los publicados, con flechas y puntos para verlos en el computador. */
+function bannerStrip(list) {
+  if (!list.length) return '';
+  const one = e => `<button class="banner${e.banner_img ? '' : ' gen'}" data-a="event-open" data-v="${e.id}" aria-label="${esc(e.title)}">${e.banner_img ? `<img src="${esc(e.banner_img)}" alt="">` : `<b>${esc(e.title)}</b>`}${e.start_at ? `<span>${fDay(e.start_at)} · ${fTime(e.start_at)}</span>` : ''}</button>`;
+  return `<section class="bnwrap" aria-label="${t('Eventos y avisos')}"><div class="banners" id="banners">${list.map(one).join('')}</div>
+    ${list.length > 1 ? `<div class="bnnav"><button class="icb" data-a="bn-move" data-v="-1" aria-label="${t('Anterior')}">${icon('back')}</button><span class="dots" aria-hidden="true">${list.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</span><span class="sm mu">${t('{0} publicados', list.length)}</span><button class="icb" data-a="bn-move" data-v="1" aria-label="${t('Siguiente')}">${icon('chev')}</button></div>` : ''}</section>`;
+}
+actions['bn-move'] = d => { const el = document.getElementById('banners'); if (!el) return; const w = el.firstElementChild?.offsetWidth + 10 || el.clientWidth, max = el.scrollWidth - el.clientWidth;
+  const to = +d > 0 && el.scrollLeft >= max - 4 ? 0 : +d < 0 && el.scrollLeft <= 4 ? max : el.scrollLeft + +d * w; el.scrollTo({ left: to }); };
 const seatsLeft = e => (e.seats ? e.seats - db().where('event_attendance', a => a.event_id === e.id).length : null);
 actions['event-open'] = id => { const e = db().get('events', +id), mine = db().find('event_attendance', a => a.event_id === e.id && a.user_id === App.uid), left = seatsLeft(e);
   modal({ html: `${e.poster_img || e.banner_img ? `<img class="poster" src="${esc(e.poster_img || e.banner_img)}" alt="">` : ''}<h2 style="margin:0">${esc(e.title)}</h2>
@@ -250,9 +260,10 @@ screens['u-cert'] = { tab: 'u-reservar', render() {
         ${mine ? pill(mine.expires_at ? t('Vigente hasta {0}', fDate(mine.expires_at)) : t('Certificado'), 'ok') : pill(t('Sin certificación'))}</div>
         ${mine?.diploma && c.diploma_download ? btn('Descargar diploma', 'diploma', { v: mine.id, cls: 's sec', icon: 'down' }) : ''}
         ${mine ? '' : `<div class="list">${ses.map(s => { const en = db().find('cert_enrollments', e => e.session_id === s.id && e.user_id === u.id), left = s.seats - db().where('cert_enrollments', e => e.session_id === s.id).length;
-          return `<div class="li"><span class="sp"><b>${fDT(s.start_at)}</b><span>${t('{0} cupos disponibles', Math.max(0, left))}</span></span>${en ? btn('Cancelar inscripción', 'cert-enroll', { v: s.id + ':0', cls: 's plain' }) : btn('Inscribirme', 'cert-enroll', { v: s.id + ':1', cls: 's', off: left <= 0 })}</div>`; }).join('') || `<div class="li mu">${t('No hay sesiones abiertas por ahora.')}</div>`}</div>`}</div>`; }).join('')}`;
+          const other = !en && db().find('cert_enrollments', e => e.user_id === u.id && e.status === 'inscrito' && ses.concat(db().where('cert_sessions', x => x.certification_id === c.id)).some(x => x.id === e.session_id));
+          return `<div class="li${left <= 0 && !en ? ' off' : ''}"><span class="sp"><b>${fDT(s.start_at)}</b><span>${left <= 0 ? t('Sin cupos') : t('{0} cupos disponibles', left)}</span></span>${en ? pill(t('Inscrito'), 'ok') + btn('Cancelar inscripción', 'cert-enroll', { v: s.id + ':0', cls: 's plain' }) : left <= 0 ? pill(t('Llena'), 'bad') : btn('Inscribirme', 'cert-enroll', { v: s.id + ':1', cls: 's', off: !!other })}</div>`; }).join('') || `<div class="li mu">${t('No hay sesiones abiertas por ahora.')}</div>`}</div>`}</div>`; }).join('')}`;
 } };
-actions['cert-enroll'] = v => { const [id, on] = v.split(':'); run('cert.enroll', { session_id: +id, cancel: on === '0' }, on === '1' ? 'Inscripción lista' : 'Inscripción cancelada'); };
+actions['cert-enroll'] = v => { const [id, on] = v.split(':'); S.modal = null; run('cert.enroll', { session_id: +id, cancel: on === '0' }, on === '1' ? 'Inscripción lista' : 'Inscripción cancelada'); };
 actions.diploma = id => { const c = db().get('user_certs', +id); if (c?.diploma) download('diploma-' + c.id + (c.diploma.startsWith('data:application/pdf') ? '.pdf' : '.jpg'), c.diploma); };
 
 screens['u-eventos'] = { tab: 'u-reservar', render() {
@@ -267,12 +278,19 @@ const resCard = (r, acts = '') => { const gs = db().where('reservation_guests', 
     <p class="sm mu">${fRange(r.start_at, r.end_at)}${r.title ? ' · ' + esc(r.title) : ''}${host ? ' · ' + t('Anfitrión') + ': ' + esc(host.name) : ''}${gs.length ? ` · ${gs.length + 1} ${t('personas')}` : ''}</p>
     ${f ? `<p class="sm">${icon('file')} ${esc(f.name)} · ${pill(t({ pendiente: 'En espera de revisión', aprobado: 'Aprobado', rechazado: 'Rechazado', observado: 'Con observaciones', eliminado: 'Archivo borrado' }[f.status]), { pendiente: 'warn', aprobado: 'ok', rechazado: 'bad', observado: 'warn' }[f.status] || '')}</p>` : ''}
     ${r.real_min != null && r.charged_min ? `<p class="sm mu">${t('Tiempo real descontado')}: ${R.dur(r.real_min)}</p>` : ''}${acts ? `<div class="row w">${acts}</div>` : ''}</div>`; };
+/** Sesiones de certificación a las que estoy inscrito y que aún no terminan. */
+const myCerts = now => db().where('cert_enrollments', e => e.user_id === App.uid && e.status === 'inscrito').map(e => { const s = db().get('cert_sessions', e.session_id), c = s && db().get('certifications', s.certification_id); return s && c && T(s.end_at) > now ? { ...s, cert: c, enrollment: e } : null; }).filter(Boolean);
+const certCard = s => `<div class="card stack"><div class="row between"><h3>${icon('award')} ${esc(s.cert.name)}</h3>${pill(t('Certificación'), 'info')}</div>
+  <p class="sm mu">${fRange(s.start_at, s.end_at)} · ${esc(db().get('spaces', s.cert.space_id)?.name || '')}${s.cert.cost ? ` · $${fmtN(s.cert.cost)} (${t('se paga en recepción')})` : ''}</p>
+  <div class="row w">${btn('Cancelar inscripción', 'cert-cancel-ask', { v: s.id, cls: 's plain' })}</div></div>`;
+actions['cert-cancel-ask'] = id => { const s = db().get('cert_sessions', +id), c = db().get('certifications', s.certification_id);
+  modal({ html: `<h2 style="margin:0">${t('¿Cancelar tu inscripción?')}</h2><p>${esc(c.name)} · ${fDT(s.start_at)}</p><div class="row">${btn('Sí, cancelar', 'cert-enroll', { v: s.id + ':0', cls: 'danger sp' })}${btn('Volver', 'modal-close', { cls: 'plain' })}</div>` }); };
 const myRes = fn => db().where('reservations', r => (r.user_id === App.uid || db().find('reservation_guests', g => g.reservation_id === r.id && g.user_id === App.uid)) && fn(r));
 screens['u-activas'] = { tab: 'u-activas', render() {
-  const now = Date.now(), list = myRes(r => ACTIVE.includes(r.status) && T(r.end_at) > now).sort((a, b) => T(a.start_at) - T(b.start_at));
+  const now = Date.now(), list = [...myRes(r => ACTIVE.includes(r.status) && T(r.end_at) > now), ...myCerts(now)].sort((a, b) => T(a.start_at) - T(b.start_at));
   return `<div class="head"><h1>${t('Mis reservas')}</h1>${btn('Historial', 'go', { v: 'u-hist', cls: 's plain', icon: 'clock' })}</div>
     <p class="sm mu">${t('Puedes tener hasta {0} reservas activas. Cancela con al menos {1} minutos de aviso para recuperar tus horas; si no llegas en {2} minutos, la reserva se libera.', cfg('max_active'), cfg('cancel_notice_min'), cfg('tolerance_min'))}</p>
-    ${list.map(r => resCard(r, r.user_id !== App.uid ? '' : (T(r.start_at) <= now ? btn('Terminé', 'res-finish', { v: r.id, cls: 's', icon: 'check' }) : '') + btn('Cancelar reserva', 'res-cancel-ask', { v: r.id, cls: 's plain' }))).join('') || empty('No tienes reservas activas. Elige un espacio en Reservar.')}
+    ${list.map(r => r.cert ? certCard(r) : resCard(r, r.user_id !== App.uid ? '' : (T(r.start_at) <= now ? btn('Terminé', 'res-finish', { v: r.id, cls: 's', icon: 'check' }) : '') + btn('Cancelar reserva', 'res-cancel-ask', { v: r.id, cls: 's plain' }))).join('') || empty('No tienes reservas activas. Elige un espacio en Reservar.')}
     ${btn('Reservar un espacio', 'go', { v: 'u-reservar', cls: 'block sec', icon: 'plus' })}`;
 } };
 actions['res-cancel-ask'] = id => { const r = db().get('reservations', +id), late = T(r.start_at) - Date.now() < cfg('cancel_notice_min') * 60000 && r.charged_min > 0 && r.user_id === App.uid;

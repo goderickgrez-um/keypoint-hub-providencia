@@ -3,10 +3,10 @@ import * as R from '../core/rules.js';
 import * as Q from '../core/queries.js';
 import { KINDS, MODES, ROLES, WEEKDAYS, PALETTE, THEME, DEFAULTS } from '../core/catalog.js';
 import { applyTheme, themeOf, themeMode } from './theme.js';
-import { heatPlan } from './plan.js';
+import { heatPlan, floorSeg } from './plan.js';
 import { uname, sname, rangeOf, rangeBar, anon } from './staff.js';
 import { logoSrc } from './user.js';
-import { fileInput, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
+import { fileInput, confirmBox, memo, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 const closeQuiet = () => { S.modal = null; };
@@ -41,33 +41,42 @@ screens['a-esp'] = { roles: ['admin', 'encargado'], render() {
   const log = db().where('audit_log', a => a.entity === 'spaces').sort((a, b) => T(b.at) - T(a.at)).slice(0, 12);
   return `<div class="head"><h1>Espacios</h1>${can() ? btn('Crear espacio', 'sp-open', { v: 0, cls: 's', icon: 'plus' }) : ''}</div>
     ${table(['Espacio', 'Tipo', 'Piso', 'Aforo', 'Accesible', 'Encargados', ''], (labOnly() ? mySpaces() : db().all('spaces')).map(s => [`<b>${esc(s.name)}</b>${s.active ? '' : ' ' + pill('Inactivo')}`, `${KINDS[s.kind] || s.kind} · ${MODES[s.mode]}`, s.floor, s.capacity, s.accessible ? 'Sí' : 'No', esc(Q.managersOf(db(), s.id).map(uname).join(', ') || 'Administración'), manages(s.id) ? btn('Editar', 'sp-open', { v: s.id, cls: 's plain', icon: 'edit' }) : '']))}
-    <p class="sm mu">Aforo máximo por piso: ${Object.entries(cfg('floor_capacity')).map(([f, c]) => `piso ${f}, ${c} personas`).join(' · ')}. Se cambia en Reglas.</p>
+    <p class="sm mu">Aforo máximo por piso: ${Object.entries(cfg('floor_capacity')).map(([f, c]) => `piso ${f}, ${c} personas`).join(' · ')}. Se cambia en Reglas; los pisos se agregan o quitan en el plano.</p>
     <h2>Cambios recientes</h2>${table(['Fecha', 'Quién', 'Cambio', 'Detalle'], log.map(a => [fDT(a.at), esc(uname(a.actor_id)), `${esc(a.action)} · ${esc(sname(+a.entity_id))}`, `<span class="sm">${esc(a.detail || '')}</span>`]), 'Aún no hay cambios registrados.')}
     ${can() ? btn('Editar el plano del Hub', 'go', { v: 'a-plano', cls: 'block sec', icon: 'map' }) : ''}`;
 } };
 actions['sp-open'] = id => { const s = db().get('spaces', +id); S.space = +id;
-  fill({ sp_name: s?.name || '', sp_kind: s?.kind || 'lab', sp_mode: s?.mode || 'reserva', sp_floor: s?.floor || 2, sp_cap: s?.capacity ?? 6, sp_acc: s ? s.accessible : true, sp_cert: s ? s.requires_cert : false, sp_lvl: s?.min_level || 1, sp_hours: s?.monthly_hours ?? 48,
+  fill({ sp_cday: 2, sp_ctime: '12:00', sp_name: s?.name || '', sp_kind: s?.kind || 'lab', sp_mode: s?.mode || 'reserva', sp_floor: s?.floor || Q.floorsOf(db()).slice(-1)[0] || 1, sp_cap: s?.capacity ?? 6, sp_acc: s ? s.accessible : true, sp_cert: s ? s.requires_cert : false, sp_lvl: s?.min_level || 1, sp_hours: s?.monthly_hours ?? 48,
     sp_gap: s?.gap_min ?? 30, sp_tol: s?.tolerance_min ?? '', sp_max: s?.max_hours ?? '', sp_night: s ? s.allow_overnight : false, sp_accept: s?.accept || '', sp_notes: s?.notes || '', sp_on: s ? s.active : true, eq_name: '', eq_model: '', eq_specs: '', eq_cap: 1 }); S.eq = 0; go('a-espd'); };
 screens['a-espd'] = { roles: ['admin', 'encargado'], render() {
   const s = db().get('spaces', S.space), adm = can(), eqs = s ? db().where('resources', r => r.space_id === s.id) : [], grp = val('sp_kind') === 'residencia';
   if (S.space == null) return back('a-esp') + empty('Elige un espacio desde la lista.');
   return `${back('a-esp', 'Espacios')}<h1>${s ? esc(s.name) : 'Nuevo espacio'}</h1><div class="grid"><div class="card stack"><h3>Datos del espacio</h3><div class="form">${field('sp_name', 'Nombre', { cls: 'full' })}
-      ${adm ? select('sp_kind', 'Tipo', Object.entries(KINDS), { raw: true, live: true }) + select('sp_mode', 'Uso', Object.entries(MODES), { raw: true }) + field('sp_floor', 'Piso', { type: 'number', attrs: 'min="1"' }) : ''}
-      ${field('sp_cap', 'Aforo (personas)', { type: 'number', attrs: 'min="0"' })}${field('sp_hours', 'Horas por persona al mes (0 = sin saldo)', { type: 'number', attrs: 'min="0"' })}
-      ${field('sp_gap', 'Minutos entre trabajos', { type: 'number', attrs: 'min="0"' })}${field('sp_tol', `Espera antes de liberar (min; vacío = ${cfg('tolerance_min')})`, { type: 'number' })}
-      ${field('sp_max', `Duración máxima en horas (vacío = ${cfg('max_hours')})`, { type: 'number' })}${field('sp_lvl', 'Nivel de certificación exigido', { type: 'number', attrs: 'min="1"' })}
-      ${field('sp_accept', 'Formatos de archivo aceptados (vacío = no pide archivo)', { cls: 'full', ph: '.stl,.3mf,.obj' })}
-      ${area('sp_notes', 'Notas internas')}</div>
+      ${adm ? select('sp_kind', 'Tipo de espacio (define cómo se reserva)', Object.entries(KINDS), { raw: true, live: true }) + select('sp_mode', 'Forma de uso (con reserva, libre o solo eventos)', Object.entries(MODES), { raw: true }) + select('sp_floor', 'Piso (se agregan pisos en el plano)', Q.floorsOf(db()).map(f => [f, 'Piso ' + f]), { raw: true }) : ''}
+      ${field('sp_cap', 'Aforo (personas al mismo tiempo)', { type: 'number', attrs: 'min="0"' })}${field('sp_hours', 'Horas al mes por persona (0 = sin límite)', { type: 'number', attrs: 'min="0"' })}
+      ${field('sp_gap', 'Minutos entre reservas (limpieza o preparación)', { type: 'number', attrs: 'min="0"' })}${field('sp_tol', `Minutos de atraso antes de liberar (vacío = ${cfg('tolerance_min')})`, { type: 'number', attrs: 'min="0"' })}
+      ${field('sp_max', `Duración máxima de una reserva (horas; vacío = ${cfg('max_hours')})`, { type: 'number', attrs: 'min="0"' })}${field('sp_lvl', 'Nivel de certificación exigido (1 = básico)', { type: 'number', attrs: 'min="1"' })}
+      ${field('sp_accept', 'Archivos que se piden al reservar (formatos separados por coma; vacío = no se pide archivo)', { cls: 'full', ph: '.stl,.3mf,.obj' })}
+      ${area('sp_notes', 'Notas internas (solo las ve el equipo)')}</div>
       ${s && ['lab', 'gaming'].includes(s.kind) ? `<p class="sm"><b>Encargados:</b> ${esc(Q.managersOf(db(), s.id).map(uname).join(', ') || 'sin asignar')}${adm ? ` · <button class="pill info" data-a="go" data-v="a-emp">Asignar en Empleados</button>` : ''}</p>` : ''}
-      ${check('sp_acc', 'Accesible para personas con movilidad reducida')}${check('sp_cert', 'Exige certificación para reservar')}${check('sp_night', 'Permite trabajos que terminan después del cierre (sin supervisión)')}${check('sp_on', 'Espacio activo')}
-      ${btn(s ? 'Guardar cambios' : 'Crear espacio', 'sp-save', { cls: 'block' })}</div>
+      ${check('sp_acc', 'Accesible para personas con movilidad reducida')}${check('sp_cert', 'Exige certificación para reservar (solo personas certificadas)', { live: true })}
+      ${val('sp_cert') && !(s && db().find('certifications', c => c.space_id === s.id)) ? `<div class="card stack" style="background:var(--tint)"><p class="sm"><b>Se creará la certificación de este espacio.</b> Indica cuándo se imparte cada semana (se puede cambiar después en Certificaciones).</p>
+        <div class="form">${select('sp_cday', 'Día de la sesión semanal', WEEKDAYS.map((d, i) => [i, d]), { raw: true })}${field('sp_ctime', 'Hora de inicio', { type: 'time' })}</div></div>` : ''}
+      ${check('sp_night', 'Permite trabajos que terminan después del cierre (quedan sin supervisión)')}${check('sp_on', 'Espacio activo (visible para reservar)')}
+      ${btn(s ? 'Guardar cambios' : 'Crear espacio', 'sp-save', { cls: 'block' })}${s && adm ? btn('Eliminar espacio', 'sp-del', { v: s.id, cls: 'block danger', icon: 'trash' }) : ''}</div>
     ${s ? `<div class="stack"><h3>${grp ? 'Grupos de residencia' : 'Equipos'} (${eqs.filter(e => e.active).length})</h3>
       <div class="list">${eqs.map(e => `<div class="li"><span class="sp"><b>${esc(e.name)}${e.active ? '' : ' ' + pill('Fuera de servicio', 'warn')}</b><span>${esc([e.model, e.specs].filter(Boolean).join(' · '))}${grp || e.capacity > 1 ? ` · ${e.capacity} cupos` : ''}</span></span><button class="icb" data-a="eq-edit" data-v="${e.id}" aria-label="Editar">${icon('edit')}</button><button class="icb" data-a="eq-del" data-v="${e.id}" aria-label="Quitar">${icon('trash')}</button></div>`).join('') || '<div class="li mu">Sin equipos registrados.</div>'}</div>
       <div class="card stack"><h3>${S.eq ? 'Editar' : 'Agregar'} ${grp ? 'grupo' : 'equipo'}</h3><div class="form">${field('eq_name', 'Nombre')}${field('eq_model', 'Modelo')}${field('eq_cap', 'Cupos', { type: 'number', attrs: 'min="1"' })}${area('eq_specs', 'Especificaciones')}</div>
         ${check('eq_on', 'En servicio', { value: true })}<div class="row">${btn(S.eq ? 'Guardar equipo' : 'Agregar', 'eq-save', { cls: 'sp sec' })}${S.eq ? btn('Cancelar', 'eq-edit', { v: 0, cls: 'plain' }) : ''}</div></div></div>` : ''}</div>`;
 } };
 actions['sp-save'] = async () => { const r = await run('space.save', { id: S.space || undefined, name: val('sp_name'), kind: val('sp_kind'), mode: val('sp_mode'), floor: val('sp_floor'), capacity: val('sp_cap'), accessible: val('sp_acc'), requires_cert: val('sp_cert'), min_level: val('sp_lvl'),
-  monthly_hours: val('sp_hours'), gap_min: val('sp_gap'), tolerance_min: val('sp_tol'), max_hours: val('sp_max'), allow_overnight: val('sp_night'), accept: val('sp_accept'), notes: val('sp_notes'), active: val('sp_on') }); if (r) { S.space = r.id; toast('Espacio guardado'); } };
+  monthly_hours: val('sp_hours'), gap_min: val('sp_gap'), tolerance_min: val('sp_tol'), max_hours: val('sp_max'), allow_overnight: val('sp_night'), accept: val('sp_accept'), notes: val('sp_notes'), active: val('sp_on'), cert_weekday: val('sp_cday'), cert_time: val('sp_ctime') });
+  if (r) { const nc = !S.space && val('sp_cert'); S.space = r.id; toast(nc ? 'Espacio y certificación creados' : 'Espacio guardado'); } };
+actions['sp-del'] = id => { const s = db().get('spaces', +id), d = db(), used = d.find('reservations', r => r.space_id === s.id) || d.find('visits', v => v.space_id === s.id) || d.find('files', f => f.space_id === s.id);
+  const fut = d.where('reservations', r => r.space_id === s.id && ['confirmada', 'en_revision', 'en_curso'].includes(r.status) && T(r.end_at) > Date.now()).length;
+  confirmBox({ title: '¿Eliminar este espacio?', danger: true, ok: used ? 'Desactivar espacio' : 'Eliminar espacio',
+    text: `<p><b>${esc(s.name)}</b></p><p>${used ? 'Este espacio tiene historial, así que se <b>desactivará</b>: deja de aparecer para reservar y su historial se conserva para las estadísticas.' : 'Se borrará junto con sus equipos, bloqueos y certificación.'}</p>${fut ? `<p>${fut} reservas futuras se cancelarán y sus dueños recibirán un aviso.</p>` : ''}`,
+    fn: async () => { const r = await run('space.remove', { id: s.id }); if (r) { toast(r.removed ? 'Espacio eliminado' : 'Espacio desactivado'); S.space = null; go('a-esp'); } } }); };
 actions['eq-edit'] = id => { const e = db().get('resources', +id); S.eq = +id; fill({ eq_name: e?.name || '', eq_model: e?.model || '', eq_specs: e?.specs || '', eq_cap: e?.capacity || 1, eq_on: e ? e.active : true }); go(S.k); };
 actions['eq-save'] = async () => { const r = await run('resource.save', { id: S.eq || undefined, space_id: S.space, name: val('eq_name'), model: val('eq_model'), specs: val('eq_specs'), capacity: val('eq_cap'), active: val('eq_on', true) }); if (r) actions['eq-edit'](0); };
 actions['eq-del'] = id => run('resource.remove', { id: +id }, 'Equipo retirado');
@@ -77,26 +86,49 @@ screens['a-agenda'] = { roles: ['admin', 'encargado', 'recepcion'], render() {
   const edit = can('encargado'), scopes = [...(can() ? [['', 'Todo el Hub']] : []), ...mySpaces().map(s => [s.id, s.name])], sc = S.agSpace ?? (scopes[0]?.[0] ?? ''), spaceId = sc === '' ? null : +sc;
   const days = openDays(14), day = S.agDay && days.some(d => R.dayKey(d) === S.agDay) ? S.agDay : R.dayKey(days[0] || new Date()), d0 = new Date(day + 'T00:00:00'), h = R.hoursFor(cfg('hours'), d0) || [510, 1080];
   const blocks = db().where('blocks', b => T(b.end_at) > Date.now()).sort((a, b) => T(a.start_at) - T(b.start_at)), hours = []; for (let m = h[0]; m < h[1]; m += 60) hours.push(m);
-  const hit = m => blocks.find(b => (b.space_id == null || b.space_id === spaceId) && R.overlaps(R.atMin(d0, m), R.atMin(d0, Math.min(m + 60, h[1])), b.start_at, b.end_at));
+  const pend = agPend(), hit = m => agHit(d0, m, h[1], spaceId);
+  const dayBlocks = blocks.filter(b => (b.space_id == null || b.space_id === spaceId) && R.overlaps(d0, R.addDays(d0, 1), b.start_at, b.end_at));
+  const n = pend.add.size + pend.free.size;
   return `<h1>Agenda y bloqueos</h1><p class="mu">Bloquea horas o días por feriados, eventos o mantención. Las reservas afectadas se cancelan con aviso y devolución de horas.</p>
-    ${edit ? `<div class="card stack"><div class="hs">${scopes.map(([v, l]) => `<button class="chip ${String(sc) === String(v) ? 'on' : ''}" data-a="ag-space" data-v="${v}">${esc(l)}</button>`).join('')}</div>${dayChips('ag-day', day, days)}
-      <div class="chips">${hours.map(m => { const b = hit(m); return `<button class="chip ${b ? 'on' : ''}" data-a="ag-hour" data-v="${m}" title="${esc(b?.reason || '')}">${icon(b ? 'lock' : 'clock')} ${R.hm(m)}</button>`; }).join('')}</div>
-      <p class="sm mu">Toca una hora para bloquearla o liberarla en ${esc(spaceId ? sname(spaceId) : 'todo el Hub')}.</p>
-      <div class="form">${field('ag_reason', 'Motivo del bloqueo', { cls: 'full', ph: 'Feriado, mantención, evento…' })}${field('ag_from', 'Desde', { type: 'datetime-local', value: local(R.atMin(d0, h[0])) })}${field('ag_to', 'Hasta', { type: 'datetime-local', value: local(R.atMin(d0, h[1])) })}</div>
-      <div class="row w">${btn('Bloquear ese periodo', 'ag-range', { cls: 's sp' })}${btn('Bloquear el día completo', 'ag-allday', { cls: 's plain' })}</div></div>` : ''}
+    ${edit ? `<div class="card stack"><div class="hs" role="group" aria-label="Espacio">${scopes.map(([v, l]) => `<button class="chip ${String(sc) === String(v) ? 'on' : ''}" aria-pressed="${String(sc) === String(v)}" data-a="ag-space" data-v="${v}">${esc(l)}</button>`).join('')}</div>${dayChips('ag-day', day, days)}
+      <p class="sm mu">1. Toca las horas que quieres bloquear o liberar en <b>${esc(spaceId ? sname(spaceId) : 'todo el Hub')}</b>. 2. Revisa la lista. 3. Toca <b>Guardar cambios</b>.</p>
+      <div class="chips" role="group" aria-label="Horas del día">${hours.map(m => { const b = hit(m), add = pend.add.has(m), fr = pend.free.has(m), on = (b && !fr) || add;
+        const past = +R.atMin(d0, m + 60) <= Date.now();
+        return `<button class="chip ${on ? 'on' : ''}${add || fr ? ' pend' : ''}" aria-pressed="${on}" data-a="ag-hour" data-v="${m}"${past ? ' disabled' : ''} title="${esc(b?.reason || '')}">${icon(on ? 'lock' : 'clock')} ${R.hm(m)}${add ? ' · nuevo' : fr ? ' · se libera' : ''}</button>`; }).join('')}</div>
+      <div class="card stack" aria-live="polite" style="background:var(--tint)"><b>Horas bloqueadas:</b>${dayBlocks.length || pend.add.size ? `<ul class="blist">${dayBlocks.map(b => `<li>${fTime(T(b.start_at) < +d0 ? d0 : b.start_at)} – ${fTime(T(b.end_at) > +R.addDays(d0, 1) ? R.addDays(d0, 1) : b.end_at)} · ${esc(b.space_id ? sname(b.space_id) : 'Todo el Hub')}${b.reason ? ' · ' + esc(b.reason) : ''}</li>`).join('')}${ranges([...pend.add]).map(([a, z]) => `<li class="new">${R.hm(a)} – ${R.hm(z)} · <b>nuevo, sin guardar</b></li>`).join('')}</ul>` : '<span class="sm mu">Ninguna para este día.</span>'}
+        ${pend.free.size ? `<span class="sm"><b>Se liberarán:</b> ${ranges([...pend.free]).map(([a, z]) => `${R.hm(a)} – ${R.hm(z)}`).join(', ')}</span>` : ''}</div>
+      <div class="form">${field('ag_reason', 'Motivo del bloqueo (lo verán los usuarios)', { cls: 'full', ph: 'Feriado, mantención, evento…' })}</div>
+      <div class="row w">${btn(n ? `Guardar cambios (${n})` : 'Guardar cambios', 'ag-save', { cls: 'sp', off: !n, raw: true, icon: 'check' })}${n ? btn('Descartar', 'ag-discard', { cls: 'plain' }) : ''}</div>
+      <details><summary class="sm b">Bloquear un periodo más largo o el día completo</summary><div class="stack" style="margin-top:8px"><div class="form">${field('ag_from', 'Desde', { type: 'datetime-local', value: local(R.atMin(d0, h[0])) })}${field('ag_to', 'Hasta', { type: 'datetime-local', value: local(R.atMin(d0, h[1])) })}</div>
+        <div class="row w">${btn('Bloquear ese periodo', 'ag-range', { cls: 's sp' })}${btn('Bloquear el día completo', 'ag-allday', { cls: 's plain' })}</div></div></details></div>` : ''}
     <h2>Bloqueos vigentes</h2>${table(['Espacio', 'Desde', 'Hasta', 'Motivo', ''], blocks.map(b => [esc(b.space_id ? sname(b.space_id) : 'Todo el Hub'), fDT(b.start_at), fDT(b.end_at), esc(b.reason || ''), (b.space_id ? manages(b.space_id) : can()) ? btn('Quitar', 'ag-del', { v: b.id, cls: 's plain' }) : '']), 'No hay bloqueos vigentes.')}`;
 } };
 const agScope = () => { const sc = S.agSpace ?? (can() ? '' : mySpaces()[0]?.id); return sc === '' || sc == null ? null : +sc; };
-const agDay = () => new Date((S.agDay || R.dayKey(openDays(1)[0] || new Date())) + 'T00:00:00');
+const agDay = () => new Date((S.agDay && openDays(14).some(d => R.dayKey(d) === S.agDay) ? S.agDay : R.dayKey(openDays(1)[0] || new Date())) + 'T00:00:00');
+/** Cambios de agenda sin guardar, por espacio y día. */
+const agPend = () => { const k = agScope() + '|' + R.dayKey(agDay()); S.agP ||= {}; return (S.agP[k] ||= { add: new Set(), free: new Set() }); };
+const agHit = (d0, m, end, sp) => db().find('blocks', b => (b.space_id == null || b.space_id === sp) && R.overlaps(R.atMin(d0, m), R.atMin(d0, Math.min(m + 60, end)), b.start_at, b.end_at));
+/** Une horas seguidas en tramos: [600, 660, 780] → [[600, 720], [780, 840]] */
+const ranges = ms => ms.sort((a, b) => a - b).reduce((o, m) => { const l = o[o.length - 1]; if (l && l[1] === m) l[1] = m + 60; else o.push([m, m + 60]); return o; }, []);
 actions['ag-space'] = v => { S.agSpace = v; go(S.k); };
 actions['ag-day'] = v => { S.agDay = v; delete S.f.ag_from; delete S.f.ag_to; go(S.k); };
-actions['ag-hour'] = m => { const d0 = agDay(), a = R.atMin(d0, +m), b = R.atMin(d0, +m + 60), sp = agScope(), ex = db().find('blocks', x => (x.space_id ?? null) === sp && R.overlaps(a, b, x.start_at, x.end_at));
-  if (!ex) return run('block.add', { space_id: sp, start: a, end: b, reason: val('ag_reason') }, 'Hora bloqueada');
-  if (T(ex.start_at) === +a && T(ex.end_at) === +b) return run('block.remove', { id: ex.id }, 'Hora liberada');
-  toast('Esa hora pertenece a un bloqueo más largo. Quítalo en la lista de abajo'); };
-actions['ag-range'] = () => { if (!val('ag_from') || !val('ag_to')) return toast('Indica desde y hasta cuándo'); run('block.add', { space_id: agScope(), start: new Date(val('ag_from')), end: new Date(val('ag_to')), reason: val('ag_reason') }, 'Periodo bloqueado'); };
-actions['ag-allday'] = () => { const d0 = agDay(); run('block.add', { space_id: agScope(), start: d0, end: R.addDays(d0, 1), reason: val('ag_reason') || 'Cierre' }, 'Día bloqueado'); };
-actions['ag-del'] = id => run('block.remove', { id: +id }, 'Bloqueo quitado');
+actions['ag-hour'] = m => { m = +m; const d0 = agDay(), sp = agScope(), p = agPend(), h = R.hoursFor(cfg('hours'), d0) || [510, 1080], b = agHit(d0, m, h[1], sp);
+  if (p.add.has(m)) p.add.delete(m); else if (p.free.has(m)) p.free.delete(m);
+  else if (!b) p.add.add(m);
+  else if ((b.space_id ?? null) !== sp) return toast('Esa hora está bloqueada para todo el Hub. Libérala eligiendo “Todo el Hub”');
+  else p.free.add(m);
+  go(S.k); };
+actions['ag-discard'] = () => { const p = agPend(); p.add.clear(); p.free.clear(); go(S.k); };
+actions['ag-save'] = () => { const p = agPend(), d0 = agDay(), sp = agScope(), add = ranges([...p.add]), free = ranges([...p.free]), when = rs => rs.map(([a, z]) => `${R.hm(a)} – ${R.hm(z)}`).join(', ');
+  const hits = db().where('reservations', r => ['confirmada', 'en_revision'].includes(r.status) && (sp == null || r.space_id === sp) && add.some(([a, z]) => R.overlaps(R.atMin(d0, a), R.atMin(d0, z), r.start_at, r.end_at))).length;
+  confirmBox({ title: 'Confirmar cambios de agenda', ok: 'Guardar cambios', text: `<p>${esc(sp ? sname(sp) : 'Todo el Hub')} · ${fDay(d0)}</p>${add.length ? `<p><b>Horas bloqueadas:</b> ${when(add)}${val('ag_reason') ? ' · ' + esc(val('ag_reason')) : ''}</p>` : ''}${free.length ? `<p><b>Horas liberadas:</b> ${when(free)}</p>` : ''}${hits ? `<p>${hits} reservas en esas horas se cancelarán y sus dueños recibirán un aviso con devolución de horas.</p>` : ''}`,
+    fn: async () => { const r = await run('block.batch', { space_id: sp, add: add.map(([a, z]) => [R.atMin(d0, a), R.atMin(d0, z)]), free: free.map(([a, z]) => [R.atMin(d0, a), R.atMin(d0, z)]), reason: val('ag_reason') });
+      if (r) { p.add.clear(); p.free.clear(); toast(`Cambios guardados${add.length ? ` · horas bloqueadas: ${when(add)}` : ''}${free.length ? ` · liberadas: ${when(free)}` : ''}`); } } }); };
+actions['ag-range'] = () => { if (!val('ag_from') || !val('ag_to')) return toast('Indica desde y hasta cuándo'); const a = new Date(val('ag_from')), z = new Date(val('ag_to')), sp = agScope();
+  confirmBox({ title: '¿Bloquear este periodo?', ok: 'Bloquear', text: `<p>${esc(sp ? sname(sp) : 'Todo el Hub')}: ${fDT(a)} – ${fDT(z)}${val('ag_reason') ? ' · ' + esc(val('ag_reason')) : ''}</p><p>Las reservas en ese periodo se cancelan con aviso.</p>`, fn: () => run('block.add', { space_id: sp, start: a, end: z, reason: val('ag_reason') }, 'Periodo bloqueado') }); };
+actions['ag-allday'] = () => { const d0 = agDay(), sp = agScope();
+  confirmBox({ title: '¿Bloquear el día completo?', ok: 'Bloquear el día', text: `<p>${esc(sp ? sname(sp) : 'Todo el Hub')} · ${fDay(d0)}</p><p>Las reservas de ese día se cancelan con aviso.</p>`, fn: () => run('block.add', { space_id: sp, start: d0, end: R.addDays(d0, 1), reason: val('ag_reason') || 'Cierre' }, 'Día bloqueado') }); };
+actions['ag-del'] = id => { const b = db().get('blocks', +id); confirmBox({ title: '¿Quitar este bloqueo?', ok: 'Quitar bloqueo', text: `<p>${esc(b.space_id ? sname(b.space_id) : 'Todo el Hub')}: ${fDT(b.start_at)} – ${fDT(b.end_at)}</p>`, fn: () => run('block.remove', { id: +id }, 'Bloqueo quitado') }); };
 
 // ============================================================ Apariencia
 const TOKENS = [['bg', 'Fondo de la app', 'bg'], ['bg2', 'Segundo color del fondo (degradado)', 'bg'], ['surface', 'Tarjetas y paneles', 'bg'], ['text', 'Texto', 'text'], ['muted', 'Texto secundario', 'text'],
@@ -133,18 +165,18 @@ actions['ap-save'] = async () => { await run('config.set', { key: 'system_name',
 // ============================================================ Reglas
 const NUM = [['block_min', 'Duración del bloque de salas y gaming (min)'], ['block_gap_min', 'Pausa entre bloques (min)'], ['cancel_notice_min', 'Aviso mínimo para cancelar sin perder horas (min)'], ['tolerance_min', 'Espera antes de liberar una reserva (min)'],
   ['max_active', 'Reservas activas por persona'], ['max_hours', 'Duración máxima de una reserva (h)'], ['staff_extra_hours', 'Horas extra del personal por laboratorio'], ['release_room_after_min', 'Liberar sala sin anfitrión tras (min)'],
-  ['code_minutes', 'Vigencia de los códigos enviados por correo (min)'], ['file_max_mb', 'Tamaño máximo de archivo (MB)'], ['keep_rejected_days', 'Días que se guarda un archivo rechazado'], ['keep_approved_days', 'Días mínimos que se guarda un archivo aprobado']];
+  ['code_minutes', 'Vigencia de los códigos enviados por correo (min)'], ['file_max_mb', 'Tamaño máximo de archivo (MB)'], ['keep_rejected_days', 'Días que se guarda un archivo rechazado'], ['keep_approved_days', 'Días mínimos que se guarda un archivo aprobado'], ['min_age', 'Edad mínima para registrarse (años)'], ['max_age', 'Edad máxima para registrarse (años)']];
 screens['a-reglas'] = { roles: ['admin'], render() {
-  if (!S.rgLoaded) { const h = cfg('hours'), m = cfg('mail'), fc = cfg('floor_capacity'); NUM.forEach(([k]) => { S.f['rg_' + k] = cfg(k); });
+  if (!S.rgLoaded) { const h = cfg('hours'), m = cfg('mail'), fc = cfg('floor_capacity'); NUM.forEach(([k]) => { S.f['rg_' + k] = cfg(k); }); for (const f in fc) S.f['rg_f' + f] = fc[f];
     for (let d = 0; d < 7; d++) { S.f['rg_o' + d] = h[d] ? R.hm(h[d][0]) : ''; S.f['rg_c' + d] = h[d] ? R.hm(h[d][1]) : ''; }
-    fill({ rg_zone: cfg('default_zone') ?? '', rg_f1: fc[1], rg_f2: fc[2], rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
+    fill({ rg_zone: cfg('default_zone') ?? '', rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
   const out = [...db().all('outbox')].reverse().slice(0, 8);
   return `<h1>Reglas del sistema</h1><p class="mu">Estos valores rigen para todo el Hub. Las horas mensuales y los minutos entre trabajos se definen en cada espacio.</p>
     <div class="grid"><div class="card stack"><h3>Horario de atención</h3><p class="sm mu">Deja un día vacío para marcarlo como cerrado.</p>
-      ${[1, 2, 3, 4, 5, 6, 0].map(d => `<div class="row"><span style="flex:0 0 84px">${WEEKDAYS[d]}</span>${field('rg_o' + d, '', { type: 'time', cls: 'sp' })}${field('rg_c' + d, '', { type: 'time', cls: 'sp' })}</div>`).join('')}
+      ${[1, 2, 3, 4, 5, 6, 0].map(d => `<div class="row"><span style="flex:0 0 84px">${WEEKDAYS[d]}</span>${field('rg_o' + d, '', { type: 'time', cls: 'sp', attrs: `aria-label="${WEEKDAYS[d]}: abre"` })}${field('rg_c' + d, '', { type: 'time', cls: 'sp', attrs: `aria-label="${WEEKDAYS[d]}: cierra"` })}</div>`).join('')}
       <h3>Personas sin reserva</h3><p class="sm mu">Quien entra sin una reserva para esa hora queda registrado en esta zona.</p>
       ${select('rg_zone', 'Zona por defecto', db().where('spaces', s => s.active && s.mode !== 'reserva').map(s => [s.id, s.name]), { raw: true, blank: 'Cowork (predeterminado)' })}
-      <h3>Aforo por piso</h3><div class="form">${field('rg_f1', 'Piso 1', { type: 'number' })}${field('rg_f2', 'Piso 2', { type: 'number' })}</div></div>
+      <h3>Aforo por piso</h3><div class="form">${Q.floorsOf(db()).map(f => field('rg_f' + f, 'Piso ' + f + ' (personas)', { type: 'number', attrs: 'min="0"' })).join('')}</div></div>
     <div class="card stack"><h3>Reservas y archivos</h3><div class="form">${NUM.map(([k, l]) => field('rg_' + k, l, { type: 'number', attrs: 'min="0"' })).join('')}</div>${check('rg_host', 'Liberar la sala de reuniones si el anfitrión no llega (por defecto se mantiene para los invitados)')}</div>
     <div class="card stack"><h3>Correo y cuentas</h3><p class="sm mu">Cuenta que envía confirmaciones y avisos. La contraseña de aplicación va en el archivo .env del servidor, nunca aquí.</p>
       <div class="form">${field('rg_mh', 'Servidor SMTP')}${field('rg_mp', 'Puerto', { type: 'number' })}${field('rg_mu', 'Cuenta de correo', { type: 'email' })}${field('rg_mf', 'Nombre del remitente')}
@@ -156,7 +188,7 @@ actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).
   for (let d = 0; d < 7; d++) if (val('rg_o' + d) && val('rg_c' + d)) { hours[d] = [mins(val('rg_o' + d)), mins(val('rg_c' + d))]; if (hours[d][1] <= hours[d][0]) return toast(`Revisa el horario del ${WEEKDAYS[d].toLowerCase()}`); }
   const set = (key, value) => App.data.call('config.set', { key, value });
   try { await set('hours', hours); for (const [k] of NUM) await set(k, Math.max(0, +val('rg_' + k) || 0));
-    await set('floor_capacity', { 1: +val('rg_f1') || 0, 2: +val('rg_f2') || 0 }); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null);
+    await set('floor_capacity', Object.fromEntries(Q.floorsOf(db()).map(f => [f, +val('rg_f' + f) || 0]))); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null);
     await set('mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }); await set('google_client_id', val('rg_g').trim()); await set('microsoft_client_id', val('rg_ms').trim()); toast('Reglas guardadas'); }
   catch (e) { toast(e.user ? e.message : 'No se pudieron guardar las reglas'); } };
 
@@ -207,7 +239,7 @@ actions['emp-add'] = async () => { const roles = Object.keys(ROLES).filter(k => 
 
 // ============================================================ Datos
 screens['a-datos'] = { roles: ['admin', 'analista'], render() {
-  const [from, to] = rangeOf(), st = Q.stats(db(), from, to), floor = S.planFloor || 1, max = Math.max(1, ...st.bySpace.map(b => b.value));
+  const [from, to] = rangeOf(), st = memo('stats' + from + to, () => Q.stats(db(), from, to)), floor = S.planFloor || 1, max = Math.max(1, ...st.bySpace.map(b => b.value));
   const byId = Object.fromEntries(db().all('spaces').map(s => { const v = st.bySpace.find(b => b.label === s.name)?.value || 0; return [s.id, { v: v / max, text: fmtN(v) + ' usos' }]; }));
   return `<div class="head"><h1>Datos</h1>${myRoles().includes('analista') ? btn('Descargar datos', 'data-export', { cls: 's', icon: 'down' }) : ''}</div>${rangeBar()}
     <p class="sm mu">${fDate(from)} – ${fDate(to)}. Para el análisis se usan solo comuna, actividad, ocupación, género, edad y movilidad reducida, sin nombres ni RUT.</p>
@@ -215,7 +247,7 @@ screens['a-datos'] = { roles: ['admin', 'analista'], render() {
     <div class="grid"><div class="card stack"><h3>Visitas por espacio</h3>${barsH(st.bySpace)}</div><div class="card stack"><h3>Horas de uso por laboratorio y sala</h3>${barsH(st.hours, { unit: ' h' })}</div></div>
     <div class="card stack"><h3>Personas distintas por día</h3>${colChart(st.perDay, { label: 'Personas distintas por día', x: 'Día', y: 'Personas' })}</div>
     <div class="grid"><div class="card stack"><h3>Ocupación promedio por día y hora</h3>${heatGrid(st.heat)}</div>
-      <div class="card stack"><div class="row between"><h3>Uso por zona del plano</h3>${seg('plan-floor', floor, [[1, 'Piso 1'], [2, 'Piso 2']])}</div>${heatPlan(floor, byId)}</div></div>
+      <div class="card stack"><div class="row between"><h3>Uso por zona del plano</h3>${floorSeg('plan-floor', floor)}</div>${heatPlan(floor, byId)}</div></div>
     <h2>Quiénes usan el Hub</h2><div class="grid"><div class="card stack"><h3>Actividad en Providencia</h3>${barsH(st.byActivity)}</div><div class="card stack"><h3>Género</h3>${barsH(st.byGender)}</div>
       <div class="card stack"><h3>A qué se dedican</h3>${barsH(st.byOccupation)}</div><div class="card stack"><h3>Comuna</h3>${barsH(st.byComuna)}</div></div>
     <h2>Fallas de máquinas</h2><div class="grid"><div class="card stack"><h3>Por máquina</h3>${barsH(st.failByResource)}</div><div class="card stack"><h3>Por tipo</h3>${barsH(st.failByCategory)}</div></div>`;

@@ -4,6 +4,16 @@ Sistema de registro de entradas y reservas de espacios del **Hub Providencia**: 
 
 Proyecto Capstone del equipo **keypoint**: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez. Docente: Ricardo Andrés Sepúlveda. Todos los derechos reservados al equipo keypoint.
 
+## Novedades de la versión 1.2
+
+- **Borrar datos de una persona** (Usuarios › ficha): solo el historial, solo el perfil (el historial queda anónimo para las estadísticas) o ambos. Pide la contraseña de administración y una segunda confirmación.
+- **Edad permitida** de 4 a 95 años (se cambia en Reglas). El registro explica el formato del RUT.
+- **Espacios**: textos explicativos, piso elegido de una lista, eliminar con confirmación (si tiene historial se desactiva y se cancelan sus reservas futuras con aviso). Un espacio que exige certificación crea su certificación con el día y la hora indicados.
+- **Plano**: al vincular una zona con un espacio se completan nombre, tipo y aforo; se pueden agregar y eliminar pisos (eliminar desactiva sus espacios).
+- **Agenda**: se marcan varias horas, se revisa la lista «Horas bloqueadas:» y se guardan todas con un botón y una confirmación. Se puede liberar parte de un bloqueo largo.
+- **Usuarios**: todos los eventos y avisos publicados aparecen en el carrusel de inicio (con flechas); las certificaciones inscritas aparecen en Mis reservas y en «Tu próxima reserva»; una sesión llena se muestra como «Llena» y no se puede elegir.
+- **Seguridad y accesibilidad**: ver SEGURIDAD.md. Revisión automática WCAG 2 A/AA (axe) sin observaciones en las pantallas principales, en modo claro y oscuro.
+
 ## Dos formas de usarlo
 
 | | Demo en línea (GitHub Pages) | Sistema real (servidor) |

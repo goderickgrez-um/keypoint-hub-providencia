@@ -48,9 +48,11 @@ export const icon = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"
 
 // ---- Controles (ligados a S.f por data-i)
 const a = o => (o.attrs ? ' ' + o.attrs : '') + (o.live ? ' data-live="1"' : '');
-export const field = (k, label, o = {}) => `<label class="f ${o.cls || ''}">${t(label)}<input id="f-${k}" data-i="${k}" type="${o.type || 'text'}" value="${esc(val(k, o.value))}"${o.ph ? ` placeholder="${esc(t(o.ph))}"` : ''}${a(o)}></label>`;
+const hint = (k, o) => (o.hint ? `<small class="hint" id="h-${k}">${t(o.hint)}</small>` : '');
+const desc = (k, o) => (o.hint ? ` aria-describedby="h-${k}"` : '');
+export const field = (k, label, o = {}) => `<label class="f ${o.cls || ''}">${t(label)}<input id="f-${k}" data-i="${k}" type="${o.type || 'text'}" value="${esc(val(k, o.value))}"${o.ph ? ` placeholder="${esc(t(o.ph))}"` : ''}${desc(k, o)}${a(o)}>${hint(k, o)}</label>`;
 export const area = (k, label, o = {}) => `<label class="f full">${t(label)}<textarea id="f-${k}" data-i="${k}"${o.max ? ` maxlength="${o.max}"` : ''}${a(o)}>${esc(val(k, o.value))}</textarea></label>`;
-export const select = (k, label, opts, o = {}) => `<label class="f ${o.cls || ''}">${t(label)}<select id="f-${k}" data-i="${k}"${a({ ...o, live: o.live })}>${o.blank ? `<option value="">${t(o.blank)}</option>` : ''}${opts.map(x => { const [v, l] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(v)}"${String(val(k, o.value)) === String(v) ? ' selected' : ''}>${esc(o.raw ? l : t(l))}</option>`; }).join('')}</select></label>`;
+export const select = (k, label, opts, o = {}) => `<label class="f ${o.cls || ''}">${t(label)}<select id="f-${k}" data-i="${k}"${desc(k, o)}${a({ ...o, live: o.live })}>${o.blank ? `<option value="">${t(o.blank)}</option>` : ''}${opts.map(x => { const [v, l] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(v)}"${String(val(k, o.value)) === String(v) ? ' selected' : ''}>${esc(o.raw ? l : t(l))}</option>`; }).join('')}</select>${hint(k, o)}</label>`;
 export const check = (k, label, o = {}) => `<label class="ck ${o.cls || ''}"><input id="f-${k}" type="checkbox" data-i="${k}"${val(k, o.value) ? ' checked' : ''}${a(o)}><span>${o.raw ? label : t(label)}</span></label>`;
 export const btn = (label, act, o = {}) => `<button class="btn ${o.cls || ''}" data-a="${act}"${o.v !== undefined ? ` data-v="${esc(o.v)}"` : ''}${o.off ? ' disabled' : ''}>${o.icon ? icon(o.icon) : ''}${o.raw ? label : t(label)}</button>`;
 export const seg = (act, cur, opts) => `<div class="seg" role="tablist">${opts.map(([v, l]) => `<button role="tab" aria-selected="${String(cur) === String(v)}" class="${String(cur) === String(v) ? 'on' : ''}" data-a="${act}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
@@ -127,6 +129,15 @@ let toastTimer;
 export function toast(msg) { S.toast = msg; UI.render(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = ''; document.querySelector('.toast')?.remove(); }, 3400); }
 /** Abre una ventana sobre la pantalla. Queda en el historial para cerrarla con el botón Atrás del teléfono. */
 export const modal = m => { if (!S.modal) try { history.pushState({ hubModal: 1 }, ''); } catch { /* sin historial */ } S.modal = m; UI.render(); };
+/** Pide confirmación antes de una acción. fn se ejecuta al tocar el botón principal. */
+export function confirmBox({ title, text = '', ok = 'Confirmar', danger = false, fn }) {
+  S.ask = fn;
+  modal({ html: `<h2 id="dlg-t" style="margin:0">${t(title)}</h2>${text ? `<div class="stack sm">${text}</div>` : ''}<div class="row">${btn(ok, 'ask-ok', { cls: (danger ? 'danger ' : '') + 'sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` });
+}
+actions['ask-ok'] = async () => { const fn = S.ask; S.ask = null; S.modal = null; try { if (history.state?.hubModal) history.replaceState(null, ''); } catch { /* nada */ } UI.render(); await fn?.(); };
+/** Recuerda un cálculo pesado mientras los datos no cambien (estadísticas, mapa de calor, ocupación). */
+const memoBox = new Map();
+export const memo = (key, fn) => { const k = key + '|' + db().rev + '|' + Math.floor(Date.now() / 60000), h = memoBox.get(key); if (h?.k === k) return h.v; const v = fn(); memoBox.set(key, { k, v }); return v; };
 export const closeModal = () => { S.modal = null; if (history.state?.hubModal) history.back(); else UI.render(); };
 /** Ejecuta un servicio. Devuelve su resultado o null si falló (el motivo se muestra en pantalla). */
 export async function run(name, args, okMsg) {

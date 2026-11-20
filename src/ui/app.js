@@ -45,7 +45,7 @@ function morph(root, html) {
   };
   patch(root, tpl.content);
 }
-let skipPop = false;
+let skipPop = false, lastModal = null, opener = null;
 
 function render() {
   let k = location.hash.slice(1) || (App.uid ? (S.staff ? 'a-panel' : 'u-inicio') : 'u-login');
@@ -68,8 +68,11 @@ function render() {
   else html = `<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
       <main class="wrap">${body}</main><nav class="tabs">${TABS.map(([key, ic, label]) => `<button class="${(scr.tab || k) === key ? 'on' : ''}" data-a="go" data-v="${key}">${icon(ic)}${t(label)}</button>`).join('')}</nav>`;
   const root = document.getElementById('app');
-  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true"><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${S.modal.html}</div></div>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
+  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true" tabindex="-1"${/id="dlg-t"/.test(S.modal.html) ? ' aria-labelledby="dlg-t"' : ''}><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${S.modal.html}</div></div>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
   if (!S.modal && history.state?.hubModal) { skipPop = true; history.back(); } // la ventana se cerró con un botón: quita su paso del historial
+  // Accesibilidad: al abrir una ventana el foco entra en ella; al cerrarla vuelve a donde estaba
+  if (S.modal && S.modal !== lastModal) { lastModal = S.modal; opener ||= document.activeElement; const d = root.querySelector('[role=dialog]'); (d.querySelector('input,select,textarea,button:not(.mx)') || d).focus(); return bindPlan(); }
+  if (!S.modal && lastModal) { lastModal = null; if (opener?.isConnected) { opener.focus(); opener = null; return bindPlan(); } opener = null; }
   if (focus) { const el = root.querySelector(`[data-i="${focus}"]`); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* no aplica */ } } }
   else if (!S.modal) root.querySelector('[data-af]')?.focus();
   bindPlan();
@@ -107,7 +110,12 @@ root.addEventListener('change', e => { const el = e.target, k = el.dataset.i;
   if (el.dataset.color) actions['th-color']?.(el.dataset.color, el.value);
   if (el.dataset.file && el.files?.[0]) { const f = el.files[0]; el.value = ''; (S.picked ||= {})[el.dataset.file] = { name: f.name, size: f.size }; actions['file:' + el.dataset.file]?.(f); } });
 root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset?.enter) { e.preventDefault(); S.f[e.target.dataset.i] = e.target.value; actions[e.target.dataset.enter]?.(); } });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal();
+  if (e.key === 'Tab' && S.modal) { const d = root.querySelector('[role=dialog]'), f = [...d.querySelectorAll('button:not([disabled]),input,select,textarea,a[href]')].filter(x => x.offsetParent !== null); if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); } } });
+// Puntos del carrusel de banners
+root.addEventListener('scroll', e => { const el = e.target; if (el.id !== 'banners') return; const w = el.firstElementChild?.offsetWidth + 10 || 1, i = Math.round(el.scrollLeft / w);
+  el.parentElement.querySelectorAll('.dots i').forEach((d, k) => d.classList.toggle('on', k === Math.min(i, el.children.length - 1))); }, true);
 window.addEventListener('hashchange', () => { S.drawer = false; render(); });
 window.addEventListener('popstate', () => { if (skipPop) { skipPop = false; return; } S.modal = null; render(); });
 window.addEventListener('online', () => { App.data.tick(); flushQueue(); });

@@ -5,8 +5,8 @@ import { ACTIVE, WEEKDAYS, DOC_TYPES, ACTIVITIES, OCCUPATIONS, GENDERS } from '.
 import { t } from './i18n.js';
 import { openCamera } from './camera.js';
 import { regForm, occupancyCard } from './user.js';
-import { heatPlan } from './plan.js';
-import { labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, stat, table, avatar, stPill, qrSvg, openDays, dayChips, heatGrid, barsH, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download } from './kit.js';
+import { heatPlan, floorSeg } from './plan.js';
+import { labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, stat, table, avatar, stPill, qrSvg, openDays, dayChips, heatGrid, barsH, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, confirmBox, memo } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 export const anon = () => { const r = myRoles(); return r.length > 0 && r.every(x => x === 'analista'); };
@@ -14,7 +14,7 @@ export const uname = id => { const u = db().get('users', id); return !u ? '—' 
 export const sname = id => db().get('spaces', id)?.name || '—';
 const rname = id => db().get('resources', id)?.name || '';
 const closeQuiet = () => { S.modal = null; };
-const occ = () => App.occ || Q.occupancy(db());
+const occ = () => App.occ || memo('occ', () => Q.occupancy(db()));
 const todayRes = (day = new Date()) => db().where('reservations', r => R.dayKey(r.start_at) === R.dayKey(day) && !['cancelada', 'rechazada'].includes(r.status)).sort((a, b) => T(a.start_at) - T(b.start_at));
 const FILE_ST = { pendiente: ['En espera', 'warn'], aprobado: ['Aprobado', 'ok'], rechazado: ['Rechazado', 'bad'], observado: ['Observado', 'warn'], eliminado: ['Borrado', ''] };
 
@@ -54,7 +54,7 @@ function labPanel() {
 screens['a-panel'] = { roles: ALL, render() {
   if (labOnly()) return labPanel();
   const now = new Date(), o = occ(), res = todayRes(), mine = mySpaces().map(s => s.id), floor = S.planFloor || 1;
-  const pend = db().where('files', f => f.status === 'pendiente' && mine.includes(f.space_id)).length, m = Q.heat(db(), R.addDays(now, -30), now);
+  const pend = db().where('files', f => f.status === 'pendiente' && mine.includes(f.space_id)).length, m = memo('heat', () => Q.heat(db(), R.addDays(now, -30), now));
   const h = R.hoursFor(cfg('hours'), now), next = [];
   if (h) for (let i = 1; i <= 3; i++) { const hr = now.getHours() + i; if (hr * 60 < h[1] && hr >= 8 && now.getDay() >= 1 && now.getDay() <= 5) next.push([hr, Math.round(m[now.getDay() - 1][hr - 8] + res.filter(r => new Date(r.start_at).getHours() === hr).length * .5)]); }
   const live = Object.fromEntries(o.spaces.map(s => [s.id, { v: s.cap ? Math.min(1, s.n / s.cap) : 0, text: `${s.n} / ${s.cap}` }]));
@@ -62,7 +62,7 @@ screens['a-panel'] = { roles: ALL, render() {
     <div class="kpis">${stat('Dentro del Hub ahora', o.inside)}${stat('Reservas de hoy', res.length)}${stat('Archivos por revisar', pend)}${stat('Inasistencias de hoy', res.filter(r => r.status === 'no_asistio').length)}</div>
     <div class="grid"><div><h2>Ocupación en vivo</h2>${occupancyCard()}</div>
       <div><h2>Mapa de calor · últimos 30 días</h2><div class="card stack">${heatGrid(m)}${next.length ? `<div><h3>Próximas horas</h3><div class="chips" style="margin-top:6px">${next.map(([hr, n]) => `<span class="pill info">${hr}:00 · cerca de ${n} personas</span>`).join('')}</div><p class="sm mu">Promedio del mismo día y hora, más las reservas ya agendadas.</p></div>` : ''}</div></div></div>
-    <div class="head"><h2>Plano en vivo</h2>${seg('plan-floor', floor, [[1, 'Piso 1'], [2, 'Piso 2']])}</div><div class="card">${heatPlan(floor, live)}</div>`;
+    <div class="head"><h2>Plano en vivo</h2>${floorSeg('plan-floor', floor)}</div><div class="card">${heatPlan(floor, live)}</div>`;
 } };
 actions['plan-floor'] = v => { S.planFloor = +v; go(S.k); };
 
@@ -207,7 +207,7 @@ screens['a-cert'] = { roles: ['admin', 'encargado'], render() {
   return `<h1>Certificaciones</h1><div class="hs">${certs.map(c => `<button class="chip ${cur?.id === c.id ? 'on' : ''}" data-a="cert-pick" data-v="${c.id}">${esc(c.name)}</button>`).join('')}<button class="chip ${!cur ? 'on' : ''}" data-a="cert-pick" data-v="0">${icon('plus')} Nueva</button></div>
     <div class="grid"><div class="stack">
       ${cur ? `<div class="card stack"><h3>Lista de la sesión</h3><div class="hs">${ses.map(x => `<button class="chip ${s?.id === x.id ? 'on' : ''}" data-a="cert-session" data-v="${x.id}">${fDay(x.start_at)}</button>`).join('')}</div>
-        ${s ? `<p class="sm mu">${fDT(s.start_at)} · ${enr.length} de ${s.seats} cupos${s.status === 'cerrada' ? ' · calificada' : ''}</p>${enr.length ? enr.map(e => `<div class="row"><span class="sp">${esc(uname(e.user_id))}</span><div style="flex:0 0 150px">${select('gr_' + e.user_id, '', [['inscrito', 'Inscrito'], ['aprobado', 'Aprobado'], ['reprobado', 'Reprobado'], ['ausente', 'Ausente']], { value: e.status })}</div></div>`).join('') + btn('Guardar resultados', 'cert-grade', { v: s.id, cls: 'block' }) : '<p class="mu">Nadie se ha inscrito en esta sesión.</p>'}` : '<p class="mu">No hay sesiones próximas.</p>'}</div>
+        ${s ? `<p class="sm mu">${fDT(s.start_at)} · ${enr.length} de ${s.seats} cupos${s.status === 'cerrada' ? ' · calificada' : ''}</p>${enr.length ? enr.map(e => `<div class="row"><span class="sp">${esc(uname(e.user_id))}</span><div style="flex:0 0 150px">${select('gr_' + e.user_id, '', [['inscrito', 'Inscrito'], ['aprobado', 'Aprobado'], ['reprobado', 'Reprobado'], ['ausente', 'Ausente']], { value: e.status, attrs: `aria-label="Resultado de ${esc(uname(e.user_id))}"` })}</div></div>`).join('') + btn('Guardar resultados', 'cert-grade', { v: s.id, cls: 'block' }) : '<p class="mu">Nadie se ha inscrito en esta sesión.</p>'}` : '<p class="mu">No hay sesiones próximas.</p>'}</div>
       <div class="card stack"><h3>Certificar directamente</h3><p class="sm mu">Para quien aprobó fuera de una sesión agendada.</p><div class="row">${field('ce_grant', 'ID, RUT o correo', { cls: 'sp', attrs: 'data-enter="cert-grant"' })}<button class="btn" style="margin-top:18px" data-a="cert-grant">Certificar</button></div></div>
       <h3>Personas certificadas (${holders.length})</h3>${table(['Persona', 'Desde', 'Vence', 'Diploma', ''], holders.slice(0, 40).map(h => [esc(uname(h.user_id)), fDate(h.granted_at), h.expires_at ? fDate(h.expires_at) : 'No vence', h.diploma ? pill('Subido', 'ok') : `<button class="btn s plain" data-a="dip-pick" data-v="${h.id}">Subir</button>`, `<button class="icb" data-a="cert-revoke" data-v="${h.id}" aria-label="Quitar certificación">${icon('trash')}</button>`]))}
       <input type="file" id="dip-file" accept="image/*,application/pdf" data-file="diploma" hidden>` : ''}</div>
@@ -246,7 +246,7 @@ actions['fail-close'] = id => run('failure.close', { id: +id }, 'Falla marcada c
 // ============================================================ Usuarios: historial, penalizaciones y restricciones
 screens['a-husr'] = { roles: ['admin', 'encargado', 'recepcion'], render() {
   const q = val('usr_q').trim().toLowerCase(), n = R.normDoc(q), u = S.usr && db().get('users', S.usr);
-  const found = q.length < 2 ? [] : db().where('users', x => x.name.toLowerCase().includes(q) || x.id.toLowerCase().includes(q) || (n.length > 3 && x.doc_number.includes(n)) || (x.email || '').includes(q)).slice(0, 12);
+  const found = q.length < 2 ? [] : db().where('users', x => !x.deleted_at && (x.name.toLowerCase().includes(q) || x.id.toLowerCase().includes(q) || (n.length > 3 && x.doc_number.includes(n)) || (x.email || '').includes(q))).slice(0, 12);
   return `<h1>Usuarios</h1><div class="grid"><div class="stack">${field('usr_q', 'Buscar por nombre, ID, RUT o correo', { live: true, ph: 'Escribe al menos 2 letras' })}
       ${q.length < 2 ? '' : found.length ? `<div class="list">${found.map(x => `<button class="li" data-a="usr-open" data-v="${x.id}">${avatar(x, 's')}<span class="sp"><b>${esc(x.name)}</b><span>${x.id} · ${esc(R.fmtDoc(x.doc_number, x.doc_type))}</span></span>${Q.activeBan(db(), x.id) ? pill('Restringido', 'bad') : ''}${icon('chev')}</button>`).join('')}</div>` : empty('Sin resultados.')}</div>
     <div class="stack">${u ? userDetail(u) : empty('Elige una persona para ver su historial.')}</div></div>`;
@@ -259,7 +259,7 @@ function userDetail(u) {
       <p class="sm">${icon('mail')} ${esc(u.email || 'Sin correo')} · ${esc(u.phone || 'Sin teléfono')} · ${esc(u.comuna || '')}${g ? ` · Adulto responsable: ${esc(g.name)}` : ''}</p>
       ${ban ? `<div class="card bad row"><span class="sp">${icon('lock')} Acceso restringido ${ban.until_at ? 'hasta el ' + fDT(ban.until_at) : 'de forma permanente'}${ban.reason ? ' · ' + esc(ban.reason) : ''}</span>${can() ? btn('Levantar', 'ban-lift', { v: ban.id, cls: 's plain' }) : ''}</div>` : ''}
       <div class="row w">${mine.length ? btn('Penalizar horas', 'adj-ask', { v: 'penalizacion', cls: 's danger' }) + btn('Premiar con horas', 'adj-ask', { v: 'premio', cls: 's sec' }) : ''}${can() && !ban ? btn('Restringir acceso al Hub', 'ban-ask', { cls: 's danger', icon: 'lock' }) : ''}
-        ${can('recepcion') ? btn('Actualizar datos', 'usr-edit', { v: u.id, cls: 's plain', icon: 'edit' }) + btn('Reserva asistida', 'assist-start', { v: u.id, cls: 's plain', icon: 'cal' }) : ''}</div></div>
+        ${can('recepcion') ? btn('Actualizar datos', 'usr-edit', { v: u.id, cls: 's plain', icon: 'edit' }) + btn('Reserva asistida', 'assist-start', { v: u.id, cls: 's plain', icon: 'cal' }) : ''}${can() && u.id !== App.uid ? btn('Borrar datos o perfil', 'erase-ask', { v: u.id, cls: 's danger', icon: 'trash' }) : ''}</div></div>
     <div class="card stack"><h3>Certificaciones y saldo del mes</h3><div class="chips">${db().where('user_certs', c => c.user_id === u.id).map(c => pill(db().get('certifications', c.certification_id)?.name || '', 'ok')).join('') || '<span class="mu sm">Sin certificaciones</span>'}</div>
       ${labs.map(sp => { const b = Q.balance(db(), u.id, sp.id); return meter(sp.name, Math.max(0, b.left), Math.max(1, b.quota), `${R.dur(Math.max(0, b.left))} de ${fmtN(b.quota / 60)} h`, true); }).join('')}
       ${adj.map(a => `<div class="row sm">${pill((a.minutes > 0 ? '+' : '') + R.dur(a.minutes), a.minutes < 0 ? 'bad' : 'ok')}<span class="sp">${esc(sname(a.space_id))}${a.reason ? ' · ' + esc(a.reason) : ''}${a.period == null ? ' · todos los meses' : ''}</span>${manages(a.space_id) ? btn(a.minutes < 0 ? 'Perdonar' : 'Quitar', 'adj-forgive', { v: a.id, cls: 's plain' }) : ''}</div>`).join('')}</div>
@@ -268,6 +268,21 @@ function userDetail(u) {
       ${bans.filter(b => b !== ban).length ? `<p class="sm mu">Restricciones anteriores: ${bans.filter(b => b !== ban).map(b => fDate(b.from_at) + (b.reason ? ' (' + esc(b.reason) + ')' : '')).join(', ')}</p>` : ''}</div>`;
 }
 actions['usr-open'] = id => { S.usr = id; go('a-husr'); };
+// Borrar historial, perfil o ambos: elige, escribe la contraseña de administración y confirma
+const ERASE = {
+  datos: ['Borrar solo el historial', 'Se borran visitas, reservas, archivos subidos, observaciones, avisos y ajustes de horas. La cuenta sigue activa con su ID y su QR.'],
+  perfil: ['Borrar solo el perfil', 'Se borra la cuenta: nombre, RUT, correo, teléfono, foto y contraseña. Sus visitas y reservas pasadas quedan como “Usuario eliminado” para las estadísticas. Sus reservas futuras se cancelan.'],
+  ambos: ['Borrar historial y perfil', 'Se borra todo lo relacionado con la persona. No quedará en las estadísticas del Hub.'] };
+actions['erase-ask'] = id => { const u = db().get('users', id); S.usr = id; fill({ er_scope: S.f.er_scope || 'datos', er_pass: '' });
+  modal({ html: `<h2 id="dlg-t" style="margin:0">Borrar datos de ${esc(u.name)}</h2><p class="sm mu">${u.id}. Elige qué borrar. Esta acción no se puede deshacer.</p>
+    <fieldset class="stack" style="border:0;padding:0;margin:0"><legend class="sm b">Qué borrar</legend>${Object.entries(ERASE).map(([k, [l, d]]) => `<label class="ck"><input type="radio" name="er_scope" data-i="er_scope" value="${k}"${val('er_scope') === k ? ' checked' : ''}><span><b>${l}.</b> ${d}</span></label>`).join('')}</fieldset>
+    ${Q.rolesOf(db(), id).length ? '<div class="card warn sm">Esta persona tiene credenciales del equipo. Para borrar su perfil, quítalas primero en Empleados.</div>' : ''}
+    <div class="form">${field('er_pass', 'Tu contraseña de administración', { type: 'password', cls: 'full', attrs: 'autocomplete="current-password" data-enter="erase-next"' })}</div>
+    <div class="row">${btn('Continuar', 'erase-next', { cls: 'danger sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` }); };
+actions['erase-next'] = () => { const scope = val('er_scope'), pass = val('er_pass'), u = db().get('users', S.usr); if (!pass) return toast('Escribe tu contraseña de administración');
+  S.f.er_pass = ''; // la contraseña no queda guardada en la pantalla
+  confirmBox({ title: '¿Confirmas el borrado?', danger: true, ok: ERASE[scope][0], text: `<p><b>${esc(u.name)}</b> · ${u.id}</p><p>${ERASE[scope][1]}</p><p><b>No se puede deshacer.</b></p>`,
+    fn: async () => { const r = await run('user.erase', { id: S.usr, scope, password: pass }); if (r) { if (scope !== 'datos') S.usr = null; toast(scope === 'datos' ? 'Historial borrado' : 'Perfil borrado'); } } }); };
 actions['adj-ask'] = kind => { const mine = db().where('spaces', s => s.active && s.monthly_hours > 0 && manages(s.id)), pen = kind === 'penalizacion'; fill({ aj_space: mine[0]?.id, aj_hours: 1, aj_reason: '', aj_perm: false }); S.adjKind = kind;
   modal({ html: `<h2 style="margin:0">${pen ? 'Penalizar horas' : 'Premiar con horas'}</h2><p class="sm mu">${esc(db().get('users', S.usr)?.name)} · ${pen ? 'Las horas se descuentan del saldo de este mes en el laboratorio elegido.' : 'Las horas se suman al saldo del laboratorio elegido.'}</p>
     <div class="form">${select('aj_space', 'Laboratorio o sala', mine.map(s => [s.id, s.name]), { raw: true })}${field('aj_hours', 'Horas', { type: 'number', attrs: 'min="0.5" step="0.5"' })}${field('aj_reason', 'Motivo', { cls: 'full' })}</div>
