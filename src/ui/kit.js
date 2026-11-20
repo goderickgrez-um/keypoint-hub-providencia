@@ -42,6 +42,8 @@ const IC = {
   star: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9 6.6 19.8l1.1-6.1L3.2 9.4l6.1-.8z"/>', lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   down: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/>', trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   cam: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', offline: '<path d="M3 3l18 18M5 12.5a10 10 0 0 1 4-2.6M19 12.5a10 10 0 0 0-5.5-3M8.5 16a5 5 0 0 1 7 0M12 19.5v.01"/>',
+  up: '<path d="M6 15l6-6 6 6"/>', dn: '<path d="M6 9l6 6 6-6"/>', help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17v.01"/>',
+  pause: '<path d="M9 6v12M15 6v12"/>', play: '<path d="M8 5l11 7-11 7z"/>',
   paint: '<circle cx="12" cy="12" r="9"/><path d="M7.5 11v.01M10 7.5v.01M15 7.5v.01M17 11v.01"/>', mail: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 8l9 6 9-6"/>',
 };
 export const icon = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
@@ -54,7 +56,7 @@ export const field = (k, label, o = {}) => `<label class="f ${o.cls || ''}">${t(
 export const area = (k, label, o = {}) => `<label class="f full">${t(label)}<textarea id="f-${k}" data-i="${k}"${o.max ? ` maxlength="${o.max}"` : ''}${a(o)}>${esc(val(k, o.value))}</textarea></label>`;
 export const select = (k, label, opts, o = {}) => `<label class="f ${o.cls || ''}">${t(label)}<select id="f-${k}" data-i="${k}"${desc(k, o)}${a({ ...o, live: o.live })}>${o.blank ? `<option value="">${t(o.blank)}</option>` : ''}${opts.map(x => { const [v, l] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(v)}"${String(val(k, o.value)) === String(v) ? ' selected' : ''}>${esc(o.raw ? l : t(l))}</option>`; }).join('')}</select>${hint(k, o)}</label>`;
 export const check = (k, label, o = {}) => `<label class="ck ${o.cls || ''}"><input id="f-${k}" type="checkbox" data-i="${k}"${val(k, o.value) ? ' checked' : ''}${a(o)}><span>${o.raw ? label : t(label)}</span></label>`;
-export const btn = (label, act, o = {}) => `<button class="btn ${o.cls || ''}" data-a="${act}"${o.v !== undefined ? ` data-v="${esc(o.v)}"` : ''}${o.off ? ' disabled' : ''}>${o.icon ? icon(o.icon) : ''}${o.raw ? label : t(label)}</button>`;
+export const btn = (label, act, o = {}) => `<button class="btn ${o.cls || ''}" data-a="${act}"${o.v !== undefined ? ` data-v="${esc(o.v)}"` : ''}${o.off ? ' disabled' : ''}${o.attrs ? ' ' + o.attrs : ''}>${o.icon ? icon(o.icon) : ''}${o.raw ? label : t(label)}</button>`;
 export const seg = (act, cur, opts) => `<div class="seg" role="tablist">${opts.map(([v, l]) => `<button role="tab" aria-selected="${String(cur) === String(v)}" class="${String(cur) === String(v) ? 'on' : ''}" data-a="${act}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
 export const pill = (text, tone = '') => `<span class="pill ${tone}">${esc(text)}</span>`;
 export const empty = text => `<div class="card flat c mu">${t(text)}</div>`;

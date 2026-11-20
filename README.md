@@ -4,6 +4,14 @@ Sistema de registro de entradas y reservas de espacios del **Hub Providencia**: 
 
 Proyecto Capstone del equipo **keypoint**: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez. Docente: Ricardo Andrés Sepúlveda. Todos los derechos reservados al equipo keypoint.
 
+## Novedades de la versión 1.3
+
+- **Ayuda en cada pantalla**: botón (?) con una guía breve y un recorrido guiado que resalta cada parte. La primera vez, Inicio y Panel invitan a hacer el recorrido.
+- **Preguntas frecuentes** con buscador: para usuarios (Perfil › Configuración, o desde el ingreso sin sesión) y para el personal (menú › Ayuda y preguntas). El mismo contenido está en `docs/preguntas-frecuentes.pdf` (se regenera con `npm run docs:faq`; el contenido vive en `src/ui/faq-data.js`).
+- **Banners**: pasan solos cada 5 segundos; se detienen cuando la persona los desliza o usa las flechas, se pausan con el puntero encima y tienen botón de pausa y reanudar. Si el sistema pide reducir el movimiento, no avanzan solos.
+- **Eventos y banners**: orden manual con flechas y botón «Ordenar por fecha: más cercanos primero». Los vencidos aparecen en amarillo como «Terminado»; los que ya empezaron siguen visibles hasta su término (o hasta el final del día si no tienen término).
+- **Cupos**: cupos, aforos y capacidades nunca pueden ser negativos (se valida en el servidor y en los formularios).
+
 ## Novedades de la versión 1.2
 
 - **Borrar datos de una persona** (Usuarios › ficha): solo el historial, solo el perfil (el historial queda anónimo para las estadísticas) o ambos. Pide la contraseña de administración y una segunda confirmación.

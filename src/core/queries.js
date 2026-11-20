@@ -13,6 +13,14 @@ export const managersOf = (db, spaceId) => db.where('space_managers', m => m.spa
 export const managedBy = (db, uid) => db.where('space_managers', m => m.user_id === uid).map(m => m.space_id);
 /** Espacio donde queda registrada una persona sin reserva: el configurado o, si no hay, el cowork. */
 export const defaultZone = db => { const id = db.cfg('default_zone'), sp = id != null && db.get('spaces', +id); return sp && sp.active ? sp : db.find('spaces', s => s.kind === 'cowork' && s.active); };
+/** Fin de un evento: su término o, si no tiene, el final del día en que empieza. Un aviso sin fecha no termina. */
+export const eventEnd = e => (e.end_at ? new Date(e.end_at) : e.start_at ? (d => (d.setHours(23, 59, 59, 999), d))(new Date(e.start_at)) : null);
+/** Estado de un evento: 'terminado', 'en_curso', 'proximo' o 'aviso'. */
+export const eventState = (e, now = new Date()) => { const end = eventEnd(e); if (end && +end < +now) return 'terminado'; if (!e.start_at) return 'aviso'; return +new Date(e.start_at) <= +now ? 'en_curso' : 'proximo'; };
+/** Orden de los banners: el orden manual primero; sin orden, por fecha (los avisos sin fecha al final). */
+export const eventOrder = (a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || (a.start_at ? +new Date(a.start_at) : 9e15) - (b.start_at ? +new Date(b.start_at) : 9e15) || a.id - b.id;
+/** Banners que ve un usuario: publicados y no terminados (incluye los que ya empezaron). */
+export const bannersFor = (db, now = new Date()) => db.where('events', e => e.published && eventState(e, now) !== 'terminado').sort(eventOrder);
 /** Pisos del Hub, ordenados. */
 export const floorsOf = db => Object.keys(db.cfg('floor_capacity') || { 1: 0 }).map(Number).sort((a, b) => a - b);
 export const findUser = (db, code) => {

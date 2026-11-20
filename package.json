@@ -1,6 +1,6 @@
 {
   "name": "keypoint-hub-providencia",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Sistema de registro y reservas del Hub Providencia (equipo keypoint)",
@@ -9,7 +9,8 @@
     "db:build": "node tools/build-db.mjs",
     "test": "node tools/test-core.mjs",
     "build": "node tools/bundle.mjs",
-    "db:init": "node server/init-db.mjs"
+    "db:init": "node server/init-db.mjs",
+    "docs:faq": "node tools/docs/faq.mjs"
   },
   "dependencies": {
     "pg": "^8.13.0",

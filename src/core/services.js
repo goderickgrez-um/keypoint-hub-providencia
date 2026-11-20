@@ -99,6 +99,8 @@ async function createUser(ctx, d, assisted) {
   });
 }
 
+/** Un número de cupos, aforo o cantidad: entero y nunca negativo. */
+const count = (v, name, min = 0) => { if (v === '' || v == null) return null; const n = Math.floor(+v); if (!Number.isFinite(n) || n < min) fail(`${name} no puede ser ${min ? 'menor que ' + min : 'negativo'}`); return n; };
 /** Edad permitida: entre 4 y 95 años (configurable en Reglas). */
 function checkAge(ctx, birth) {
   const y = R.age(birth, N(ctx)), lo = +ctx.db.cfg('min_age') || 4, hi = +ctx.db.cfg('max_age') || 95;
@@ -312,6 +314,7 @@ export const SERVICES = {
     const mine = db.find('event_attendance', a => a.event_id === id && a.user_id === u.id);
     if (cancel) { if (mine) db.remove('event_attendance', mine.id); return; }
     usable(ctx, u);
+    if (Q.eventState(e, N(ctx)) === 'terminado') fail('Este evento ya terminó');
     if (mine) fail('Ya estás inscrito');
     if (e.seats && db.where('event_attendance', a => a.event_id === id).length >= e.seats) fail('No quedan cupos');
     db.insert('event_attendance', { event_id: id, user_id: u.id, at: iso(N(ctx)) });
@@ -366,9 +369,11 @@ export const SERVICES = {
   'cert.save'(ctx, c) {
     const db = ctx.db; needSpace(ctx, c.space_id);
     if (!(c.name || '').trim()) fail('Escribe el nombre de la certificación');
-    const row = { space_id: c.space_id, name: c.name.trim(), level: +c.level || 1, validity_months: c.validity_months ? +c.validity_months : null, weekday: +c.weekday, time_min: +c.time_min, duration_min: +c.duration_min || 90, seats: +c.seats || 6, cost: +c.cost || 0, diploma_download: !!c.diploma_download, instructor_id: c.instructor_id ? (Q.findUser(db, c.instructor_id) || fail('El instructor debe tener un perfil en el Hub')).id : null, active: c.active !== false };
+    const row = { space_id: c.space_id, name: c.name.trim(), level: +c.level || 1, validity_months: c.validity_months ? +c.validity_months : null, weekday: +c.weekday, time_min: +c.time_min, duration_min: +c.duration_min || 90, seats: count(c.seats, 'Los cupos', 1) ?? 6, cost: count(c.cost, 'El costo') ?? 0, diploma_download: !!c.diploma_download, instructor_id: c.instructor_id ? (Q.findUser(db, c.instructor_id) || fail('El instructor debe tener un perfil en el Hub')).id : null, active: c.active !== false };
     const r = c.id ? db.update('certifications', c.id, row) : db.insert('certifications', row);
     audit(ctx, 'guarda certificación', 'certifications', r.id, row.name);
+    // las sesiones futuras toman los cupos nuevos, sin quedar por debajo de los ya inscritos
+    db.where('cert_sessions', s => s.certification_id === r.id && T(s.start_at) > T(N(ctx))).forEach(s => { const n = Math.max(row.seats, db.where('cert_enrollments', e => e.session_id === s.id).length); if (s.seats !== n) db.update('cert_sessions', s.id, { seats: n }); });
     ensureSessions(ctx);
     return { id: r.id };
   },
@@ -427,7 +432,7 @@ export const SERVICES = {
     const db = ctx.db, old = s.id ? db.get('spaces', s.id) : null;
     old ? needSpace(ctx, old.id) : need(ctx);
     if (!(s.name || '').trim()) fail('Escribe el nombre del espacio');
-    const row = { name: s.name.trim(), kind: s.kind || 'otro', mode: s.mode || 'reserva', floor: +s.floor || 1, capacity: +s.capacity || 0, accessible: !!s.accessible, requires_cert: !!s.requires_cert, min_level: +s.min_level || 1, monthly_hours: +s.monthly_hours || 0, gap_min: +s.gap_min || 0, tolerance_min: s.tolerance_min === '' || s.tolerance_min == null ? null : +s.tolerance_min, max_hours: s.max_hours ? +s.max_hours : null, allow_overnight: !!s.allow_overnight, accept: (s.accept || '').replace(/\s/g, '') || null, notes: s.notes || null, active: s.active !== false };
+    const row = { name: s.name.trim(), kind: s.kind || 'otro', mode: s.mode || 'reserva', floor: +s.floor || 1, capacity: count(s.capacity, 'El aforo') ?? 0, accessible: !!s.accessible, requires_cert: !!s.requires_cert, min_level: +s.min_level || 1, monthly_hours: count(s.monthly_hours, 'Las horas al mes') ?? 0, gap_min: count(s.gap_min, 'Los minutos entre reservas') ?? 0, tolerance_min: count(s.tolerance_min, 'Los minutos de atraso'), max_hours: count(s.max_hours, 'La duración máxima') || null, allow_overnight: !!s.allow_overnight, accept: (s.accept || '').replace(/\s/g, '') || null, notes: s.notes || null, active: s.active !== false };
     if (old && !has(ctx)) { row.kind = old.kind; row.mode = old.mode; row.floor = old.floor; }
     const diff = old ? Object.keys(row).filter(k => String(old[k] ?? '') !== String(row[k] ?? '')).map(k => `${k}: ${old[k] ?? '—'} → ${row[k] ?? '—'}`).join('; ') : 'creado';
     if (!Q.floorsOf(db).includes(row.floor)) fail('Ese piso no existe. Agrégalo primero en el plano');
@@ -458,7 +463,7 @@ export const SERVICES = {
   },
   'floor.add'(ctx, { capacity }) {
     need(ctx); const fc = { ...ctx.db.cfg('floor_capacity') }, n = Math.max(0, ...Object.keys(fc).map(Number)) + 1;
-    fc[n] = Math.max(0, +capacity || 0); ctx.db.setCfg('floor_capacity', fc); audit(ctx, 'agrega piso', 'config', 'floor_capacity', 'Piso ' + n);
+    fc[n] = count(capacity, 'El aforo') ?? 0; ctx.db.setCfg('floor_capacity', fc); audit(ctx, 'agrega piso', 'config', 'floor_capacity', 'Piso ' + n);
     return { floor: n };
   },
   /** Elimina un piso: borra su plano y desactiva sus espacios (sus reservas futuras se cancelan con aviso). */
@@ -474,7 +479,7 @@ export const SERVICES = {
   'resource.save'(ctx, r) {
     const db = ctx.db; needSpace(ctx, r.space_id);
     if (!(r.name || '').trim()) fail('Escribe el nombre del equipo');
-    const row = { space_id: r.space_id, name: r.name.trim(), model: r.model || null, specs: r.specs || null, capacity: +r.capacity || 1, active: r.active !== false };
+    const row = { space_id: r.space_id, name: r.name.trim(), model: r.model || null, specs: r.specs || null, capacity: count(r.capacity, 'La capacidad', 1) ?? 1, active: r.active !== false };
     const x = r.id ? db.update('resources', r.id, row) : db.insert('resources', row);
     audit(ctx, r.id ? 'edita equipo' : 'agrega equipo', 'spaces', r.space_id, row.name);
     return { id: x.id };
@@ -544,12 +549,23 @@ export const SERVICES = {
   'event.save'(ctx, e) {
     need(ctx); const db = ctx.db;
     if (!(e.title || '').trim()) fail('Escribe el título');
-    const row = { kind: e.kind || 'evento', title: e.title.trim(), description: e.description || null, start_at: e.start_at ? iso(e.start_at) : null, end_at: e.end_at ? iso(e.end_at) : null, seats: e.seats ? +e.seats : null, space_id: e.space_id ? +e.space_id : null, published: e.published !== false };
+    const seats = e.seats === '' || e.seats == null ? null : Math.floor(+e.seats);
+    if (seats != null && (!Number.isFinite(seats) || seats < 1)) fail('Los cupos deben ser 1 o más (vacío = sin límite)');
+    const taken = e.id ? db.where('event_attendance', a => a.event_id === e.id).length : 0;
+    if (seats != null && seats < taken) fail(`Ya hay ${taken} inscritos: los cupos no pueden ser menos que eso`);
+    if (e.start_at && e.end_at && +new Date(e.end_at) < +new Date(e.start_at)) fail('El término debe ser después del inicio');
+    const row = { kind: e.kind || 'evento', title: e.title.trim(), description: e.description || null, start_at: e.start_at ? iso(e.start_at) : null, end_at: e.end_at ? iso(e.end_at) : null, seats, space_id: e.space_id ? +e.space_id : null, published: e.published !== false };
     if (e.banner_img !== undefined) row.banner_img = dataUrl(e.banner_img, 2.5e6) ?? (String(e.banner_img).startsWith('data:image/svg+xml,') && !/<script|on\w+=|javascript:/i.test(decodeURIComponent(e.banner_img)) ? e.banner_img : null);
     if (e.poster_img !== undefined) row.poster_img = dataUrl(e.poster_img, 4e6) ?? null;
     const r = e.id ? db.update('events', e.id, row) : db.insert('events', { ...row, created_at: iso(N(ctx)) });
     audit(ctx, 'guarda evento', 'events', r.id, row.title);
     return { id: r.id };
+  },
+  /** Guarda el orden manual de los banners (lista de ids de arriba hacia abajo). */
+  'event.order'(ctx, { ids }) {
+    need(ctx); const db = ctx.db; if (!Array.isArray(ids)) fail('Orden no válido');
+    ids.forEach((id, i) => { const e = db.get('events', +id); if (e && e.sort_order !== i) db.update('events', e.id, { sort_order: i }); });
+    audit(ctx, 'ordena banners', 'events', null, ids.length + ' eventos'); return { ok: true };
   },
   'event.remove'(ctx, { id }) { need(ctx); ctx.db.where('event_attendance', a => a.event_id === id).forEach(a => ctx.db.remove('event_attendance', a.id)); ctx.db.remove('events', id); audit(ctx, 'borra evento', 'events', id); },
   'staff.save'(ctx, { user, position, roles: rs, labs }) {
@@ -587,7 +603,7 @@ export const SERVICES = {
     if (!Q.floorsOf(db).includes(floor)) fail('Ese piso no existe');
     if (!Array.isArray(shapes) || shapes.length > 300) fail('El plano tiene demasiadas zonas');
     const hex = c => /^#[0-9A-Fa-f]{6}$/.test(c || '');
-    for (const s of shapes) { if (!hex(s.color) || (s.text_color && !hex(s.text_color))) fail('Color no válido'); s.label = s.label ? String(s.label).slice(0, 80) : null; }
+    for (const s of shapes) { if (!hex(s.color) || (s.text_color && !hex(s.text_color))) fail('Color no válido'); s.label = s.label ? String(s.label).slice(0, 80) : null; s.capacity = Math.max(0, Math.floor(+s.capacity || 0)); }
     db.where('plan_shapes', s => s.floor === floor).forEach(s => db.remove('plan_shapes', s.id));
     shapes.forEach((s, i) => db.insert('plan_shapes', { floor, x: Math.round(s.x), y: Math.round(s.y), w: Math.round(s.w), h: Math.round(s.h), z: i, color: s.color, text_color: s.text_color || null, label: s.label || null, kind: s.kind || 'libre', capacity: +s.capacity || 0, space_id: s.space_id ? +s.space_id : null, group_id: s.group_id || null }));
     audit(ctx, 'guarda plano', 'plan_shapes', floor, shapes.length + ' zonas');

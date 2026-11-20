@@ -108,6 +108,16 @@ button.pill { border: 0; min-height: 28px; text-decoration: underline; text-unde
 .banner.gen { display: flex; align-items: center; padding: 14px 16px 26px; background: var(--ac); color: var(--on); }
 .banner.gen b { font-size: 1.15rem; line-height: 1.2; text-wrap: balance; }
 .li.off { opacity: .6; }
+/* Ayuda y recorrido guiado */
+.helpfloat { display: flex; justify-content: flex-end; margin-bottom: -8px; }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; line-height: 1.45; }
+.tour-hl { position: relative; z-index: 60; border-radius: 12px; box-shadow: 0 0 0 3px var(--ac), 0 0 0 9999px rgba(0, 0, 0, .45) !important; }
+.tourcard { position: fixed; z-index: 70; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); width: min(440px, calc(100vw - 24px)); background: var(--sf); color: var(--tx); border-radius: 16px; padding: 14px 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+.tourcard .row { align-items: center; } .tourinv { border: 1px solid var(--ac); }
+.faq { display: grid; gap: 8px; } .faq details { background: var(--sf); border-radius: 12px; padding: 12px 14px; }
+.faq summary { cursor: pointer; font-weight: 600; } .faq details p { margin: 8px 0 0; color: var(--tx); line-height: 1.5; }
+.evrow { gap: 8px; flex-wrap: wrap; } .evrow.on { box-shadow: inset 3px 0 0 var(--ac); } .evpick { display: flex; flex-direction: column; align-items: flex-start; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.evpick span { font-size: .8rem; color: var(--mu); } .ord { display: flex; gap: 2px; } .ord .icb:disabled { opacity: .3; }
 .chip.pend { outline: 2px dashed var(--ac); outline-offset: 2px; } .blist { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: .86rem; } .blist .new { color: var(--act); }
 .banner img { width: 100%; height: 100%; object-fit: cover; display: block; } .banner span { position: absolute; inset: auto 0 0 0; padding: 18px 12px 8px; color: #fff; font-weight: 650; font-size: .86rem; background: linear-gradient(transparent, rgba(0, 0, 0, .6)); }
 .qr { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }

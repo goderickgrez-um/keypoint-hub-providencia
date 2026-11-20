@@ -4,10 +4,11 @@ import { t, setLang, getLang } from './i18n.js';
 import { applyTheme } from './theme.js';
 import { local } from '../data/local.js';
 import { remote } from '../data/remote.js';
-import { logoSrc, pendingScreen } from './user.js';
+import { logoSrc, pendingScreen, stopBanners } from './user.js';
 import { NAV, flushQueue } from './staff.js';
 import { bindPlan } from './plan.js';
 import './admin.js';
+import { helpButton, tourCard, placeTour, firstVisit } from './help.js';
 
 const TABS = [['u-inicio', 'home', 'Inicio'], ['u-reservar', 'cal', 'Reservar'], ['u-activas', 'list', 'Mis reservas'], ['u-perfil', 'user', 'Perfil']];
 const can = rs => !rs || myRoles().some(r => r === 'admin' || rs.includes(r));
@@ -59,23 +60,24 @@ function render() {
   let body;
   try { body = staffScreen && !can(scr.roles) ? `<h1>Sin acceso</h1><p class="mu">Tu credencial no incluye esta sección.</p>` : u && u.status === 'pendiente_adulto' && !staffScreen ? pendingScreen(u) : scr.render(); }
   catch (e) { console.error(e); body = `<div class="card bad">${t('No se pudo mostrar esta pantalla.')} <button class="btn s plain" data-a="go" data-v="${staffScreen ? 'a-panel' : 'u-inicio'}">${t('Volver al inicio')}</button></div>`; }
+  if (u && u.status !== 'pendiente_adulto' && !body.startsWith('<h1>Sin acceso')) body = firstVisit(k) + body;
   const unread = u ? db().where('notifications', n => n.user_id === u.id && !n.read_at).length : 0, demo = App.mode === 'demo' ? '<span class="demo">DEMO</span>' : '';
   const brand = `<div class="brand"><img class="logo" src="${logoSrc()}" alt=""><div><b>${esc(db().cfg('system_name'))}</b><span>${staffScreen ? 'keypoint system' : esc(db().cfg('tagline'))}</span></div>${demo}</div>`;
   let html;
-  if (!App.uid || scr.open) html = `<main class="wrap">${body}</main>`;
-  else if (staffScreen) html = `<header class="top"><button class="icb only-m" data-a="menu" aria-label="Menú">${icon('menu')}</button>${brand}${can(['recepcion']) ? `<button class="icb" data-a="go" data-v="a-scan" aria-label="Escanear QR">${icon('qr')}</button>` : ''}<button class="icb" data-a="go" data-v="a-perfil" aria-label="Mi perfil">${avatarMini()}</button></header>
+  if (!App.uid || (scr.open && k !== 'u-ayuda')) html = `<main class="wrap"><div class="helpfloat">${helpButton(k)}</div>${body}</main>`;
+  else if (staffScreen) html = `<header class="top"><button class="icb only-m" data-a="menu" aria-label="Menú">${icon('menu')}</button>${brand}${can(['recepcion']) ? `<button class="icb" data-a="go" data-v="a-scan" aria-label="Escanear QR">${icon('qr')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="a-perfil" aria-label="Mi perfil">${avatarMini()}</button></header>
       <div class="staff"><nav class="side">${nav(k)}</nav><main class="wrap">${body}</main></div>${S.drawer ? `<div class="scrim" data-a="menu"><nav class="side">${nav(k)}</nav></div>` : ''}`;
-  else html = `<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
+  else html = `<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
       <main class="wrap">${body}</main><nav class="tabs">${TABS.map(([key, ic, label]) => `<button class="${(scr.tab || k) === key ? 'on' : ''}" data-a="go" data-v="${key}">${icon(ic)}${t(label)}</button>`).join('')}</nav>`;
   const root = document.getElementById('app');
-  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true" tabindex="-1"${/id="dlg-t"/.test(S.modal.html) ? ' aria-labelledby="dlg-t"' : ''}><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${S.modal.html}</div></div>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
+  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true" tabindex="-1"${/id="dlg-t"/.test(S.modal.html) ? ' aria-labelledby="dlg-t"' : ''}><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${S.modal.html}</div></div>` : '') + tourCard() + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
   if (!S.modal && history.state?.hubModal) { skipPop = true; history.back(); } // la ventana se cerró con un botón: quita su paso del historial
   // Accesibilidad: al abrir una ventana el foco entra en ella; al cerrarla vuelve a donde estaba
   if (S.modal && S.modal !== lastModal) { lastModal = S.modal; opener ||= document.activeElement; const d = root.querySelector('[role=dialog]'); (d.querySelector('input,select,textarea,button:not(.mx)') || d).focus(); return bindPlan(); }
   if (!S.modal && lastModal) { lastModal = null; if (opener?.isConnected) { opener.focus(); opener = null; return bindPlan(); } opener = null; }
   if (focus) { const el = root.querySelector(`[data-i="${focus}"]`); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* no aplica */ } } }
   else if (!S.modal) root.querySelector('[data-af]')?.focus();
-  bindPlan();
+  bindPlan(); placeTour();
   if (k === 'u-login' && db().cfg('google_client_id')) google();
 }
 UI.render = render;
@@ -110,13 +112,15 @@ root.addEventListener('change', e => { const el = e.target, k = el.dataset.i;
   if (el.dataset.color) actions['th-color']?.(el.dataset.color, el.value);
   if (el.dataset.file && el.files?.[0]) { const f = el.files[0]; el.value = ''; (S.picked ||= {})[el.dataset.file] = { name: f.name, size: f.size }; actions['file:' + el.dataset.file]?.(f); } });
 root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset?.enter) { e.preventDefault(); S.f[e.target.dataset.i] = e.target.value; actions[e.target.dataset.enter]?.(); } });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal();
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal(); else if (e.key === 'Escape' && S.tour) actions['tour-end']();
   if (e.key === 'Tab' && S.modal) { const d = root.querySelector('[role=dialog]'), f = [...d.querySelectorAll('button:not([disabled]),input,select,textarea,a[href]')].filter(x => x.offsetParent !== null); if (!f.length) return;
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); } } });
+// Si la persona desliza los banners (dedo, rueda, trackpad o teclado), el paso automático se detiene
+for (const ev of ['touchstart', 'wheel', 'pointerdown', 'keydown']) root.addEventListener(ev, e => { if (e.target.closest?.('#banners')) stopBanners(); }, { passive: true });
 // Puntos del carrusel de banners
 root.addEventListener('scroll', e => { const el = e.target; if (el.id !== 'banners') return; const w = el.firstElementChild?.offsetWidth + 10 || 1, i = Math.round(el.scrollLeft / w);
   el.parentElement.querySelectorAll('.dots i').forEach((d, k) => d.classList.toggle('on', k === Math.min(i, el.children.length - 1))); }, true);
-window.addEventListener('hashchange', () => { S.drawer = false; render(); });
+window.addEventListener('hashchange', () => { S.drawer = false; if (S.tour && S.tour.k !== location.hash.slice(1)) S.tour = null; render(); });
 window.addEventListener('popstate', () => { if (skipPop) { skipPop = false; return; } S.modal = null; render(); });
 window.addEventListener('online', () => { App.data.tick(); flushQueue(); });
 

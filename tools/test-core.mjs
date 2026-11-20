@@ -145,6 +145,19 @@ const vic3 = db.find('users', u => u.status === 'activo' && !Q.rolesOf(db, u.id)
 await call(ctx(admin), 'user.erase', { id: vic3.id, scope: 'ambos', password: 'demo1234' });
 assert.ok(!db.get('users', vic3.id) && !db.find('visits', v => v.user_id === vic3.id));
 
+// v1.3 · Estados de eventos, orden de banners y cupos que nunca son negativos
+const evNow = +now;
+const evA = await call(ctx(admin), 'event.save', { title: 'Pasado', start_at: new Date(evNow - 3 * 864e5), end_at: new Date(evNow - 3 * 864e5 + 36e5) });
+const evB = await call(ctx(admin), 'event.save', { title: 'En curso sin término', start_at: new Date(evNow - 6e5) });
+assert.equal(Q.eventState(db.get('events', evA.id), now), 'terminado'); assert.equal(Q.eventState(db.get('events', evB.id), now), 'en_curso');
+const bn = Q.bannersFor(db, now).map(e => e.id); assert.ok(bn.includes(evB.id) && !bn.includes(evA.id));
+await call(ctx(admin), 'event.order', { ids: [evB.id, ...bn.filter(x => x !== evB.id)].reverse() }); assert.equal(Q.bannersFor(db, now).slice(-1)[0].id, evB.id);
+await rejects(call(ctx(admin), 'event.save', { title: 'Negativo', seats: -3 }), /cupos/);
+await rejects(call(ctx(admin), 'space.save', { name: 'Neg', kind: 'sala', floor: 1, capacity: -2 }), /negativo/);
+await rejects(call(ctx(admin), 'cert.save', { space_id: laser.id, name: 'Neg', weekday: 1, time_min: 600, seats: -1 }), /menor que 1/);
+await rejects(call(ctx(cam), 'event.signup', { id: evA.id }), /terminó/);
+await rejects(call(ctx(cam), 'event.order', { ids: [] }), /./);
+
 const st = Q.stats(db, R.addDays(now, -30), now, now), occ = Q.occupancy(db, now);
 console.log('ocupación', occ.inside, occ.spaces.filter(s => s.n).map(s => s.name + ':' + s.n).join(', '));
 console.log('estadísticas 30 días', { visitas: st.visits, edad: st.avgAge, usuarios: st.users, porEspacio: st.bySpace.slice(0, 4) });

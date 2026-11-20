@@ -91,7 +91,7 @@ export const TABLES = {
 
   events: { doc: 'Eventos y avisos. Cada uno puede mostrarse como banner en el inicio.',
     cols: { id: 'int', kind: 'text=evento', title: 'text', description: 'text?', start_at: 'ts?', end_at: 'ts?', seats: 'int?',
-      space_id: 'spaces?', banner_img: 'text?', poster_img: 'text?', published: 'bool=true', created_at: 'ts' } },
+      space_id: 'spaces?', banner_img: 'text?', poster_img: 'text?', published: 'bool=true', sort_order: 'int?', created_at: 'ts' } },
 
   event_attendance: { doc: 'Inscripción y asistencia a eventos.',
     cols: { id: 'int', event_id: 'events', user_id: 'users', status: 'text=inscrito', at: 'ts' }, unique: ['event_id, user_id'] },

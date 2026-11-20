@@ -194,5 +194,7 @@ http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   try { if (path.startsWith('/api/')) await api(req, res, path); else serve(req, res, path); }
   catch (e) { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Algo salió mal. Intenta de nuevo.' }); }
-}).listen(PORT, () => console.log(`Keypoint Hub Providencia en http://localhost:${PORT}  (${db.all('users').length} usuarios)${ORIGINS.length ? '\nApp externa permitida: ' + ORIGINS.join(', ') : ''}\nDeja esta ventana abierta mientras el Hub use el sistema.`));
+}).listen(PORT, () => console.log(`Keypoint Hub Providencia en http://localhost:${PORT}  (${db.all('users').length} usuarios)${ORIGINS.length ? '\nApp externa permitida: ' + ORIGINS.join(', ') : ''}\nDeja esta ventana abierta mientras el Hub use el sistema.`))
+  .on('error', e => { if (e.code !== 'EADDRINUSE') throw e;
+    console.error(`\nEl puerto ${PORT} ya está en uso: probablemente el Hub ya está abierto en otra ventana.\nCierra esa ventana (o en PowerShell: netstat -ano | findstr :${PORT}  y luego  taskkill /PID <número> /F) y vuelve a iniciar.\n`); process.exit(1); });
 process.on('SIGINT', async () => { await pool.end(); process.exit(0); });

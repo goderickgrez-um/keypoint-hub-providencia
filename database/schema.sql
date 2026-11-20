@@ -436,6 +436,7 @@ create table if not exists events (
   banner_img text,
   poster_img text,
   published boolean not null default true,
+  sort_order integer,
   created_at timestamptz not null default now()
 );
 alter table events add column if not exists kind text default 'evento';
@@ -448,6 +449,7 @@ alter table events add column if not exists space_id integer references spaces(i
 alter table events add column if not exists banner_img text;
 alter table events add column if not exists poster_img text;
 alter table events add column if not exists published boolean default true;
+alter table events add column if not exists sort_order integer;
 alter table events add column if not exists created_at timestamptz;
 
 -- Inscripción y asistencia a eventos.

@@ -24,7 +24,7 @@ export const NAV = [
   ['Comunidad', [['a-husr', 'Usuarios', 'search'], ['a-eventos', 'Eventos y banners', 'star']]],
   ['Hub', [['a-esp', 'Espacios', 'map'], ['a-agenda', 'Agenda y bloqueos', 'lock']]],
   ['Datos', [['a-datos', 'Datos', 'chart'], ['a-imp', 'Importar históricos', 'down']]],
-  ['Mi cuenta', [['a-perfil', 'Mi perfil', 'user']]],
+  ['Mi cuenta', [['a-perfil', 'Mi perfil', 'user'], ['a-ayuda', 'Ayuda y preguntas', 'help']]],
   ['Sistema', [['a-emp', 'Empleados', 'users'], ['a-reglas', 'Reglas', 'gear'], ['a-apar', 'Apariencia', 'paint'], ['a-audit', 'Auditoría', 'shield']]],
 ];
 const ALL = ['admin', 'encargado', 'recepcion', 'analista'];
@@ -214,7 +214,7 @@ screens['a-cert'] = { roles: ['admin', 'encargado'], render() {
     <div class="card stack"><h3>${cur ? 'Configuración' : 'Nueva certificación'}</h3><div class="form">${field('ce_name', 'Nombre', { cls: 'full', ph: 'Impresión 3D filamento · FDM 2' })}
       ${select('ce_space', 'Laboratorio', mySpaces().map(x => [x.id, x.name]), { raw: true })}${field('ce_level', 'Nivel (1 = básico)', { type: 'number', attrs: 'min="1" max="9"' })}
       ${select('ce_day', 'Día de la sesión semanal', WEEKDAYS.map((w, i) => [i, w]).slice(1, 6), { raw: true })}${field('ce_time', 'Hora', { type: 'time' })}
-      ${field('ce_dur', 'Duración (min)', { type: 'number' })}${field('ce_seats', 'Cupos por sesión', { type: 'number' })}
+      ${field('ce_dur', 'Duración (min)', { type: 'number', attrs: 'min="1"' })}${field('ce_seats', 'Cupos por sesión', { type: 'number', attrs: 'min="1"' })}
       ${field('ce_valid', 'Vigencia en meses (vacío = no vence)', { type: 'number' })}${field('ce_cost', 'Valor en pesos (0 = sin costo; se paga en el mesón)', { type: 'number' })}
       ${field('ce_inst', 'Quién la imparte (ID, RUT o correo)', { cls: 'full' })}</div>
       ${check('ce_dip', 'El usuario puede descargar su diploma')}${check('ce_on', 'Certificación activa')}${btn(cur ? 'Guardar cambios' : 'Crear certificación', 'cert-save', { cls: 'block' })}</div></div>`;

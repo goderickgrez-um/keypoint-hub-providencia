@@ -6,7 +6,7 @@ import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../core/seed.js';
 import { t, LANGS, getLang, setLang } from './i18n.js';
 import { themePref, setThemePref, a11y, setA11y } from './theme.js';
 import { openCamera } from './camera.js';
-import { fileInput, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, memo } from './kit.js';
+import { fileInput, UI, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, memo } from './kit.js';
 
 const cfg = k => db().cfg(k);
 const T = d => +new Date(d);
@@ -119,7 +119,7 @@ const eventNow = () => db().find('events', e => e.published && e.kind === 'event
 screens['u-inicio'] = { tab: 'u-inicio', render() {
   const u = me(), now = new Date(), ban = Q.activeBan(db(), u.id), ev = eventNow();
   const asks = db().where('notifications', n => n.user_id === u.id && n.kind === 'tutor' && !n.read_at);
-  const banners = db().where('events', e => e.published && (e.kind === 'aviso' || !e.start_at || T(e.end_at || e.start_at) > +now)).sort((a, b) => (a.start_at ? T(a.start_at) : 9e15) - (b.start_at ? T(b.start_at) : 9e15));
+  const banners = Q.bannersFor(db(), now);
   const visit = db().find('visits', v => v.user_id === u.id && !v.out_at);
   const next = [...db().where('reservations', r => r.user_id === u.id && ACTIVE.includes(r.status) && T(r.end_at) > +now), ...myCerts(+now)].sort((a, b) => T(a.start_at) - T(b.start_at))[0];
   const closures = db().where('blocks', b => T(b.end_at) > +now && T(b.start_at) < +now + 7 * 864e5).sort((a, b) => T(a.start_at) - T(b.start_at));
@@ -142,11 +142,20 @@ function bannerStrip(list) {
   if (!list.length) return '';
   const one = e => `<button class="banner${e.banner_img ? '' : ' gen'}" data-a="event-open" data-v="${e.id}" aria-label="${esc(e.title)}">${e.banner_img ? `<img src="${esc(e.banner_img)}" alt="">` : `<b>${esc(e.title)}</b>`}${e.start_at ? `<span>${fDay(e.start_at)} · ${fTime(e.start_at)}</span>` : ''}</button>`;
   return `<section class="bnwrap" aria-label="${t('Eventos y avisos')}"><div class="banners" id="banners">${list.map(one).join('')}</div>
-    ${list.length > 1 ? `<div class="bnnav"><button class="icb" data-a="bn-move" data-v="-1" aria-label="${t('Anterior')}">${icon('back')}</button><span class="dots" aria-hidden="true">${list.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</span><span class="sm mu">${t('{0} publicados', list.length)}</span><button class="icb" data-a="bn-move" data-v="1" aria-label="${t('Siguiente')}">${icon('chev')}</button></div>` : ''}</section>`;
+    ${list.length > 1 ? `<div class="bnnav"><button class="icb" data-a="bn-move" data-v="-1" aria-label="${t('Anterior')}">${icon('back')}</button><span class="dots" aria-hidden="true">${list.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</span><button class="icb" data-a="bn-play" aria-label="${S.bnStop || calm() ? t('Pasar los banners automáticamente') : t('Detener el paso automático')}" title="${S.bnStop || calm() ? t('Pasar los banners automáticamente') : t('Detener el paso automático')}">${icon(S.bnStop || calm() ? 'play' : 'pause')}</button><button class="icb" data-a="bn-move" data-v="1" aria-label="${t('Siguiente')}">${icon('chev')}</button></div>` : ''}</section>`;
 }
-actions['bn-move'] = d => { const el = document.getElementById('banners'); if (!el) return; const w = el.firstElementChild?.offsetWidth + 10 || el.clientWidth, max = el.scrollWidth - el.clientWidth;
-  const to = +d > 0 && el.scrollLeft >= max - 4 ? 0 : +d < 0 && el.scrollLeft <= 4 ? max : el.scrollLeft + +d * w; el.scrollTo({ left: to }); };
-const seatsLeft = e => (e.seats ? e.seats - db().where('event_attendance', a => a.event_id === e.id).length : null);
+// Avance automático cada 5 segundos. Se detiene cuando la persona desliza o usa las flechas, se pausa mientras
+// el puntero o el foco están sobre los banners y no corre si el sistema pide reducir el movimiento.
+const BANNER_MS = 5000, calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+actions['bn-move'] = (d, btnEl) => { const el = document.getElementById('banners'); if (!el) return; if (btnEl) stopBanners();
+  const w = el.firstElementChild?.offsetWidth + 10 || el.clientWidth, max = el.scrollWidth - el.clientWidth;
+  const to = +d > 0 && el.scrollLeft >= max - 4 ? 0 : +d < 0 && el.scrollLeft <= 4 ? max : el.scrollLeft + +d * w;
+  if (!btnEl) S.bnAuto = Date.now(); el.scrollTo({ left: to, behavior: calm() ? 'auto' : 'smooth' }); };
+export function stopBanners() { if (S.bnStop) return; S.bnStop = true; const b = document.querySelector('[data-a="bn-play"]'); if (b) UI.render(); }
+actions['bn-play'] = () => { S.bnStop = !S.bnStop; UI.render(); };
+setInterval(() => { if (S.k !== 'u-inicio' || S.bnStop || S.modal || document.hidden || calm() || document.querySelector('#banners:hover, #banners:focus-within')) return;
+  const el = document.getElementById('banners'); if (el && el.children.length > 1) actions['bn-move'](1); }, BANNER_MS);
+const seatsLeft = e => (e.seats ? Math.max(0, e.seats - db().where('event_attendance', a => a.event_id === e.id).length) : null);
 actions['event-open'] = id => { const e = db().get('events', +id), mine = db().find('event_attendance', a => a.event_id === e.id && a.user_id === App.uid), left = seatsLeft(e);
   modal({ html: `${e.poster_img || e.banner_img ? `<img class="poster" src="${esc(e.poster_img || e.banner_img)}" alt="">` : ''}<h2 style="margin:0">${esc(e.title)}</h2>
     ${e.start_at ? `<p class="mu">${fRange(e.start_at, e.end_at || e.start_at)}${e.space_id ? ' · ' + esc(db().get('spaces', e.space_id)?.name) : ''}</p>` : ''}<p>${esc(e.description || '')}</p>
@@ -259,7 +268,7 @@ screens['u-cert'] = { tab: 'u-reservar', render() {
       return `<div class="card stack"><div class="row between w"><div><h3>${esc(c.name)}</h3><span class="sm mu">${esc(sp?.name)} · ${t(WEEKDAYS[c.weekday])} ${R.hm(c.time_min)} · ${R.dur(c.duration_min)}${c.cost ? ` · $${fmtN(c.cost)} (${t('se paga en recepción')})` : ` · ${t('Sin costo')}`}</span></div>
         ${mine ? pill(mine.expires_at ? t('Vigente hasta {0}', fDate(mine.expires_at)) : t('Certificado'), 'ok') : pill(t('Sin certificación'))}</div>
         ${mine?.diploma && c.diploma_download ? btn('Descargar diploma', 'diploma', { v: mine.id, cls: 's sec', icon: 'down' }) : ''}
-        ${mine ? '' : `<div class="list">${ses.map(s => { const en = db().find('cert_enrollments', e => e.session_id === s.id && e.user_id === u.id), left = s.seats - db().where('cert_enrollments', e => e.session_id === s.id).length;
+        ${mine ? '' : `<div class="list">${ses.map(s => { const en = db().find('cert_enrollments', e => e.session_id === s.id && e.user_id === u.id), left = Math.max(0, s.seats - db().where('cert_enrollments', e => e.session_id === s.id).length);
           const other = !en && db().find('cert_enrollments', e => e.user_id === u.id && e.status === 'inscrito' && ses.concat(db().where('cert_sessions', x => x.certification_id === c.id)).some(x => x.id === e.session_id));
           return `<div class="li${left <= 0 && !en ? ' off' : ''}"><span class="sp"><b>${fDT(s.start_at)}</b><span>${left <= 0 ? t('Sin cupos') : t('{0} cupos disponibles', left)}</span></span>${en ? pill(t('Inscrito'), 'ok') + btn('Cancelar inscripción', 'cert-enroll', { v: s.id + ':0', cls: 's plain' }) : left <= 0 ? pill(t('Llena'), 'bad') : btn('Inscribirme', 'cert-enroll', { v: s.id + ':1', cls: 's', off: !!other })}</div>`; }).join('') || `<div class="li mu">${t('No hay sesiones abiertas por ahora.')}</div>`}</div>`}</div>`; }).join('')}`;
 } };
@@ -267,7 +276,7 @@ actions['cert-enroll'] = v => { const [id, on] = v.split(':'); S.modal = null; r
 actions.diploma = id => { const c = db().get('user_certs', +id); if (c?.diploma) download('diploma-' + c.id + (c.diploma.startsWith('data:application/pdf') ? '.pdf' : '.jpg'), c.diploma); };
 
 screens['u-eventos'] = { tab: 'u-reservar', render() {
-  const list = db().where('events', e => e.published && e.kind === 'evento' && T(e.end_at || e.start_at) > Date.now()).sort((a, b) => T(a.start_at) - T(b.start_at));
+  const list = db().where('events', e => e.published && e.kind === 'evento' && e.start_at && Q.eventState(e) !== 'terminado').sort((a, b) => T(a.start_at) - T(b.start_at));
   return `${back('u-reservar')}<h1>${t('Eventos')}</h1>${list.length ? `<div class="list">${list.map(e => { const left = seatsLeft(e), mine = db().find('event_attendance', a => a.event_id === e.id && a.user_id === App.uid);
     return `<button class="li" data-a="event-open" data-v="${e.id}"><span class="sp"><b>${esc(e.title)}</b><span>${fRange(e.start_at, e.end_at || e.start_at)}</span></span>${mine ? pill(t('Inscrito'), 'ok') : left != null ? pill(t('{0} cupos disponibles', Math.max(0, left))) : ''}${icon('chev')}</button>`; }).join('')}</div>` : empty('No hay eventos programados.')}`;
 } };
@@ -353,7 +362,7 @@ screens['u-config'] = { tab: 'u-perfil', render: () => `${back('u-perfil')}<h1>$
     <h3>${t('Idioma')}</h3>${seg('lang', getLang(), Object.entries(LANGS))}
     <h3>${t('Accesibilidad')}</h3><label class="ck"><input type="checkbox" data-a="a11y" data-v="big" ${a11y('big') ? 'checked' : ''}><span>${t('Texto más grande')}</span></label><label class="ck"><input type="checkbox" data-a="a11y" data-v="contrast" ${a11y('contrast') ? 'checked' : ''}><span>${t('Mayor contraste')}</span></label></div>
   <div class="card stack"><h3>${t('Contraseña')}</h3>${field('np', 'Nueva contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' })}${field('np2', 'Confirmar contraseña', { type: 'password', attrs: 'autocomplete="new-password" data-enter="pass-save"' })}${btn('Guardar contraseña', 'pass-save', { cls: 's sec' })}</div>
-  <div class="list">${[['u-perfil', 'user', 'Perfil y actualizar datos'], ['u-notif', 'bell', 'Notificaciones'], ['u-priv', 'shield', 'Privacidad y mis datos']].map(([k, i, l]) => `<button class="li" data-a="go" data-v="${k}">${icon(i)}<span class="sp"><b>${t(l)}</b></span>${icon('chev')}</button>`).join('')}</div>
+  <div class="list">${[['u-perfil', 'user', 'Perfil y actualizar datos'], ['u-notif', 'bell', 'Notificaciones'], ['u-priv', 'shield', 'Privacidad y mis datos'], ['u-ayuda', 'help', 'Ayuda y preguntas frecuentes']].map(([k, i, l]) => `<button class="li" data-a="go" data-v="${k}">${icon(i)}<span class="sp"><b>${t(l)}</b></span>${icon('chev')}</button>`).join('')}</div>
   <div class="card"><h3>${t('Acerca de')}</h3><p class="sm mu">${esc(cfg('system_name'))} · ${t('versión')} 1.0. ${t('Desarrollado por el equipo keypoint: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez.')}</p>
     <p class="sm mu">${t('Para instalar la app, abre el menú del navegador y elige «Instalar» o «Agregar a la pantalla de inicio».')}</p></div>
   ${btn('Cerrar sesión', 'logout', { cls: 'block plain', icon: 'out' })}` };
