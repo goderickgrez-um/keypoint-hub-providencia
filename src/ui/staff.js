@@ -6,7 +6,7 @@ import { t } from './i18n.js';
 import { openCamera } from './camera.js';
 import { regForm, occupancyCard } from './user.js';
 import { heatPlan, floorSeg } from './plan.js';
-import { labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, stat, table, avatar, stPill, qrSvg, openDays, dayChips, heatGrid, barsH, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, confirmBox, memo } from './kit.js';
+import { labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, stat, table, avatar, stPill, qrSvg, openDays, dayChips, heatGrid, barsH, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, confirmBox, memo, sessionCard } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 export const anon = () => { const r = myRoles(); return r.length > 0 && r.every(x => x === 'analista'); };
@@ -34,6 +34,7 @@ screens['a-perfil'] = { roles: ALL, render() {
   const u = me(), s = db().find('staff', x => x.user_id === u.id), rs = myRoles(), labs = Q.managedBy(db(), u.id).map(id => db().get('spaces', id)).filter(Boolean);
   const ROLE = { admin: 'Administración', encargado: 'Encargado de laboratorio', recepcion: 'Recepción', analista: 'Analista de datos' };
   return `<h1>Mi perfil</h1><div class="card row">${avatar(u)}<div class="sp"><h2 style="margin:0">${esc(u.name)}</h2><span class="mu sm">${u.id} · ${esc(s?.position || 'Equipo del Hub')}</span><br><span class="mu sm">${esc(u.email || '')}</span></div></div>
+    ${sessionCard()}
     <h2>Credenciales</h2><div class="chips">${rs.map(r => pill(ROLE[r] || r, 'info')).join('')}</div>
     ${labs.length ? `<h2>Espacios a mi cargo</h2><div class="list">${labs.map(l => `<div class="li"><span class="sp"><b>${esc(l.name)}</b><span>Piso ${l.floor} · aforo ${l.capacity}</span></span></div>`).join('')}</div>` : ''}
     <div class="list" style="margin-top:8px"><button class="li" data-a="to-user">${icon('user')}<span class="sp"><b>Ir a la app de usuario</b><span>Mi credencial QR, reservas y datos personales</span></span>${icon('chev')}</button></div>
@@ -116,16 +117,19 @@ function scanResult(r) {
   if (!r) return `<div class="card flat c mu">${icon('qr')} Esperando un código. El lector USB escribe aquí automáticamente.</div>`;
   if (r.queued) return `<div class="result card warn"><h2>Guardado sin conexión</h2><p>${esc(r.code)} · se registrará al volver la conexión.</p></div>`;
   if (!r.found) return `<div class="result card bad"><h2>No encontramos ese código</h2><p>${esc(r.code)}</p><div class="row" style="justify-content:center;margin-top:10px">${btn('Registrar usuario nuevo', 'go', { v: 'a-reg', cls: 's' })}</div></div>`;
-  const u = r.user, A = { entrada: ['ok', 'Entrada registrada'], salida: ['tone', 'Salida registrada'], restringido: ['bad', 'Acceso restringido'], pendiente: ['warn', 'Perfil pendiente'], duplicado: ['warn', 'Ya se registró hace un momento'] }[r.action] || ['flat', r.inside ? 'Está dentro del Hub' : 'Está fuera del Hub'];
+  const u = r.user, A = { entrada: ['ok', 'Entrada registrada'], salida: ['tone', 'Salida registrada'], restringido: ['bad', 'Acceso restringido'], pendiente: ['warn', 'Perfil pendiente'], duplicado: ['warn', 'Ya se registró hace un momento'], cowork: ['ok', 'Término registrado: queda en el cowork'] }[r.action] || ['flat', r.inside ? 'Está dentro del Hub' : 'Está fuera del Hub'];
   return `<div class="result card ${A[0]}">${avatar(u)}<h2>${A[1]}</h2><p class="b">${esc(u.name)}</p>
       ${r.ban ? `<p>${r.ban.until_at ? 'Hasta el ' + fDT(r.ban.until_at) : 'De forma permanente'}${r.ban.reason ? ' · ' + esc(r.ban.reason) : ''}</p>` : ''}
       ${r.action === 'pendiente' ? `<p>${u.status === 'pendiente_adulto' ? 'Falta la autorización de un adulto responsable.' : 'Falta confirmar el correo.'}</p>` : ''}
-      ${r.action === 'entrada' && r.zone ? `<p>${icon('map')} ${r.zoneByReservation ? 'Con reserva en' : 'Sin reserva: queda registrada en'} <b>${esc(r.zone)}</b></p>` : ''}</div>
+      ${r.action === 'entrada' && r.zone ? `<p>${icon('map')} ${r.zoneByReservation ? 'Con reserva en' : 'Queda registrada en'} <b>${esc(r.zone)}</b></p>` : ''}
+      ${r.action === 'entrada' && r.next ? `<p>${icon('cal')} Tiene reserva en <b>${esc(r.next.space)}</b> a las ${fTime(r.next.start_at)}. La inicia escaneando el QR del espacio, o aquí abajo.</p>` : ''}
+      ${r.action === 'salida' && r.closed ? `<p>Se cerró su reserva en <b>${esc(r.closed)}</b> con el tiempo real.</p>` : ''}
+      ${r.action === 'cowork' ? `<p>${r.closed ? `Salió de <b>${esc(r.closed)}</b>${r.real_min ? ` · se descontaron ${R.dur(r.real_min)}` : ''}. ` : ''}${r.zone ? `Ahora en <b>${esc(r.zone)}</b>.` : ''}</p>` : ''}</div>
     <div class="list"><div class="li"><span class="mu" style="flex:0 0 34%">ID</span><span class="sp b">${u.id}</span></div><div class="li"><span class="mu" style="flex:0 0 34%">${DOC_TYPES[u.doc_type] || 'Documento'}</span><span class="sp">${esc(R.fmtDoc(u.doc_number, u.doc_type))}</span></div>
       <div class="li"><span class="mu" style="flex:0 0 34%">Correo</span><span class="sp">${esc(u.email || 'No tiene')}</span></div><div class="li"><span class="mu" style="flex:0 0 34%">Teléfono</span><span class="sp">${esc(u.phone || 'No tiene')}</span></div>
       ${u.minor ? `<div class="li"><span class="mu" style="flex:0 0 34%">Adulto responsable</span><span class="sp">${esc(u.guardian || 'Sin asignar')}</span></div>` : ''}${u.reduced_mobility ? '<div class="li"><span class="sp">Persona con movilidad reducida</span></div>' : ''}</div>
     ${r.dry && !r.ban && u.status === 'activo' ? btn(r.inside ? 'Confirmar salida' : 'Confirmar entrada', 'scan-confirm', { v: u.id, cls: 'block' }) : ''}
-    ${r.today?.length ? `<h3>Reservas de hoy</h3><div class="list">${r.today.map(x => `<div class="li"><span class="sp"><b>${esc(x.space)}${x.resource ? ' · ' + esc(x.resource) : ''}</b><span>${fTime(x.start_at)} – ${fTime(x.end_at)}</span></span>${stPill(x.status)}</div>`).join('')}</div>` : ''}
+    ${r.today?.length ? `<h3>Reservas de hoy</h3>${resActions(r.today.map(x => db().get('reservations', x.id) || x))}` : ''}
     ${r.notifications?.length ? `<h3>Avisos para esta persona</h3><div class="list">${r.notifications.map(n => `<div class="li">${icon('bell')}<span class="sp"><b>${esc(n.title)}</b><span>${esc(n.text || '')}</span></span></div>`).join('')}</div>` : ''}
     <div class="row w">${btn('Actualizar sus datos', 'usr-edit', { v: u.id, cls: 's plain', icon: 'edit' })}${btn('Reserva asistida', 'assist-start', { v: u.id, cls: 's plain', icon: 'cal' })}${btn('Ver historial', 'usr-open', { v: u.id, cls: 's plain', icon: 'search' })}</div>`;
 }
@@ -134,7 +138,7 @@ screens['a-scan'] = { roles: ['admin', 'recepcion'], render() {
   return `<div class="head"><h1>Recepción</h1><span class="mu sm">Entradas y salidas con QR o RUT</span></div>
     <div class="grid"><div class="stack">
       <div class="card stack"><label class="f">Código QR, ID o RUT<input id="f-scan" class="scanbox" data-i="scan" data-enter="scan" data-af="1" autocomplete="off" placeholder="Escanea o escribe y presiona Enter" value="${esc(val('scan'))}"></label>
-        <div class="row">${btn('Registrar', 'scan', { cls: 'sp' })}${btn('Cámara', 'scan-cam', { cls: 'plain', icon: 'cam' })}</div>
+        <div class="row w">${btn('Registrar', 'scan', { cls: 'sp' })}${btn('Buscar reserva actual', 'scan-find', { cls: 'plain', icon: 'search' })}${btn('Cámara', 'scan-cam', { cls: 'plain', icon: 'cam' })}</div>
         <label class="ck"><input type="checkbox" data-a="scan-opt" data-v="auto" ${s.auto ? 'checked' : ''}><span><b>Registro automático.</b> Al leer el código se marca la entrada o la salida sin confirmar. Desactívalo para ver los datos antes.</span></label>
         ${App.mode === 'demo' ? `<label class="ck"><input type="checkbox" data-a="scan-opt" data-v="offline" ${s.offline ? 'checked' : ''}><span>Simular que no hay conexión <span class="demo">DEMO</span></span></label>` : ''}
         ${q.length ? `<div class="card warn row">${icon('offline')}<span class="sp">${q.length} registros guardados sin conexión</span>${btn('Sincronizar', 'scan-sync', { cls: 's', off: s.offline })}</div>` : ''}</div>
@@ -143,6 +147,22 @@ screens['a-scan'] = { roles: ['admin', 'recepcion'], render() {
     </div><div class="stack" aria-live="polite">${scanResult(s.result)}</div></div>`;
 } };
 actions.scan = () => doScan(val('scan'), !sc().auto);
+actions['scan-find'] = () => { if (!val('scan')) return toast('Escanea o escribe el QR, ID o RUT'); doScan(val('scan'), true); };
+/** Reservas de hoy con los botones Iniciar y Terminar (recepción). */
+export function resActions(list) {
+  const now = Date.now();
+  return `<div class="list">${list.map(x => { const r = x.space_id ? x : db().get('reservations', x.id) || x, sp = db().get('spaces', r.space_id), rs = r.resource_id && db().get('resources', r.resource_id);
+    const canStart = ['confirmada', 'en_revision'].includes(r.status) && T(r.start_at) - 10 * 60000 <= now && now < T(r.end_at);
+    return `<div class="li"><span class="sp"><b>${esc(sp?.name || x.space || '')}${rs ? ' · ' + esc(rs.name) : x.resource ? ' · ' + esc(x.resource) : ''}</b><span>${fTime(r.start_at)} – ${fTime(r.end_at)}</span></span>${stPill(r.status)}
+      ${canStart ? btn('Iniciar', 'desk-start', { v: r.id, cls: 's', icon: 'check' }) : r.status === 'en_curso' ? btn('Terminar', 'desk-end', { v: r.id, cls: 's plain' }) : ''}</div>`; }).join('') || '<div class="li mu">Sin reservas hoy.</div>'}</div>`;
+}
+const rescan = () => { const u = sc().result?.user?.id; if (u) doScan(u, true); else go(S.k); };
+actions['desk-start'] = id => { const r = db().get('reservations', +id);
+  confirmBox({ title: '¿Iniciar esta reserva?', ok: 'Iniciar reserva', text: `<p><b>${esc(uname(r.user_id))}</b> · ${esc(db().get('spaces', r.space_id)?.name || '')} · ${fTime(r.start_at)} – ${fTime(r.end_at)}</p><p>Si aún no marcaba su entrada al Hub, se marca ahora.</p>`,
+    fn: async () => { if (await run('res.start', { id: +id }, 'Reserva iniciada')) rescan(); } }); };
+actions['desk-end'] = id => { const r = db().get('reservations', +id);
+  confirmBox({ title: '¿Terminar esta reserva?', ok: 'Terminar reserva', text: `<p><b>${esc(uname(r.user_id))}</b> · ${esc(db().get('spaces', r.space_id)?.name || '')}</p><p>Se descuenta el tiempo real y la persona queda en el cowork.</p>`,
+    fn: async () => { const x = await run('res.finish', { id: +id }); if (x) { toast(`Reserva terminada. Se descontaron ${R.dur(x.real_min)}`); rescan(); } } }); };
 actions['scan-confirm'] = id => doScan(id, false);
 actions['scan-cam'] = () => openCamera(code => doScan(code, !sc().auto), { continuous: true });
 actions['scan-opt'] = (k, el) => { sc()[k] = el.checked; go(S.k); if (k === 'offline' && !el.checked) flushQueue(); };
@@ -209,7 +229,10 @@ screens['a-cert'] = { roles: ['admin', 'encargado'], render() {
       ${cur ? `<div class="card stack"><h3>Lista de la sesión</h3><div class="hs">${ses.map(x => `<button class="chip ${s?.id === x.id ? 'on' : ''}" data-a="cert-session" data-v="${x.id}">${fDay(x.start_at)}</button>`).join('')}</div>
         ${s ? `<p class="sm mu">${fDT(s.start_at)} · ${enr.length} de ${s.seats} cupos${s.status === 'cerrada' ? ' · calificada' : ''}</p>${enr.length ? enr.map(e => `<div class="row"><span class="sp">${esc(uname(e.user_id))}</span><div style="flex:0 0 150px">${select('gr_' + e.user_id, '', [['inscrito', 'Inscrito'], ['aprobado', 'Aprobado'], ['reprobado', 'Reprobado'], ['ausente', 'Ausente']], { value: e.status, attrs: `aria-label="Resultado de ${esc(uname(e.user_id))}"` })}</div></div>`).join('') + btn('Guardar resultados', 'cert-grade', { v: s.id, cls: 'block' }) : '<p class="mu">Nadie se ha inscrito en esta sesión.</p>'}` : '<p class="mu">No hay sesiones próximas.</p>'}</div>
       <div class="card stack"><h3>Certificar directamente</h3><p class="sm mu">Para quien aprobó fuera de una sesión agendada.</p><div class="row">${field('ce_grant', 'ID, RUT o correo', { cls: 'sp', attrs: 'data-enter="cert-grant"' })}<button class="btn" style="margin-top:18px" data-a="cert-grant">Certificar</button></div></div>
-      <h3>Personas certificadas (${holders.length})</h3>${table(['Persona', 'Desde', 'Vence', 'Diploma', ''], holders.slice(0, 40).map(h => [esc(uname(h.user_id)), fDate(h.granted_at), h.expires_at ? fDate(h.expires_at) : 'No vence', h.diploma ? pill('Subido', 'ok') : `<button class="btn s plain" data-a="dip-pick" data-v="${h.id}">Subir</button>`, `<button class="icb" data-a="cert-revoke" data-v="${h.id}" aria-label="Quitar certificación">${icon('trash')}</button>`]))}
+      <h3>Personas certificadas (${holders.length})</h3>${holders.length > 3 ? field('ce_q', 'Buscar persona certificada', { live: true, ph: 'Nombre, ID o RUT', attrs: 'type="search" autocomplete="off"' }) : ''}
+      ${(() => { const q = val('ce_q').trim().toLowerCase(), n = R.normDoc(q), hits = holders.filter(h => { if (!q) return true; const u = db().get('users', h.user_id); return (u?.name || '').toLowerCase().includes(q) || h.user_id.toLowerCase().includes(q) || (n.length > 3 && (u?.doc_number || '').includes(n)); });
+        return `${q ? `<p class="sm mu" style="margin:0" role="status">${hits.length} de ${holders.length}</p>` : ''}<div class="certbox${hits.length > 6 ? ' tall' : ''}${S.ceAll ? ' all' : ''}" role="region" aria-label="Personas certificadas" tabindex="0">${table(['Persona', 'Desde', 'Vence', 'Diploma', ''], hits.map(h => [esc(uname(h.user_id)), fDate(h.granted_at), h.expires_at ? fDate(h.expires_at) : 'No vence', h.diploma ? pill('Subido', 'ok') : `<button class="btn s plain" data-a="dip-pick" data-v="${h.id}">Subir</button>`, `<button class="icb" data-a="cert-revoke" data-v="${h.id}" aria-label="Quitar certificación">${icon('trash')}</button>`]), q ? 'Nadie coincide con la búsqueda.' : 'Aún no hay personas certificadas.')}</div>
+        ${hits.length > 6 ? `<div class="row between w"><span class="sm mu">Arrastra la esquina inferior del cuadro para ver más filas.</span>${btn(S.ceAll ? 'Mostrar menos' : `Mostrar las ${hits.length}`, 'ce-all', { cls: 's plain' })}</div>` : ''}`; })()}
       <input type="file" id="dip-file" accept="image/*,application/pdf" data-file="diploma" hidden>` : ''}</div>
     <div class="card stack"><h3>${cur ? 'Configuración' : 'Nueva certificación'}</h3><div class="form">${field('ce_name', 'Nombre', { cls: 'full', ph: 'Impresión 3D filamento · FDM 2' })}
       ${select('ce_space', 'Laboratorio', mySpaces().map(x => [x.id, x.name]), { raw: true })}${field('ce_level', 'Nivel (1 = básico)', { type: 'number', attrs: 'min="1" max="9"' })}
@@ -221,6 +244,7 @@ screens['a-cert'] = { roles: ['admin', 'encargado'], render() {
 } };
 actions['cert-pick'] = v => { S.cert = +v; S.certLoaded = -1; go(S.k); };
 actions['cert-session'] = v => { S.session = +v; go(S.k); };
+actions['ce-all'] = () => { S.ceAll = !S.ceAll; go(S.k); };
 actions['cert-save'] = async () => { const [h, m] = String(val('ce_time', '12:00')).split(':').map(Number);
   const r = await run('cert.save', { id: S.certLoaded || undefined, name: val('ce_name'), space_id: +val('ce_space'), level: val('ce_level'), validity_months: val('ce_valid'), weekday: val('ce_day'), time_min: h * 60 + m, duration_min: val('ce_dur'), seats: val('ce_seats'), cost: val('ce_cost'), diploma_download: val('ce_dip'), instructor_id: val('ce_inst'), active: val('ce_on') });
   if (r) { S.cert = r.id; S.certLoaded = -1; toast('Certificación guardada'); } };
@@ -260,6 +284,9 @@ function userDetail(u) {
       ${ban ? `<div class="card bad row"><span class="sp">${icon('lock')} Acceso restringido ${ban.until_at ? 'hasta el ' + fDT(ban.until_at) : 'de forma permanente'}${ban.reason ? ' · ' + esc(ban.reason) : ''}</span>${can() ? btn('Levantar', 'ban-lift', { v: ban.id, cls: 's plain' }) : ''}</div>` : ''}
       <div class="row w">${mine.length ? btn('Penalizar horas', 'adj-ask', { v: 'penalizacion', cls: 's danger' }) + btn('Premiar con horas', 'adj-ask', { v: 'premio', cls: 's sec' }) : ''}${can() && !ban ? btn('Restringir acceso al Hub', 'ban-ask', { cls: 's danger', icon: 'lock' }) : ''}
         ${can('recepcion') ? btn('Actualizar datos', 'usr-edit', { v: u.id, cls: 's plain', icon: 'edit' }) + btn('Reserva asistida', 'assist-start', { v: u.id, cls: 's plain', icon: 'cal' }) : ''}${can() && u.id !== App.uid ? btn('Borrar datos o perfil', 'erase-ask', { v: u.id, cls: 's danger', icon: 'trash' }) : ''}</div></div>
+      ${can() ? `<div class="row w">${u.intern ? pill('Pasantía', 'info') : ''}${btn(u.intern ? 'Quitar pasantía' : 'Asignar pasantía', 'intern-set', { v: u.id + ':' + (u.intern ? 0 : 1), cls: 's plain', icon: 'award' })}</div>` : ''}
+      ${can('recepcion') || mine.length ? (() => { const today = db().where('reservations', r => r.user_id === u.id && R.dayKey(r.start_at) === R.dayKey(new Date()) && ['confirmada', 'en_revision', 'en_curso'].includes(r.status)).sort((a, b) => T(a.start_at) - T(b.start_at));
+        return today.length ? `<h3>Reserva actual</h3>${resActions(today)}` : ''; })() : ''}
     <div class="card stack"><h3>Certificaciones y saldo del mes</h3><div class="chips">${db().where('user_certs', c => c.user_id === u.id).map(c => pill(db().get('certifications', c.certification_id)?.name || '', 'ok')).join('') || '<span class="mu sm">Sin certificaciones</span>'}</div>
       ${labs.map(sp => { const b = Q.balance(db(), u.id, sp.id); return meter(sp.name, Math.max(0, b.left), Math.max(1, b.quota), `${R.dur(Math.max(0, b.left))} de ${fmtN(b.quota / 60)} h`, true); }).join('')}
       ${adj.map(a => `<div class="row sm">${pill((a.minutes > 0 ? '+' : '') + R.dur(a.minutes), a.minutes < 0 ? 'bad' : 'ok')}<span class="sp">${esc(sname(a.space_id))}${a.reason ? ' · ' + esc(a.reason) : ''}${a.period == null ? ' · todos los meses' : ''}</span>${manages(a.space_id) ? btn(a.minutes < 0 ? 'Perdonar' : 'Quitar', 'adj-forgive', { v: a.id, cls: 's plain' }) : ''}</div>`).join('')}</div>
@@ -267,6 +294,9 @@ function userDetail(u) {
       ${table(['Reserva', 'Cuándo', 'Estado'], res.map(r => [esc(sname(r.space_id)) + (r.resource_id ? ' · ' + esc(rname(r.resource_id)) : ''), fRange(r.start_at, r.end_at), stPill(r.status)]), 'Sin reservas.')}
       ${bans.filter(b => b !== ban).length ? `<p class="sm mu">Restricciones anteriores: ${bans.filter(b => b !== ban).map(b => fDate(b.from_at) + (b.reason ? ' (' + esc(b.reason) + ')' : '')).join(', ')}</p>` : ''}</div>`;
 }
+actions['intern-set'] = v => { const [id, on] = v.split(':'), u = db().get('users', id);
+  confirmBox({ title: on === '1' ? '¿Asignar pasantía?' : '¿Quitar la pasantía?', ok: on === '1' ? 'Asignar pasantía' : 'Quitar pasantía', text: `<p><b>${esc(u.name)}</b> · ${u.id}</p><p>${on === '1' ? (cfg('intern_space') ? 'Verá en su Inicio el botón «Entrar en oficina de pasantía».' : 'Falta elegir la oficina de pasantía en Reglas.') : 'Dejará de ver el botón de la oficina de pasantía.'}</p>`,
+    fn: () => run('user.intern', { id, on: on === '1' }, on === '1' ? 'Pasantía asignada' : 'Pasantía quitada') }); };
 actions['usr-open'] = id => { S.usr = id; go('a-husr'); };
 // Borrar historial, perfil o ambos: elige, escribe la contraseña de administración y confirma
 const ERASE = {

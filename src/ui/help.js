@@ -10,6 +10,7 @@ export { FAQ_USER, FAQ_STAFF };
 // steps: [selector o null, texto]. Si el selector no está en la pantalla, el paso se muestra sin resaltar nada.
 export const GUIDES = {
   'u-login': { title: 'Ingresar', steps: [
+    ['[data-i="l_keep"]', 'Deja marcado «Mantener la sesión iniciada» en tu teléfono para no ingresar cada vez. No lo marques en equipos compartidos.'],
     ['[data-i="l_ident"]', 'Escribe tu correo, tu RUT o tu ID del Hub.'],
     ['[data-i="l_pass"]', 'Escribe tu contraseña. Si la olvidaste, pide un código al correo.'],
     ['[data-a="go"][data-v="u-reg"]', '¿Primera vez? Crea tu cuenta: te registras una sola vez.']] },
@@ -19,7 +20,8 @@ export const GUIDES = {
     ['[data-i="r_pass2"]', 'Repite la contraseña. Al final te llegará un código al correo para activar la cuenta.']] },
   'u-inicio': { title: 'Inicio', steps: [
     ['.bnwrap', 'Eventos y avisos del Hub. Pasan solos; toca uno para ver el detalle.'],
-    ['.card.qr', 'Tu código QR. Muéstralo en recepción al entrar y al salir.'],
+    ['.card.qr .code', 'Tu código QR. Muéstralo en recepción al entrar y al salir.'],
+    ['.qra', 'Cuando tengas una reserva, toca «Entrar a tu reserva» y escanea el QR del espacio. Al terminar, toca «Terminar» y acércate a recepción en los próximos minutos para que escaneen tu QR.'],
     ['[data-a="go"][data-v="u-activas"]', 'Tu próxima reserva o certificación aparece aquí.'],
     ['.tabs', 'Abajo cambias entre Inicio, Reservar, Mis reservas y Perfil.']] },
   'u-reservar': { title: 'Reservar', steps: [
@@ -55,6 +57,10 @@ export const GUIDES = {
     ['[data-a="profile-edit"]', 'Actualiza tu correo, teléfono o foto.'],
     ['[data-a="go"][data-v="u-horas"]', 'Revisa cuántas horas de laboratorio te quedan este mes.'],
     ['[data-a="logout"]', 'Cierra tu sesión si usas un equipo compartido.']] },
+  'u-entrar': { title: 'Entrar a tu reserva', steps: [
+    ['.card', 'Revisa los datos de tu reserva.'],
+    ['[data-a="space-cam"]', 'Abre la cámara y apunta al QR que está en la entrada del espacio. Así empieza tu tiempo.'],
+    ['[data-i="sp_code"]', 'Si la cámara no funciona, escribe el código que aparece bajo el QR.']] },
   'u-horas': { title: 'Mis horas', steps: [[null, 'Cada laboratorio tiene horas al mes por persona. Se reinician el día 1 y no se acumulan.']] },
   'u-notif': { title: 'Notificaciones', steps: [[null, 'Avisos de tus reservas, cancelaciones, archivos revisados y autorizaciones de menores.']] },
   'u-hist': { title: 'Historial', steps: [[null, 'Tus reservas y visitas anteriores.']] },
@@ -66,6 +72,8 @@ export const GUIDES = {
     ['[data-a="to-user"]', 'Para reservar para ti, cambia a la app de usuario.']] },
   'a-scan': { title: 'Recepción y QR', steps: [
     ['[data-i="scan"]', 'Escanea el QR o escribe el RUT o ID. El sistema marca entrada o salida solo.'],
+    ['[data-a="scan-find"]', '«Buscar reserva actual» muestra sus reservas de hoy sin marcar entrada ni salida, con los botones Iniciar y Terminar.'],
+    [null, 'Si la persona tocó «Terminar» y la escaneas dentro del plazo, se registra su término y queda en el cowork. Si no lo tocó (o venció el plazo), el escaneo registra su salida del Hub y cierra la reserva.'],
     ['[data-v="a-reg"]', 'Si la persona no tiene perfil, toca «Registrar usuario nuevo».'],
     [null, 'Sin internet las marcas quedan guardadas y se envían al volver la conexión.']] },
   'a-husr': { title: 'Usuarios', steps: [
@@ -86,7 +94,8 @@ export const GUIDES = {
     ['[data-a="ev-save"]', 'Completa título, fechas, cupos e imágenes y guarda. Marca Publicado para mostrarlo.']] },
   'a-esp': { title: 'Espacios', steps: [
     [null, 'Tipo, aforo, horas al mes, archivos que se piden y encargados de cada espacio.'],
-    [null, 'Un espacio con historial no se borra: se desactiva y se conserva para las estadísticas.']] },
+    [null, 'Un espacio con historial no se borra: se desactiva y se conserva para las estadísticas.'],
+    [null, 'En cada espacio está su QR: descarga el cartel, imprímelo y pégalo en la entrada.']] },
   'a-agenda': { title: 'Agenda y bloqueos', steps: [
     ['.hs', 'Elige el espacio (o todo el Hub) y el día.'],
     ['.chips', 'Toca las horas que quieres bloquear o liberar.'],
@@ -95,7 +104,7 @@ export const GUIDES = {
   'a-plano': { title: 'Plano', steps: [
     [null, 'Dibuja zonas, únelas y vincúlalas con un espacio: se completan nombre, tipo y aforo.'],
     ['[data-a="fl-add"]', 'Agrega o elimina pisos. Eliminar un piso desactiva sus espacios.']] },
-  'a-datos': { title: 'Datos', steps: [[null, 'Visitas, reservas y perfiles por periodo. Descarga los datos en CSV.']] },
+  'a-datos': { title: 'Datos', steps: [[null, 'Visitas, reservas y perfiles por periodo. Descarga los datos en CSV.'], ['.bartog', 'Toca una variable para ocultarla y comparar mejor las demás: la escala se ajusta sola.']] },
   'a-emp': { title: 'Empleados', steps: [[null, 'Asigna credenciales (administración, encargado, recepción, analista) y los laboratorios de cada encargado.']] },
   'a-reglas': { title: 'Reglas', steps: [[null, 'Horarios, bloques, tolerancia, saldo, aforo por piso, edades permitidas y correo.']] },
 };

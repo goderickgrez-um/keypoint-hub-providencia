@@ -34,7 +34,7 @@ const L = [
   ['Pedir a otro adulto (ID o RUT)', 'Ask another adult (ID or RUT)', 'Pedir a outro adulto (ID ou RUT)'], ['Pedir autorización', 'Request authorization', 'Pedir autorização'], ['Cerrar sesión', 'Sign out', 'Sair'],
   ['Solicitud enviada a {0}', 'Request sent to {0}', 'Pedido enviado a {0}'], ['Perfil autorizado', 'Profile authorized', 'Perfil autorizado'], ['Solicitud rechazada', 'Request declined', 'Pedido recusado'],
   ['Piso {0}', 'Floor {0}', 'Andar {0}'], ['Ver por espacio', 'View by space', 'Ver por espaço'],
-  ['Una zona con reserva figura ocupada cuando la persona registra su entrada.', 'A booked area shows as occupied once the person checks in.', 'Uma área reservada aparece ocupada quando a pessoa registra a entrada.'],
+  ['Una zona con reserva figura ocupada cuando la persona confirma su llegada con el QR del espacio.', 'A booked area shows as occupied once the person checks in.', 'Uma área reservada aparece ocupada quando a pessoa registra a entrada.'],
   ['{0} pide tu autorización', '{0} is asking for your authorization', '{0} pede sua autorização'],
   ['Al aceptar quedarás como adulto responsable de esta persona menor de edad. Se te considerará responsable ante cualquier accidente, pérdida de equipamiento o mala conducta asociada a ella dentro del Hub.', 'By accepting, you become the responsible adult for this minor. You will be held responsible for any accident, loss of equipment or misconduct involving them at the Hub.', 'Ao aceitar, você será o adulto responsável por este menor. Você será considerado responsável por qualquer acidente, perda de equipamento ou má conduta associada a ele no Hub.'],
   ['Sí, autorizo', 'Yes, I authorize', 'Sim, autorizo'], ['No', 'No', 'Não'], ['Sí', 'Yes', 'Sim'],

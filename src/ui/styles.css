@@ -108,6 +108,12 @@ button.pill { border: 0; min-height: 28px; text-decoration: underline; text-unde
 .banner.gen { display: flex; align-items: center; padding: 14px 16px 26px; background: var(--ac); color: var(--on); }
 .banner.gen b { font-size: 1.15rem; line-height: 1.2; text-wrap: balance; }
 .li.off { opacity: .6; }
+.bartog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; } .bartog .chip.s { padding: 4px 10px; font-size: .78rem; } .bartog .chip:not(.on) { text-decoration: line-through; opacity: .75; }
+.certbox { border-radius: 12px; } .certbox.tall { height: 330px; min-height: 160px; overflow: auto; resize: vertical; } .certbox.all { height: auto !important; overflow: visible; resize: none; } .certbox thead th { position: sticky; top: 0; background: var(--sf); z-index: 1; }
+.certbox:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.spqr { width: min(240px, 70%); margin: 0 auto; background: #fff; padding: 12px; border-radius: 12px; } .spqr svg { width: 100%; height: auto; display: block; } .mono { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em; }
+.qra { width: 100%; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ln); text-align: left; gap: 8px; }
+.qra-d { display: flex; flex-direction: column; } .qra-d span { font-size: .82rem; color: var(--mu); } .qra-warn { margin: 0; font-size: .86rem; color: var(--tx); background: var(--tint); padding: 8px 10px; border-radius: 10px; }
 /* Ayuda y recorrido guiado */
 .helpfloat { display: flex; justify-content: flex-end; margin-bottom: -8px; }
 .steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; line-height: 1.45; }

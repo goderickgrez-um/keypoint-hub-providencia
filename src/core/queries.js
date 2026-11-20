@@ -19,6 +19,8 @@ export const eventEnd = e => (e.end_at ? new Date(e.end_at) : e.start_at ? (d =>
 export const eventState = (e, now = new Date()) => { const end = eventEnd(e); if (end && +end < +now) return 'terminado'; if (!e.start_at) return 'aviso'; return +new Date(e.start_at) <= +now ? 'en_curso' : 'proximo'; };
 /** Orden de los banners: el orden manual primero; sin orden, por fecha (los avisos sin fecha al final). */
 export const eventOrder = (a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || (a.start_at ? +new Date(a.start_at) : 9e15) - (b.start_at ? +new Date(b.start_at) : 9e15) || a.id - b.id;
+/** Orden de la lista de administración: los terminados siempre quedan al fondo (el más reciente primero). */
+export const sortEvents = (list, now = new Date()) => { const done = e => eventState(e, now) === 'terminado'; return [...list].sort((a, b) => done(a) - done(b) || (done(a) ? +eventEnd(b) - +eventEnd(a) : eventOrder(a, b))); };
 /** Banners que ve un usuario: publicados y no terminados (incluye los que ya empezaron). */
 export const bannersFor = (db, now = new Date()) => db.where('events', e => e.published && eventState(e, now) !== 'terminado').sort(eventOrder);
 /** Pisos del Hub, ordenados. */

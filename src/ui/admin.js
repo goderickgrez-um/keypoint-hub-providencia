@@ -6,7 +6,7 @@ import { applyTheme, themeOf, themeMode } from './theme.js';
 import { heatPlan, floorSeg } from './plan.js';
 import { uname, sname, rangeOf, rangeBar, anon } from './staff.js';
 import { logoSrc } from './user.js';
-import { fileInput, confirmBox, memo, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
+import { fileInput, confirmBox, memo, qrSvg, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
 const closeQuiet = () => { S.modal = null; };
@@ -15,15 +15,15 @@ const local = d => { d = new Date(d); return `${R.dayKey(d)}T${R.hmOf(d)}`; }; /
 // ============================================================ Eventos y banners
 const evFill = e => fill({ ev_kind: e?.kind || 'evento', ev_title: e?.title || '', ev_desc: e?.description || '', ev_start: e?.start_at ? local(e.start_at) : '', ev_end: e?.end_at ? local(e.end_at) : '', ev_seats: e?.seats || '', ev_space: e?.space_id || '', ev_pub: e ? e.published : true });
 screens['a-eventos'] = { roles: ['admin'], render() {
-  const list = [...db().all('events')].sort(Q.eventOrder), cur = db().get('events', S.ev), now = new Date();
+  const now = new Date(), list = Q.sortEvents(db().all('events'), now), cur = db().get('events', S.ev);
   if (S.evLoaded !== (cur?.id ?? 0)) { evFill(cur); S.evLoaded = cur?.id ?? 0; S.evImg = {}; }
   const img = k => S.evImg?.[k] ?? cur?.[k], att = cur ? db().where('event_attendance', a => a.event_id === cur.id) : [];
   return `<h1>Eventos y banners</h1><p class="mu">Lo que publiques aquí aparece como banner en el inicio de los usuarios. El sistema no publica en redes sociales.</p>
-    <div class="grid"><div class="stack"><div class="row w between"><p class="sm mu" style="margin:0">Los banners se muestran en este orden. Usa las flechas para moverlos.</p>${list.length > 1 ? btn('Ordenar por fecha: más cercanos primero', 'ev-bydate', { cls: 's plain', icon: 'cal' }) : ''}</div>
+    <div class="grid"><div class="stack"><div class="row w between"><p class="sm mu" style="margin:0">Los banners se muestran en este orden. Usa las flechas para moverlos; los terminados pasan solos al final.</p>${list.length > 1 ? btn('Ordenar por fecha: más cercanos primero', 'ev-bydate', { cls: 's plain', icon: 'cal' }) : ''}</div>
       <div class="list" role="list">${list.map((e, i) => { const st = Q.eventState(e, now);
         return `<div class="li evrow${S.ev === e.id ? ' on' : ''}" role="listitem"><button class="sp evpick" data-a="ev-pick" data-v="${e.id}"><b>${esc(e.title)}</b><span>${e.kind === 'aviso' && !e.start_at ? 'Aviso sin fecha' : fRange(e.start_at, e.end_at || e.start_at)}${e.seats ? ` · ${db().where('event_attendance', a => a.event_id === e.id).length}/${e.seats} inscritos` : ''}</span></button>
           ${st === 'terminado' ? pill('Terminado', 'warn') : st === 'en_curso' ? pill('En curso', 'info') : ''}${e.published ? pill(st === 'terminado' ? 'No se muestra' : 'Publicado', st === 'terminado' ? '' : 'ok') : pill('Oculto')}
-          <span class="ord"><button class="icb" data-a="ev-move" data-v="${e.id}:-1" aria-label="Subir ${esc(e.title)}"${i ? '' : ' disabled'}>${icon('up')}</button><button class="icb" data-a="ev-move" data-v="${e.id}:1" aria-label="Bajar ${esc(e.title)}"${i < list.length - 1 ? '' : ' disabled'}>${icon('dn')}</button></span></div>`; }).join('') || '<div class="li mu">Aún no hay eventos.</div>'}</div>
+          <span class="ord"><button class="icb" data-a="ev-move" data-v="${e.id}:-1" aria-label="Subir ${esc(e.title)}"${i && !(st !== 'terminado' && false) && !(st === 'terminado' && Q.eventState(list[i - 1], now) !== 'terminado') ? '' : ' disabled'}>${icon('up')}</button><button class="icb" data-a="ev-move" data-v="${e.id}:1" aria-label="Bajar ${esc(e.title)}"${i < list.length - 1 && !(st !== 'terminado' && Q.eventState(list[i + 1], now) === 'terminado') ? '' : ' disabled'}>${icon('dn')}</button></span></div>`; }).join('') || '<div class="li mu">Aún no hay eventos.</div>'}</div>
       ${btn('Nuevo evento o aviso', 'ev-pick', { v: 0, cls: 'sec block', icon: 'plus' })}</div>
     <div class="card stack"><h3>${cur ? 'Editar' : 'Nuevo'}</h3><div class="form">${select('ev_kind', 'Tipo', [['evento', 'Evento con fecha'], ['aviso', 'Aviso sin fecha']], { raw: true, live: true })}${field('ev_title', 'Título', { cls: 'full' })}${area('ev_desc', 'Descripción')}
       ${val('ev_kind') === 'evento' ? field('ev_start', 'Inicio', { type: 'datetime-local' }) + field('ev_end', 'Término', { type: 'datetime-local' }) + field('ev_seats', 'Cupos (vacío = sin límite)', { type: 'number', attrs: 'min="1"' }) + select('ev_space', 'Lugar', db().all('spaces').map(s => [s.id, s.name]), { raw: true, blank: 'Sin lugar fijo' }) : ''}</div>
@@ -33,7 +33,7 @@ screens['a-eventos'] = { roles: ['admin'], render() {
       ${cur?.kind === 'evento' ? `<p class="sm mu">${att.length} inscritos · ${att.filter(a => a.status === 'asistio').length} asistieron</p>${att.length ? btn('Descargar lista de asistentes', 'ev-csv', { v: cur.id, cls: 's plain', icon: 'down' }) : ''}` : ''}</div></div>`;
 } };
 actions['ev-pick'] = v => { S.ev = +v; S.evLoaded = -1; go(S.k); };
-actions['ev-move'] = async v => { const [id, d] = v.split(':').map(Number), ids = [...db().all('events')].sort(Q.eventOrder).map(e => e.id), i = ids.indexOf(id), j = i + d;
+actions['ev-move'] = async v => { const [id, d] = v.split(':').map(Number), ids = Q.sortEvents(db().all('events')).map(e => e.id), i = ids.indexOf(id), j = i + d;
   if (j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; await run('event.order', { ids });
   requestAnimationFrame(() => document.querySelector(`[data-a="ev-move"][data-v="${id}:${d}"]:not([disabled])`)?.focus()); };
 /** Por fecha, más cercanos primero: en curso y próximos por inicio, luego avisos sin fecha y al final los terminados (el más reciente primero). */
@@ -79,8 +79,27 @@ screens['a-espd'] = { roles: ['admin', 'encargado'], render() {
     ${s ? `<div class="stack"><h3>${grp ? 'Grupos de residencia' : 'Equipos'} (${eqs.filter(e => e.active).length})</h3>
       <div class="list">${eqs.map(e => `<div class="li"><span class="sp"><b>${esc(e.name)}${e.active ? '' : ' ' + pill('Fuera de servicio', 'warn')}</b><span>${esc([e.model, e.specs].filter(Boolean).join(' · '))}${grp || e.capacity > 1 ? ` · ${e.capacity} cupos` : ''}</span></span><button class="icb" data-a="eq-edit" data-v="${e.id}" aria-label="Editar">${icon('edit')}</button><button class="icb" data-a="eq-del" data-v="${e.id}" aria-label="Quitar">${icon('trash')}</button></div>`).join('') || '<div class="li mu">Sin equipos registrados.</div>'}</div>
       <div class="card stack"><h3>${S.eq ? 'Editar' : 'Agregar'} ${grp ? 'grupo' : 'equipo'}</h3><div class="form">${field('eq_name', 'Nombre')}${field('eq_model', 'Modelo')}${field('eq_cap', 'Cupos', { type: 'number', attrs: 'min="1"' })}${area('eq_specs', 'Especificaciones')}</div>
-        ${check('eq_on', 'En servicio', { value: true })}<div class="row">${btn(S.eq ? 'Guardar equipo' : 'Agregar', 'eq-save', { cls: 'sp sec' })}${S.eq ? btn('Cancelar', 'eq-edit', { v: 0, cls: 'plain' }) : ''}</div></div></div>` : ''}</div>`;
+        ${check('eq_on', 'En servicio', { value: true })}<div class="row">${btn(S.eq ? 'Guardar equipo' : 'Agregar', 'eq-save', { cls: 'sp sec' })}${S.eq ? btn('Cancelar', 'eq-edit', { v: 0, cls: 'plain' }) : ''}</div></div></div>` : ''}${spaceQrCard(s)}</div>`;
 } };
+/** Dirección que lleva el QR de un espacio. */
+const spaceUrl = s => `${(cfg('public_url') || location.origin + location.pathname).replace(/[?#].*$/, '')}?espacio=${s.id}-${s.qr_key}`;
+export const spaceQrCard = s => !s?.id ? '' : `<div class="card stack"><h3>QR del espacio</h3>
+  <p class="sm mu" style="margin:0">Imprímelo y ponlo en la entrada. Quien tenga una reserva lo escanea desde «Entrar a tu reserva» para confirmar que llegó${+cfg('intern_space') === s.id ? '; las personas con pasantía lo usan para entrar a la oficina' : ''}.</p>
+  ${s.qr_key ? `<div class="spqr">${qrSvg(spaceUrl(s))}</div><p class="c" style="margin:0">Código: <b class="mono">${s.id}-${s.qr_key}</b></p>
+    <div class="row w">${btn('Descargar cartel para imprimir', 'sp-qr-png', { v: s.id, cls: 's sp', icon: 'down' })}${btn('Generar un QR nuevo', 'sp-qr-new', { v: s.id, cls: 's plain' })}</div>` : btn('Generar el QR', 'sp-qr', { v: s.id, cls: 'sp', icon: 'qr' })}</div>`;
+actions['sp-qr'] = id => run('space.qr', { id: +id }, 'QR generado');
+actions['sp-qr-new'] = id => confirmBox({ title: '¿Generar un QR nuevo?', danger: true, ok: 'Generar QR nuevo', text: '<p>El QR impreso actual dejará de funcionar. Tendrás que imprimir y pegar el nuevo.</p>', fn: () => run('space.qr', { id: +id, renew: true }, 'QR nuevo generado') });
+actions['sp-qr-png'] = async id => { const s = db().get('spaces', +id), W = 1240, H = 1754, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.fillStyle = '#1D1D1F'; g.textAlign = 'center';
+  g.font = '700 84px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; g.fillText(s.name, W / 2, 200, W - 160);
+  g.font = '400 44px -apple-system, "Segoe UI", Roboto, Arial, sans-serif'; g.fillStyle = '#555'; g.fillText(+cfg('intern_space') === s.id ? 'Escanea para entrar a la oficina de pasantía' : 'Escanea para empezar tu reserva', W / 2, 290);
+  const svg = new Blob([qrSvg(spaceUrl(s)).replace('<svg ', '<svg width="900" height="900" ')], { type: 'image/svg+xml' }), url = URL.createObjectURL(svg);
+  const img = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = url; }); if (img) g.drawImage(img, (W - 900) / 2, 380, 900, 900); URL.revokeObjectURL(url);
+  g.fillStyle = '#1D1D1F'; g.font = '600 56px ui-monospace, Menlo, Consolas, monospace'; g.fillText(`${s.id}-${s.qr_key}`, W / 2, 1400);
+  g.fillStyle = '#555'; g.font = '400 36px -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+  ['En la app: Inicio › «Entrar a tu reserva» › Abrir la cámara.', 'Si la cámara no funciona, escribe el código de arriba.'].forEach((l, i) => g.fillText(l, W / 2, 1490 + i * 56));
+  g.fillText(cfg('system_name') || 'Hub Providencia', W / 2, 1660);
+  download(`qr-${s.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').toLowerCase()}.png`, cv.toDataURL('image/png')); };
 actions['sp-save'] = async () => { const r = await run('space.save', { id: S.space || undefined, name: val('sp_name'), kind: val('sp_kind'), mode: val('sp_mode'), floor: val('sp_floor'), capacity: val('sp_cap'), accessible: val('sp_acc'), requires_cert: val('sp_cert'), min_level: val('sp_lvl'),
   monthly_hours: val('sp_hours'), gap_min: val('sp_gap'), tolerance_min: val('sp_tol'), max_hours: val('sp_max'), allow_overnight: val('sp_night'), accept: val('sp_accept'), notes: val('sp_notes'), active: val('sp_on'), cert_weekday: val('sp_cday'), cert_time: val('sp_ctime') });
   if (r) { const nc = !S.space && val('sp_cert'); S.space = r.id; toast(nc ? 'Espacio y certificación creados' : 'Espacio guardado'); } };
@@ -181,13 +200,17 @@ const NUM = [['block_min', 'Duración del bloque de salas y gaming (min)'], ['bl
 screens['a-reglas'] = { roles: ['admin'], render() {
   if (!S.rgLoaded) { const h = cfg('hours'), m = cfg('mail'), fc = cfg('floor_capacity'); NUM.forEach(([k]) => { S.f['rg_' + k] = cfg(k); }); for (const f in fc) S.f['rg_f' + f] = fc[f];
     for (let d = 0; d < 7; d++) { S.f['rg_o' + d] = h[d] ? R.hm(h[d][0]) : ''; S.f['rg_c' + d] = h[d] ? R.hm(h[d][1]) : ''; }
-    fill({ rg_zone: cfg('default_zone') ?? '', rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
+    fill({ rg_two: !!cfg('two_step'), rg_fw: cfg('finish_window_min') ?? 5, rg_url: cfg('public_url') || '', rg_intern: cfg('intern_space') ?? '', rg_zone: cfg('default_zone') ?? '', rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
   const out = [...db().all('outbox')].reverse().slice(0, 8);
   return `<h1>Reglas del sistema</h1><p class="mu">Estos valores rigen para todo el Hub. Las horas mensuales y los minutos entre trabajos se definen en cada espacio.</p>
     <div class="grid"><div class="card stack"><h3>Horario de atención</h3><p class="sm mu">Deja un día vacío para marcarlo como cerrado.</p>
       ${[1, 2, 3, 4, 5, 6, 0].map(d => `<div class="row"><span style="flex:0 0 84px">${WEEKDAYS[d]}</span>${field('rg_o' + d, '', { type: 'time', cls: 'sp', attrs: `aria-label="${WEEKDAYS[d]}: abre"` })}${field('rg_c' + d, '', { type: 'time', cls: 'sp', attrs: `aria-label="${WEEKDAYS[d]}: cierra"` })}</div>`).join('')}
       <h3>Personas sin reserva</h3><p class="sm mu">Quien entra sin una reserva para esa hora queda registrado en esta zona.</p>
       ${select('rg_zone', 'Zona por defecto', db().where('spaces', s => s.active && s.mode !== 'reserva').map(s => [s.id, s.name]), { raw: true, blank: 'Cowork (predeterminado)' })}
+      <h3>Asistencia a reservas</h3>${check('rg_two', 'Confirmación en dos pasos: la reserva empieza al escanear el QR del espacio (o cuando recepción la inicia), no solo al entrar al Hub')}
+      ${field('rg_fw', 'Minutos para pasar por recepción tras «Terminar» (si no, se registra la salida del Hub)', { type: 'number', attrs: 'min="1" max="60"' })}
+      ${field('rg_url', 'Dirección pública de la app (la que llevan los QR de los espacios; vacío = la dirección actual)', { ph: 'https://usuario.github.io/keypoint-hub-providencia/', attrs: 'type="url"' })}
+      <h3>Pasantía</h3>${select('rg_intern', 'Oficina de pasantía (espacio al que entran las personas con pasantía)', db().where('spaces', s => s.active).map(s => [s.id, `${s.name} · aforo ${s.capacity}`]), { raw: true, blank: 'Sin oficina de pasantía' })}
       <h3>Aforo por piso</h3><div class="form">${Q.floorsOf(db()).map(f => field('rg_f' + f, 'Piso ' + f + ' (personas)', { type: 'number', attrs: 'min="0"' })).join('')}</div></div>
     <div class="card stack"><h3>Reservas y archivos</h3><div class="form">${NUM.map(([k, l]) => field('rg_' + k, l, { type: 'number', attrs: 'min="0"' })).join('')}</div>${check('rg_host', 'Liberar la sala de reuniones si el anfitrión no llega (por defecto se mantiene para los invitados)')}</div>
     <div class="card stack"><h3>Correo y cuentas</h3><p class="sm mu">Cuenta que envía confirmaciones y avisos. La contraseña de aplicación va en el archivo .env del servidor, nunca aquí.</p>
@@ -200,7 +223,8 @@ actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).
   for (let d = 0; d < 7; d++) if (val('rg_o' + d) && val('rg_c' + d)) { hours[d] = [mins(val('rg_o' + d)), mins(val('rg_c' + d))]; if (hours[d][1] <= hours[d][0]) return toast(`Revisa el horario del ${WEEKDAYS[d].toLowerCase()}`); }
   const set = (key, value) => App.data.call('config.set', { key, value });
   try { await set('hours', hours); for (const [k] of NUM) await set(k, Math.max(0, +val('rg_' + k) || 0));
-    await set('floor_capacity', Object.fromEntries(Q.floorsOf(db()).map(f => [f, +val('rg_f' + f) || 0]))); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null);
+    await set('floor_capacity', Object.fromEntries(Q.floorsOf(db()).map(f => [f, +val('rg_f' + f) || 0]))); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null); await set('two_step', !!val('rg_two')); await set('finish_window_min', Math.min(60, Math.max(1, +val('rg_fw') || 5))); await set('intern_space', val('rg_intern') ? +val('rg_intern') : null);
+    if (val('rg_url') && !/^https:\/\/[^\s]+$/.test(val('rg_url'))) return toast('La dirección pública debe empezar con https://'); await set('public_url', val('rg_url').trim());
     await set('mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }); await set('google_client_id', val('rg_g').trim()); await set('microsoft_client_id', val('rg_ms').trim()); toast('Reglas guardadas'); }
   catch (e) { toast(e.user ? e.message : 'No se pudieron guardar las reglas'); } };
 
@@ -256,13 +280,13 @@ screens['a-datos'] = { roles: ['admin', 'analista'], render() {
   return `<div class="head"><h1>Datos</h1>${myRoles().includes('analista') ? btn('Descargar datos', 'data-export', { cls: 's', icon: 'down' }) : ''}</div>${rangeBar()}
     <p class="sm mu">${fDate(from)} – ${fDate(to)}. Para el análisis se usan solo comuna, actividad, ocupación, género, edad y movilidad reducida, sin nombres ni RUT.</p>
     <div class="kpis">${stat('Visitas en el periodo', fmtN(st.visits), `${fmtN(st.uniqueVisitors)} personas distintas`)}${stat('Usuarios registrados', fmtN(st.users), `${st.minors} menores de edad`)}${stat('Edad promedio', st.avgAge ?? '—', 'años')}${stat('Movilidad reducida', fmtN(st.mobility), `${Math.round(st.mobility / Math.max(1, st.users) * 100)} % de los usuarios`)}${stat('Inasistencias', fmtN(st.noShows), 'reservas sin llegar')}</div>
-    <div class="grid"><div class="card stack"><h3>Visitas por espacio</h3>${barsH(st.bySpace)}</div><div class="card stack"><h3>Horas de uso por laboratorio y sala</h3>${barsH(st.hours, { unit: ' h' })}</div></div>
+    <div class="grid"><div class="card stack"><h3>Visitas por espacio</h3>${barsH(st.bySpace, { id: 'bySpace' })}</div><div class="card stack"><h3>Horas de uso por laboratorio y sala</h3>${barsH(st.hours, { id: 'hours', unit: ' h' })}</div></div>
     <div class="card stack"><h3>Personas distintas por día</h3>${colChart(st.perDay, { label: 'Personas distintas por día', x: 'Día', y: 'Personas' })}</div>
     <div class="grid"><div class="card stack"><h3>Ocupación promedio por día y hora</h3>${heatGrid(st.heat)}</div>
       <div class="card stack"><div class="row between"><h3>Uso por zona del plano</h3>${floorSeg('plan-floor', floor)}</div>${heatPlan(floor, byId)}</div></div>
-    <h2>Quiénes usan el Hub</h2><div class="grid"><div class="card stack"><h3>Actividad en Providencia</h3>${barsH(st.byActivity)}</div><div class="card stack"><h3>Género</h3>${barsH(st.byGender)}</div>
-      <div class="card stack"><h3>A qué se dedican</h3>${barsH(st.byOccupation)}</div><div class="card stack"><h3>Comuna</h3>${barsH(st.byComuna)}</div></div>
-    <h2>Fallas de máquinas</h2><div class="grid"><div class="card stack"><h3>Por máquina</h3>${barsH(st.failByResource)}</div><div class="card stack"><h3>Por tipo</h3>${barsH(st.failByCategory)}</div></div>`;
+    <h2>Quiénes usan el Hub</h2><div class="grid"><div class="card stack"><h3>Actividad en Providencia</h3>${barsH(st.byActivity, { id: 'byActivity' })}</div><div class="card stack"><h3>Género</h3>${barsH(st.byGender, { id: 'byGender' })}</div>
+      <div class="card stack"><h3>A qué se dedican</h3>${barsH(st.byOccupation, { id: 'byOccupation' })}</div><div class="card stack"><h3>Comuna</h3>${barsH(st.byComuna, { id: 'byComuna' })}</div></div>
+    <h2>Fallas de máquinas</h2><div class="grid"><div class="card stack"><h3>Por máquina</h3>${barsH(st.failByResource, { id: 'failByResource' })}</div><div class="card stack"><h3>Por tipo</h3>${barsH(st.failByCategory, { id: 'failByCategory' })}</div></div>`;
 } };
 actions['data-export'] = () => { const [from, to] = rangeOf(), inR = d => T(d) >= +from && T(d) < +to + 864e5, now = new Date();
   download('hub-usuarios.csv', csv(['id', 'comuna', 'actividad', 'ocupacion', 'genero', 'edad', 'movilidad_reducida', 'registrado'], db().all('users').map(u => [u.id, u.comuna, u.activity, u.occupation, u.gender, R.age(u.birth_date, now), u.reduced_mobility ? 'si' : 'no', R.dayKey(u.created_at)])));

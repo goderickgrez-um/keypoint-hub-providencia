@@ -4,7 +4,7 @@ import { App } from '../ui/kit.js';
 import { call, tick } from '../core/services.js';
 import { seed } from '../core/seed.js';
 
-const VERSION = 4;
+const VERSION = 5;
 let chan = null, timer = null;
 const open = () => new Promise((ok, ko) => { const r = indexedDB.open('keypoint-hub', 1); r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('files'); }; r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
 const tx = async (store, mode, fn) => { const d = await open(); return new Promise((ok, ko) => { const t = d.transaction(store, mode), rq = fn(t.objectStore(store)); t.oncomplete = () => ok(rq?.result); t.onerror = () => ko(t.error); }); };
@@ -13,9 +13,17 @@ function save() {
   clearTimeout(timer);
   timer = setTimeout(async () => { try { await tx('kv', 'readwrite', s => s.put({ ...App.db.dump(), __v: VERSION }, 'db')); chan?.postMessage('changed'); } catch { /* sin almacenamiento: la demo sigue en memoria */ } }, 250);
 }
-const session = v => { try { if (v === undefined) return sessionStorage.getItem('hub-uid'); v ? sessionStorage.setItem('hub-uid', v) : sessionStorage.removeItem('hub-uid'); } catch { return null; } };
+/** La sesión vive en sessionStorage (se cierra con la pestaña) o, si la persona pidió mantenerla, en localStorage. */
+const session = (v, keep) => { try {
+  if (v === undefined) return localStorage.getItem('hub-uid') || sessionStorage.getItem('hub-uid');
+  localStorage.removeItem('hub-uid'); sessionStorage.removeItem('hub-uid');
+  if (v) (keep ? localStorage : sessionStorage).setItem('hub-uid', v);
+} catch { return null; } };
+/** true si la sesión de este dispositivo quedó guardada. */
+export const remembered = () => { try { return !!localStorage.getItem('hub-uid'); } catch { return false; } };
 
 export const local = {
+  remembered,
   async init(onChange) {
     let data = await read();
     if (!data || data.__v !== VERSION) data = await seed(new Date());
@@ -26,7 +34,7 @@ export const local = {
   },
   async call(name, args) {
     const ctx = { db: App.db, uid: App.uid, now: new Date(), demo: true };
-    try { const r = await call(ctx, name, args); App.db.take(); save(); if (r.session) { App.uid = r.session; session(r.session); } return r; }
+    try { const r = await call(ctx, name, args); App.db.take(); save(); if (r.session) { App.uid = r.session; session(r.session, args && 'remember' in args ? !!args.remember : remembered()); } return r; }
     catch (e) { App.db.rollback(); throw e; }
   },
   logout() { App.uid = null; session(null); },

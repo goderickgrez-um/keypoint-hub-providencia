@@ -1,0 +1,510 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Bitácora de desarrollo · Keypoint Hub Providencia</title><style>
+@page { size: A4; margin: 20mm 18mm 18mm; }
+* { box-sizing: border-box; } body { font: 10.2pt/1.5 Inter, 'DejaVu Sans', Arial, sans-serif; color: #000; margin: 0; }
+h1 { font-size: 22pt; letter-spacing: -.02em; margin: 0 0 4mm; padding-bottom: 3mm; border-bottom: .8mm solid #000; }
+h2 { font-size: 14pt; margin: 9mm 0 3mm; padding-bottom: 1.5mm; border-bottom: .3mm solid #000; break-after: avoid; }
+h3 { font-size: 11pt; margin: 6mm 0 2mm; break-after: avoid; }
+p { margin: 0 0 2.5mm; } ul, ol { margin: 0 0 3mm; padding-left: 6mm; } li { margin-bottom: 1mm; }
+li.done, li.todo { list-style: none; position: relative; } li.done::before { content: '☑'; position: absolute; left: -5.5mm; } li.todo::before { content: '☐'; position: absolute; left: -5.5mm; }
+hr { border: 0; border-top: .3mm solid #000; margin: 6mm 0; }
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9pt; break-inside: auto; }
+th, td { border: .25mm solid #000; padding: 1.6mm 2mm; text-align: left; vertical-align: top; } th { font-weight: 700; border-bottom: .6mm solid #000; }
+tr { break-inside: avoid; } code { font-family: 'DejaVu Sans Mono', Consolas, monospace; font-size: 8.8pt; }
+h1 + p { font-size: 10.5pt; }
+</style></head><body><h1>Bitácora de desarrollo · Keypoint Hub Providencia</h1>
+<p><strong>Proyecto Capstone · Equipo keypoint</strong><br />
+Constanza Martinez · Maite Martinez · Cesar Aravena · Diego Donoso · Roderick Grez<br />
+Docente: Ricardo Andrés Sepúlveda<br />
+Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <strong>2.5.1</strong></p>
+<hr />
+<h2>1. Resumen</h2>
+<p>Keypoint Hub Providencia es el sistema web de registro de entradas y reservas del Hub Providencia, un espacio de cowork municipal de dos pisos. Reemplaza el registro con formularios de Google y planillas por una credencial QR personal, reservas desde el teléfono para salas, sala gaming y laboratorios, certificaciones para el uso de máquinas y un panel de datos para la administración.</p>
+<p>Esta bitácora reconstruye, a partir del historial completo de la conversación de trabajo y del repositorio, qué se pidió en cada etapa, qué se decidió, qué se entregó y qué problemas aparecieron. Las fechas exactas se conocen desde el 19 de noviembre de 2026 (historial de Git); las etapas anteriores se ubican por mes.</p>
+<p><strong>Estado al cierre de esta bitácora (versión 2.5.1):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Indicador</th>
+<th>Valor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pantallas</td>
+<td>44 (19 de usuario y 25 del personal)</td>
+</tr>
+<tr>
+<td>Tablas de la base de datos</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Operaciones del servidor</td>
+<td>59, con permisos revisados en el servidor</td>
+</tr>
+<tr>
+<td>Idiomas</td>
+<td>Español, inglés y portugués (la ayuda y las preguntas frecuentes, solo en español)</td>
+</tr>
+<tr>
+<td>Puesta en marcha</td>
+<td>App en GitHub Pages; servidor Node.js y PostgreSQL en el notebook Acer Nitro 5, publicado con Tailscale Funnel</td>
+</tr>
+<tr>
+<td>Documentos</td>
+<td>Informe Capstone, manual de uso, cinco trípticos, preguntas frecuentes, guía de seguridad, registro de versiones y esta bitácora</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>2. Equipo y roles</h2>
+<table>
+<thead>
+<tr>
+<th>Integrante</th>
+<th>Rol en el proyecto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Roderick Grez</td>
+<td>Desarrollo de la aplicación; diseño junto con Cesar y Constanza</td>
+</tr>
+<tr>
+<td>Diego Donoso</td>
+<td>Logística; presentaciones y propuestas</td>
+</tr>
+<tr>
+<td>Cesar Aravena</td>
+<td>Control de calidad (QA) y mediación con el Hub; diseño; presentaciones</td>
+</tr>
+<tr>
+<td>Constanza Martinez</td>
+<td>Área de negocios, equipo y toma de requerimientos; diseño</td>
+</tr>
+<tr>
+<td>Maite Martinez</td>
+<td>Apoyo en varias áreas; presentaciones y propuestas</td>
+</tr>
+</tbody>
+</table>
+<p>Las decisiones se tomaron en conjunto. El desarrollo se hizo en sesiones de trabajo con un asistente de programación basado en inteligencia artificial (Claude, de Anthropic), dirigido por Roderick Grez, quien probó cada versión, la publicó en GitHub y la instaló en el servidor.</p>
+<hr />
+<h2>3. Forma de trabajo</h2>
+<p>Cada versión siguió el mismo ciclo:</p>
+<ol>
+<li><strong>Solicitud</strong>: lista de mejoras, normalmente a partir de las pruebas y de los comentarios de usuarios, docentes y otros equipos.</li>
+<li><strong>Aclaración</strong>: antes de construir, preguntas sobre los puntos ambiguos (por ejemplo, qué significa «borrar datos» o qué pasa si alguien no pasa por recepción).</li>
+<li><strong>Desarrollo</strong> sobre una copia del repositorio.</li>
+<li><strong>Verificación</strong> automática: pruebas del núcleo, pruebas en el navegador (modo demostración y servidor real con PostgreSQL), actualización de una base de la versión anterior y revisión de accesibilidad (WCAG 2 A/AA, en modo claro y oscuro).</li>
+<li><strong>Entrega</strong> en un archivo comprimido, sin claves ni datos privados, con los pasos para actualizar.</li>
+<li><strong>Puesta en marcha</strong>: Roderick sube los cambios a GitHub y reinicia el servidor del Acer; la base se actualiza sola al iniciar.</li>
+</ol>
+<hr />
+<h2>4. Línea de tiempo</h2>
+<table>
+<thead>
+<tr>
+<th>Etapa</th>
+<th>Fecha</th>
+<th>Versión</th>
+<th>Hito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Levantamiento e informe</td>
+<td>octubre 2026</td>
+<td>0.1</td>
+<td>Informe Capstone completado</td>
+</tr>
+<tr>
+<td>Mockup</td>
+<td>octubre 2026</td>
+<td>0.2</td>
+<td>Interfaz en modo oscuro y luego claro</td>
+</tr>
+<tr>
+<td>Primer front end</td>
+<td>octubre 2026</td>
+<td>0.3</td>
+<td>Pantallas de usuario y administración</td>
+</tr>
+<tr>
+<td>Preguntas a la administración</td>
+<td>oct.–nov. 2026</td>
+<td>—</td>
+<td>Respuestas del Hub y formulario actual de inscripción</td>
+</tr>
+<tr>
+<td>Entrega completa</td>
+<td>noviembre 2026</td>
+<td>1.0.0</td>
+<td>App, base de datos, servidor, manual, trípticos e informe ampliado</td>
+</tr>
+<tr>
+<td>Cerrar sesión</td>
+<td>noviembre 2026</td>
+<td>1.0.1</td>
+<td>Ajuste de perfil</td>
+</tr>
+<tr>
+<td>Puesta en marcha real</td>
+<td>noviembre 2026</td>
+<td>2.0.0</td>
+<td>GitHub Pages + Acer Nitro 5 + Tailscale Funnel</td>
+</tr>
+<tr>
+<td>Primeras pruebas</td>
+<td>noviembre 2026</td>
+<td>2.1.1</td>
+<td>Arreglos de uso en teléfono</td>
+</tr>
+<tr>
+<td>Seguridad y encargados</td>
+<td>19 nov. 2026</td>
+<td>2.2.0</td>
+<td>Cifrado, encargados por laboratorio</td>
+</tr>
+<tr>
+<td>Borrado, espacios, agenda</td>
+<td>19 nov. 2026</td>
+<td>2.3.0 / 2.3.1</td>
+<td>Derecho de supresión, pisos, agenda por lote</td>
+</tr>
+<tr>
+<td>Ayuda y banners</td>
+<td>19 nov. 2026</td>
+<td>2.4.0</td>
+<td>Ayuda por pantalla, preguntas frecuentes</td>
+</tr>
+<tr>
+<td>Reserva en dos pasos</td>
+<td>20 nov. 2026</td>
+<td>2.5.0</td>
+<td>QR de espacios, pasantía, sesión por dispositivo</td>
+</tr>
+<tr>
+<td>Término con recepción</td>
+<td>20 nov. 2026</td>
+<td>2.5.1</td>
+<td>Ajuste de «Terminar», versión única, trípticos B/N</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>5. Detalle por etapa</h2>
+<h3>5.1 Levantamiento de requerimientos e informe (versión 0.1)</h3>
+<p><strong>Solicitud.</strong> A partir de las notas de la visita al Hub: corregir y completar el informe Capstone y plantear todas las preguntas necesarias sobre objetivo, alcance, reglas e infraestructura.</p>
+<p><strong>Lo que se definió:</strong></p>
+<ul>
+<li>La web app con códigos QR es la solución principal; el tótem y la app móvil quedan como alternativas consideradas y descartadas.</li>
+<li>Piloto real con entre 1.000 y 5.000 usuarios, funcionamiento permanente y análisis de datos para la administración.</li>
+<li>Prioridades del prototipo: registro de usuarios, QR, reservas de salas y equipos gaming por hora, laboratorios con archivo adjunto y, más adelante, validación del RUT con una API externa.</li>
+<li>Laboratorios: horas mensuales definidas por la administración, reserva automática si la persona está certificada y tiene saldo, revisión del archivo por el encargado y fichas técnicas configurables de cada máquina.</li>
+<li>Penalización por inasistencia o cancelación tardía configurable por tipo de laboratorio; bloques de reserva configurables; certificaciones agendadas en el mismo sistema.</li>
+<li>Registro asistido en el mesón para personas mayores o sin celular; escaneo con celular, cámara o lector USB.</li>
+<li>Hospedaje a cargo del Hub, con cifrado y seguridad de los datos; importación de históricos de Power BI y Google Forms.</li>
+<li>Redacción natural, a nivel de estudiantes de último año de ingeniería.</li>
+</ul>
+<p><strong>Segunda ronda.</strong> Cuota mensual tentativa de 48 horas por laboratorio; el QR lleva solo el ID del perfil, por ser más simple y seguro; los cambios al informe quedan para la entrega siguiente.</p>
+<p><strong>Entregable.</strong> Informe Capstone completado y reescrito con coherencia entre secciones.</p>
+<h3>5.2 Mockup de la interfaz (versión 0.2)</h3>
+<p><strong>Solicitud.</strong> Una interfaz elegante y tecnológica que transmita juventud, innovación, creatividad, calidez, seguridad y solidez; sin colores demasiado vivos ni pastel; adaptable a teléfono y computador, con arquitectura por capas.</p>
+<p><strong>Resultado.</strong> Mockup en modo oscuro; luego se pidió conservarlo y agregar el modo claro, con tema según el dispositivo por defecto.</p>
+<h3>5.3 Primer front end (versión 0.3)</h3>
+<p><strong>Solicitud.</strong> Construir el front end listo para conectar la base de datos, con las pantallas de usuario (ingreso, inicio con banners, QR y ocupación, reserva de PC gaming en grilla tipo cine 3×2, laboratorios con estimación y saldo, certificaciones, reservas activas, historial, horas, perfil y configuración) y de administración (panel con mapa de calor, reservas actuales, detalle de uso, próximas reservas, lector QR, revisión de archivos, solicitudes, espacios, agenda, apariencia, datos e historial de usuarios).</p>
+<p><strong>Ampliaciones pedidas al revisar la lista:</strong></p>
+<ul>
+<li>Reserva de sala de reuniones con asistentes y registro de usuario nuevo.</li>
+<li>Fichas técnicas de máquinas configurables, con valores promedio mientras el Hub entrega los datos.</li>
+<li>«CNC» corregido a cortadora láser (certificación los martes a las 12:00).</li>
+<li>Para administración: registro de usuarios, entrada y salida asistida, gestión de certificaciones con lista de verificación, registro de empleados (solo administración) e importación de históricos con alta automática de quienes asistieron más de cuatro veces.</li>
+<li>Dos apps en una: usuarios y personal, con acceso por credenciales combinables (un encargado puede ser también administrador y analista).</li>
+<li>Bloques de 50 minutos combinables, con 10 minutos entre bloques; reserva mínima de 50 minutos y máxima de 12 horas; tolerancia de 15 minutos.</li>
+<li>Horario: lunes a jueves de 8:30 a 18:00 y viernes de 8:30 a 17:00, configurable.</li>
+<li>Ocupación por zona según reservas con asistencia; observaciones de los encargados sobre los trabajos; reservas asistidas en recepción.</li>
+<li>Material de marca: el logo «HUB Providencia, vida buena».</li>
+</ul>
+<h3>5.4 Preguntas a la administración del Hub</h3>
+<p><strong>Solicitud.</strong> Reunir todas las preguntas pendientes sobre infraestructura, espacios, perfiles y objetivos para asegurar una implementación pronta.</p>
+<p><strong>Resultado.</strong> Cuestionario para el Hub. Sus respuestas (archivo <code>hub-provi.txt</code>) y el formulario de inscripción que usaban (Google Forms) se incorporaron a la entrega siguiente.</p>
+<h3>5.5 Primera entrega completa (versión 1.0.0)</h3>
+<p><strong>Solicitud.</strong> Entrega completa para publicar en GitHub: informe ampliado, manual de uso, un tríptico por cargo, base de datos completa, app web de usuarios y versión de escritorio para recepción; diseño profesional inspirado en los sitios de Apple.</p>
+<p><strong>Decisiones de esa ronda:</strong></p>
+<ul>
+<li>Fecha adelantada: debía quedar lista para las primeras pruebas del piloto a la semana siguiente.</li>
+<li>La demostración corre en el notebook Acer Nitro 5 (Ryzen 7, 16 GB) y en GitHub Pages, con datos de ejemplo.</li>
+<li>Quien no tenga cuenta de Google entra con contraseña y confirma su correo con un código.</li>
+<li>App instalable desde Chrome o Edge para recepción (Windows 11).</li>
+<li>Saldo de horas por laboratorio; se guarda la fecha de nacimiento.</li>
+<li>Idiomas: español, inglés y portugués (criollo haitiano pospuesto por falta de revisión).</li>
+<li>Acento verde azulado del logo, sin exceso de espacio en blanco; colores configurables por elemento para tema claro y oscuro, con fondo en degradado.</li>
+</ul>
+<p><strong>Entregables.</strong> Aplicación (usuarios y personal), modo demostración con 160 personas de ejemplo, servidor Node.js, base PostgreSQL, informe ampliado, manual, cinco trípticos y una guía de instalación.</p>
+<p><strong>Versión 1.0.1.</strong> Botón para cerrar sesión en el perfil del usuario y del personal.</p>
+<h3>5.6 Puesta en marcha real (versión 2.0.0)</h3>
+<p><strong>Solicitud.</strong> Conectar la base de datos para la primera prueba: la base en el Acer Nitro 5 de la casa de Roderick y la app publicada aparte, con pasos para alguien con conocimientos básicos.</p>
+<p><strong>Solución.</strong> App en GitHub Pages que se conecta al servidor del Acer a través de Tailscale Funnel (dirección pública con HTTPS); <code>config.web.js</code> indica la dirección del servidor.</p>
+<p><strong>Problemas y soluciones:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Problema</th>
+<th>Causa</th>
+<th>Solución</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub Actions no publicaba la página</td>
+<td>Pages no estaba activado con Actions</td>
+<td>Activarlo y volver a ejecutar</td>
+</tr>
+<tr>
+<td><code>init-db</code> fallaba con la contraseña</td>
+<td>No leía <code>.env</code> en Windows</td>
+<td>Lectura de <code>.env</code> y rutas compatibles con Windows</td>
+</tr>
+<tr>
+<td>«Funnel is not enabled»</td>
+<td>Faltaban permisos en Tailscale</td>
+<td>Activar MagicDNS, HTTPS y Funnel</td>
+</tr>
+<tr>
+<td>GitHub mostraba la demo y no el sistema real</td>
+<td>Formato de <code>config.web.js</code></td>
+<td>La app acepta ambos formatos</td>
+</tr>
+<tr>
+<td>Lentitud</td>
+<td>Datos completos en cada consulta</td>
+<td>Compresión y envío solo de lo que cambió</td>
+</tr>
+</tbody>
+</table>
+<p>Al cierre: «el sistema está funcionando de maravilla».</p>
+<h3>5.7 Primeras pruebas de uso (versión 2.1.1)</h3>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Botón X en los banners y cierre con el botón «atrás» del teléfono.</li>
+<li class="done">Mostrar que el archivo del laboratorio ya se subió.</li>
+<li class="done">Confirmar contraseña al cambiarla.</li>
+<li class="done">Rueda de colores completa para el tema.</li>
+<li class="done">Fecha de nacimiento editable desde el teléfono.</li>
+<li class="done">El teclado ya no salta a letras al escribir el RUT (registro y búsqueda de usuarios).</li>
+</ul>
+<h3>5.8 Optimización, seguridad y encargados (versión 2.2.0)</h3>
+<p>Lista de mejoras sugeridas por docentes y otros equipos tras ver la demo.</p>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Optimización del sistema.</li>
+<li class="done">Seguridad de la base: consultas parametrizadas contra inyección y cifrado de RUT, correo y teléfono.</li>
+<li class="done">Seguridad de la página según estándares actuales (CSP, cabeceras, límites de intentos).</li>
+<li class="done">Encargado de laboratorio asociado a uno o más laboratorios; solo ve los datos de los suyos.</li>
+<li class="done">Lista de laboratorios con confirmación al dar la credencial de encargado.</li>
+<li class="done">Quien entra sin reserva queda registrado en el cowork (zona por defecto, editable).</li>
+<li class="done">Duración y registro correcto de los códigos del correo.</li>
+</ul>
+<p>También se explicó cómo reiniciar la base de demostración: <code>npm run db:init -- --demo --reset</code>.</p>
+<h3>5.9 Datos, espacios y agenda (versiones 2.3.0 y 2.3.1)</h3>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Borrar el historial de una persona, su perfil o ambos, con la contraseña de administración y una confirmación.</li>
+<li class="done">Edad permitida de 4 a 95 años.</li>
+<li class="done">Formato del RUT explicado al crear un usuario.</li>
+<li class="done">Plano: al vincular un espacio se completan solos nombre, tipo y aforo.</li>
+<li class="done">Eliminar espacios con confirmación.</li>
+<li class="done">Certificaciones inscritas en Mis reservas y en «Tu próxima reserva».</li>
+<li class="done">Confirmado: una sesión de certificación llena no se puede elegir.</li>
+<li class="done">Todos los banners publicados en el inicio.</li>
+<li class="done">Agregar y eliminar pisos.</li>
+<li class="done">Laboratorio que exige certificación: la certificación se crea sola.</li>
+<li class="done">Agenda: guardar cambios, lista «Horas bloqueadas:» y confirmación.</li>
+<li class="done">Textos explicativos al crear espacios.</li>
+<li class="done">Optimización, seguridad y accesibilidad.</li>
+</ul>
+<p><strong>Decisiones tomadas con el equipo:</strong></p>
+<ul>
+<li>«Borrar datos» elimina el historial y conserva la cuenta; «borrar perfil» elimina la cuenta y deja el historial anónimo para las estadísticas; «ambos» elimina todo.</li>
+<li>Un espacio con historial se desactiva (cancelando sus reservas futuras con aviso); si nunca se usó, se borra.</li>
+<li>La certificación automática pide día y hora al crear el laboratorio.</li>
+<li>Eliminar un piso desactiva sus espacios.</li>
+</ul>
+<p><strong>Causa del problema de banners:</strong> el carrusel no tenía controles en el computador y omitía los eventos sin imagen.</p>
+<p><strong>Versión 2.3.1.</strong> Al actualizar apareció «EADDRINUSE: address already in use :::8080»: el servidor anterior seguía abierto. El servidor ahora lo explica y dice cómo cerrarlo.</p>
+<h3>5.10 Ayuda y banners (versión 2.4.0)</h3>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Botón de ayuda según la pantalla, con recorridos guiados breves.</li>
+<li class="done">Preguntas frecuentes para usuarios (reservar, certificarse, inscribir a un menor, etc.) y para el personal, con documento descargable.</li>
+<li class="done">Banners que avanzan solos cada 5 segundos y se detienen cuando la persona los desliza.</li>
+<li class="done">Orden manual de eventos y botón «Ordenar por fecha: más cercanos primero».</li>
+<li class="done">Eventos terminados en amarillo con la etiqueta «Terminado»; los ya iniciados siguen visibles.</li>
+<li class="done">Cupos de espacios, eventos y laboratorios nunca negativos.</li>
+</ul>
+<h3>5.11 Comentarios de usuarios: reserva en dos pasos (versión 2.5.0)</h3>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Botón «Entrar en oficina de pasantía» bajo el QR para quienes tienen pasantía.</li>
+<li class="done">Botón «Terminar» bajo el QR durante una reserva, con paso por recepción.</li>
+<li class="done">Buscador de personas certificadas y cuadro ajustable (6 filas por defecto, se arrastra para ver más).</li>
+<li class="done">Descargar el diploma de certificación desde el perfil.</li>
+<li class="done">Ocultar variables en los gráficos de barras para comparar las demás.</li>
+<li class="done">Mantener la sesión abierta en un dispositivo, con aviso en el perfil.</li>
+<li class="done">Confirmación de reserva en dos pasos con un QR generado para cada espacio.</li>
+<li class="done">Recepción: «Buscar reserva actual» con opciones de iniciar y terminar.</li>
+<li class="done">Banners terminados al final de la lista, de forma automática.</li>
+</ul>
+<p><strong>Decisiones tomadas con el equipo:</strong></p>
+<ul>
+<li>La pasantía la asigna la administración; la oficina es un espacio configurable con aforo.</li>
+<li>«Terminar» exige pasar por recepción dentro de 5 minutos.</li>
+<li>«Terminar» aparece desde que empieza la reserva.</li>
+<li>La sesión mantenida dura hasta cerrar sesión en ese dispositivo o cambiar la contraseña.</li>
+</ul>
+<h3>5.12 Término confirmado por recepción (versión 2.5.1)</h3>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Si la persona toca «Terminar» y no pasa por recepción, el término no se toma en cuenta: la reserva sigue en curso y se le avisa que expiró el plazo, recordándole acercarse a recepción cada vez que toque «Terminar».</li>
+<li class="done">Si registra su salida del Hub en recepción sin haber terminado, su tiempo en el laboratorio termina en ese momento.</li>
+<li class="done">Bitácora de desarrollo (este documento).</li>
+<li class="done">Corrección del versionamiento: una sola serie, una sola fuente y registro de versiones.</li>
+<li class="done">Trípticos por cargo actualizados y pensados para impresión láser en blanco y negro.</li>
+</ul>
+<p><strong>Corrección de versiones.</strong> El repositorio usaba «v2.1.1» y «v2.2», mientras que las entregas siguientes se habían nombrado 1.2, 1.3 y 1.4. Se adoptó el versionado semántico continuando la serie del repositorio (ver anexo).</p>
+<hr />
+<h2>6. Evolución técnica</h2>
+<table>
+<thead>
+<tr>
+<th>Aspecto</th>
+<th>Primera entrega (1.0.0)</th>
+<th>Versión 2.5.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Datos</td>
+<td>Demostración en el navegador</td>
+<td>PostgreSQL en el servidor; la demostración se mantiene</td>
+</tr>
+<tr>
+<td>Lógica</td>
+<td>Núcleo compartido entre navegador y servidor</td>
+<td>El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol</td>
+</tr>
+<tr>
+<td>Datos personales</td>
+<td>Texto plano</td>
+<td>RUT, correo y teléfono cifrados (AES-256-GCM)</td>
+</tr>
+<tr>
+<td>Sesiones</td>
+<td>12 horas, sin cierre remoto</td>
+<td>Por dispositivo, revocables; cierre de otros dispositivos; se invalidan al cambiar la contraseña</td>
+</tr>
+<tr>
+<td>Encargados</td>
+<td>Un encargado por espacio</td>
+<td>Varios laboratorios por encargado; cada uno ve solo los suyos</td>
+</tr>
+<tr>
+<td>Asistencia</td>
+<td>Al entrar al Hub</td>
+<td>En dos pasos: entrada en recepción y QR del espacio; término confirmado por recepción</td>
+</tr>
+<tr>
+<td>Ayuda</td>
+<td>Manual y trípticos</td>
+<td>Ayuda por pantalla, recorridos y preguntas frecuentes integradas</td>
+</tr>
+<tr>
+<td>Accesibilidad</td>
+<td>Sin revisión formal</td>
+<td>WCAG 2 A/AA revisado en todas las pantallas, claro y oscuro</td>
+</tr>
+<tr>
+<td>Versión</td>
+<td>Sin registro</td>
+<td><code>package.json</code>, <code>CHANGELOG.md</code> y esta bitácora</td>
+</tr>
+</tbody>
+</table>
+<p>La base de datos pasó por varias versiones sin perder datos: al iniciar, el servidor crea las tablas y columnas nuevas, cifra lo que estaba sin cifrar y traslada los datos al nuevo formato (por ejemplo, los encargados a la tabla <code>space_managers</code>).</p>
+<hr />
+<h2>7. Verificación</h2>
+<ul>
+<li><strong>Núcleo:</strong> pruebas automáticas de reglas, reservas, reserva en dos pasos, plazo de recepción, pasantía, borrado de datos, eventos, cupos y permisos (<code>node tools/test-core.mjs</code>).</li>
+<li><strong>Navegador:</strong> recorridos automáticos con Playwright en modo demostración y contra el servidor real con PostgreSQL, en computador y teléfono.</li>
+<li><strong>Actualización:</strong> cada versión se probó sobre una base de la versión anterior.</li>
+<li><strong>Seguridad:</strong> inyección SQL sin efecto, archivos no permitidos rechazados, bloqueo tras intentos fallidos, sesiones revocadas.</li>
+<li><strong>Accesibilidad:</strong> axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.</li>
+<li><strong>Pendiente de verificación en terreno:</strong> la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.</li>
+</ul>
+<hr />
+<h2>8. Pendientes y recomendaciones</h2>
+<ol>
+<li>Actualizar el manual de uso (<code>docs/manual.pdf</code>), que describe la versión 1.0: no incluye la reserva en dos pasos, la pasantía ni la ayuda integrada.</li>
+<li>Validación del RUT con una API externa (definida desde el inicio como etapa futura).</li>
+<li>Doble factor para las cuentas de administración.</li>
+<li>Respaldos cifrados fuera del equipo (la base y el archivo <code>.data-key</code> juntos).</li>
+<li>Prueba con personas que usan lectores de pantalla y traducción de la ayuda al inglés y al portugués.</li>
+<li>Revisión de seguridad externa antes del uso definitivo.</li>
+<li>Etiquetar las versiones en Git (<code>git tag v2.5.1</code>) al subir cada entrega.</li>
+</ol>
+<hr />
+<h2>Anexo · Equivalencia de versiones</h2>
+<table>
+<thead>
+<tr>
+<th>Nombre usado en la conversación o en GitHub</th>
+<th>Versión correcta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Informe, mockup y primer front end</td>
+<td>0.1 · 0.2 · 0.3</td>
+</tr>
+<tr>
+<td>Primera entrega completa</td>
+<td>1.0.0</td>
+</tr>
+<tr>
+<td>Cerrar sesión</td>
+<td>1.0.1</td>
+</tr>
+<tr>
+<td>Servidor real en el Acer (GitHub Pages + Tailscale)</td>
+<td>2.0.0</td>
+</tr>
+<tr>
+<td>Commit «actualización v2.1.1»</td>
+<td>2.1.1</td>
+</tr>
+<tr>
+<td>Commit «v2.2» (llamada «v1.1» en la conversación)</td>
+<td>2.2.0</td>
+</tr>
+<tr>
+<td>«v1.2»</td>
+<td>2.3.0</td>
+</tr>
+<tr>
+<td>Arreglo del puerto en uso</td>
+<td>2.3.1</td>
+</tr>
+<tr>
+<td>«v1.3»</td>
+<td>2.4.0</td>
+</tr>
+<tr>
+<td>«v1.4»</td>
+<td>2.5.0</td>
+</tr>
+<tr>
+<td>Esta entrega</td>
+<td>2.5.1</td>
+</tr>
+</tbody>
+</table></body></html>

@@ -37,6 +37,7 @@ create table if not exists users (
   created_at timestamptz not null default now(),
   deleted_at timestamptz,
   sessions_after timestamptz,
+  intern boolean not null default false,
   unique (doc_number),
   check (status in ('pendiente_correo','pendiente_adulto','activo'))
 );
@@ -64,6 +65,7 @@ alter table users add column if not exists lang text default 'es';
 alter table users add column if not exists created_at timestamptz;
 alter table users add column if not exists deleted_at timestamptz;
 alter table users add column if not exists sessions_after timestamptz;
+alter table users add column if not exists intern boolean default false;
 create index if not exists users_email_idx on users (email);
 
 -- Códigos de un solo uso para confirmar el correo o entrar sin contraseña.
@@ -115,6 +117,7 @@ create table if not exists spaces (
   accessible boolean not null default true,
   requires_cert boolean not null default false,
   min_level integer not null default 1,
+  qr_key text,
   manager_id text references users(id) on delete set null,
   monthly_hours numeric not null default 0,
   gap_min integer not null default 0,
@@ -135,6 +138,7 @@ alter table spaces add column if not exists capacity integer default 0;
 alter table spaces add column if not exists accessible boolean default true;
 alter table spaces add column if not exists requires_cert boolean default false;
 alter table spaces add column if not exists min_level integer default 1;
+alter table spaces add column if not exists qr_key text;
 alter table spaces add column if not exists manager_id text references users(id) on delete set null;
 alter table spaces add column if not exists monthly_hours numeric default 0;
 alter table spaces add column if not exists gap_min integer default 0;
@@ -267,6 +271,8 @@ create table if not exists reservations (
   cancelled_at timestamptz,
   created_by text references users(id) on delete set null,
   created_at timestamptz not null default now(),
+  finish_req_at timestamptz,
+  finish_missed_at timestamptz,
   check (status in ('confirmada','en_revision','en_curso','completada','cancelada','no_asistio','rechazada')),
   check (end_at > start_at)
 );
@@ -286,6 +292,8 @@ alter table reservations add column if not exists finished_at timestamptz;
 alter table reservations add column if not exists cancelled_at timestamptz;
 alter table reservations add column if not exists created_by text references users(id) on delete set null;
 alter table reservations add column if not exists created_at timestamptz;
+alter table reservations add column if not exists finish_req_at timestamptz;
+alter table reservations add column if not exists finish_missed_at timestamptz;
 create index if not exists reservations_user_id_idx on reservations (user_id);
 create index if not exists reservations_space_id_start_at_idx on reservations (space_id, start_at);
 
@@ -355,7 +363,8 @@ create table if not exists visits (
   source text not null default 'qr',
   out_source text,
   by_staff text references users(id) on delete set null,
-  space_id integer references spaces(id) on delete set null
+  space_id integer references spaces(id) on delete set null,
+  cowork_until timestamptz
 );
 alter table visits add column if not exists user_id text references users(id) on delete cascade;
 alter table visits add column if not exists in_at timestamptz;
@@ -364,6 +373,7 @@ alter table visits add column if not exists source text default 'qr';
 alter table visits add column if not exists out_source text;
 alter table visits add column if not exists by_staff text references users(id) on delete set null;
 alter table visits add column if not exists space_id integer references spaces(id) on delete set null;
+alter table visits add column if not exists cowork_until timestamptz;
 create index if not exists visits_user_id_idx on visits (user_id);
 create index if not exists visits_in_at_idx on visits (in_at);
 
@@ -565,6 +575,22 @@ alter table outbox add column if not exists subject text;
 alter table outbox add column if not exists body text;
 alter table outbox add column if not exists created_at timestamptz;
 alter table outbox add column if not exists sent_at timestamptz;
+
+-- Sesiones abiertas por dispositivo. Cerrar sesión las revoca; cambiar la contraseña invalida todas.
+create table if not exists sessions (
+  id integer primary key,
+  user_id text not null references users(id) on delete cascade,
+  device text,
+  remember boolean not null default false,
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+alter table sessions add column if not exists user_id text references users(id) on delete cascade;
+alter table sessions add column if not exists device text;
+alter table sessions add column if not exists remember boolean default false;
+alter table sessions add column if not exists created_at timestamptz;
+alter table sessions add column if not exists revoked_at timestamptz;
+create index if not exists sessions_user_id_idx on sessions (user_id);
 
 -- Registro de acciones del personal.
 create table if not exists audit_log (

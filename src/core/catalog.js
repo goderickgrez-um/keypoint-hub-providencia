@@ -44,6 +44,10 @@ export const DEFAULTS = {
   cancel_notice_min: 15, tolerance_min: 15,  // aviso mínimo para cancelar y espera antes de liberar
   max_active: 3, max_hours: 12, staff_extra_hours: 6,
   release_room_without_host: false, release_room_after_min: 30,
+  intern_space: null,                        // oficina de pasantía (espacio al que entran quienes tienen pasantía)
+  two_step: true,                            // la reserva empieza al escanear el QR del espacio (o en recepción), no solo al entrar al Hub
+  finish_window_min: 5,                      // minutos para pasar por recepción tras «Terminar» y quedar en el cowork
+  public_url: '',                            // dirección de la app que llevan los QR de los espacios (vacío = la actual)
   default_zone: null,                        // espacio donde queda registrada quien entra sin reserva (null = cowork)
   code_minutes: 15,                          // vigencia de los códigos enviados por correo
   file_max_mb: 4096, keep_rejected_days: 7, keep_approved_days: 30,

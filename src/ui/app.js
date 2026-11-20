@@ -78,13 +78,14 @@ function render() {
   if (focus) { const el = root.querySelector(`[data-i="${focus}"]`); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* no aplica */ } } }
   else if (!S.modal) root.querySelector('[data-af]')?.focus();
   bindPlan(); placeTour();
+  if (App.uid && S.pendingSpace) { const c = S.pendingSpace; S.pendingSpace = null; setTimeout(() => actions['space-code']?.(c), 0); } // QR de un espacio leído con la cámara del teléfono
   if (k === 'u-login' && db().cfg('google_client_id')) google();
 }
 UI.render = render;
 
 function google() {
   const id = db().cfg('google_client_id'), box = document.getElementById('gsi'); if (!box) return;
-  const draw = () => { window.google.accounts.id.initialize({ client_id: id, callback: async r => { try { const x = await App.data.call('auth.google', { credential: r.credential }); if (x?.session) { S.staff = myRoles().length > 0; go(S.staff ? 'a-panel' : 'u-inicio'); } } catch (e) { toast(e.user ? t(e.message) : t('No se pudo entrar con Google')); } } }); window.google.accounts.id.renderButton(box, { theme: 'outline', size: 'large', locale: getLang() }); };
+  const draw = () => { window.google.accounts.id.initialize({ client_id: id, callback: async r => { try { const x = await App.data.call('auth.google', { credential: r.credential, remember: S.f.l_keep !== false }); if (x?.session) { S.staff = myRoles().length > 0; go(S.staff ? 'a-panel' : 'u-inicio'); } } catch (e) { toast(e.user ? t(e.message) : t('No se pudo entrar con Google')); } } }); window.google.accounts.id.renderButton(box, { theme: 'outline', size: 'large', locale: getLang() }); };
   if (window.google?.accounts) return draw();
   if (!document.getElementById('gsi-js')) { const s = document.createElement('script'); s.id = 'gsi-js'; s.src = 'https://accounts.google.com/gsi/client'; s.onload = draw; document.head.append(s); }
 }
@@ -126,6 +127,7 @@ window.addEventListener('online', () => { App.data.tick(); flushQueue(); });
 
 (async () => {
   setLang(getLang()); applyTheme();
+  try { const q = new URLSearchParams(location.search), c = q.get('espacio'); if (c) { S.pendingSpace = c; history.replaceState(null, '', location.pathname + location.hash); } } catch { /* sin parámetros */ }
   if (!location.hash && document.body.dataset.start) location.hash = document.body.dataset.start; // recepcion.html abre en Recepción
   const api = typeof window.HUB_CONFIG === 'string' ? window.HUB_CONFIG : window.HUB_CONFIG?.api;
   if (typeof window.HUB_CONFIG === 'string') window.HUB_CONFIG = { api };

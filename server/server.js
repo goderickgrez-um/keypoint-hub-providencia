@@ -13,6 +13,7 @@ import { loadAll, persist, createSchema, isEmpty, pool, ROOT as root } from './d
 
 // ---- Configuración (.env)
 const PORT = +process.env.PORT || 8080, SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex'), UPLOADS = resolve(process.env.UPLOADS_DIR || join(root, 'uploads'));
+const APP_VERSION = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const WEB = join(root, 'web') + sep, MAX_UPLOAD = (+process.env.MAX_UPLOAD_MB || 4096) * 1048576, HOURS = 12;
 if (!process.env.SESSION_SECRET) console.warn('Aviso: SESSION_SECRET no está definido; las sesiones se cierran al reiniciar el servidor.');
 mkdirSync(UPLOADS, { recursive: true });
@@ -38,15 +39,20 @@ async function commit(fn) {
 
 // ---- Sesiones firmadas
 const b64 = s => Buffer.from(s).toString('base64url');
-const sign = uid => { const body = b64(JSON.stringify({ uid, iat: Date.now(), exp: Date.now() + HOURS * 36e5 })); return body + '.' + createHmac('sha256', SECRET).update(body).digest('base64url'); };
-function verify(tok) {
+// Una sesión «mantenida» no vence: se cierra al tocar Cerrar sesión en ese dispositivo o al cambiar la contraseña.
+const sign = (uid, sid, remember) => { const body = b64(JSON.stringify({ uid, sid, iat: Date.now(), exp: remember ? 0 : Date.now() + HOURS * 36e5 })); return body + '.' + createHmac('sha256', SECRET).update(body).digest('base64url'); };
+const verify = tok => tokenInfo(tok)?.uid ?? null;
+function tokenInfo(tok) {
   const [body, sig] = String(tok || '').split('.'); if (!body || !sig) return null;
   const good = createHmac('sha256', SECRET).update(body).digest('base64url');
   if (good.length !== sig.length || !timingSafeEqual(Buffer.from(good), Buffer.from(sig))) return null;
   const p = JSON.parse(Buffer.from(body, 'base64url').toString()); const u = db.get('users', p.uid); // la sesión se cierra si la cuenta se borró o cambió su contraseña después de entrar
-  return p.exp > Date.now() && u && !u.deleted_at && !(u.sessions_after && +new Date(u.sessions_after) > (p.iat || 0) + 999) ? p.uid : null;
+  const s = p.sid && db.get('sessions', p.sid);
+  if (p.sid && (!s || s.revoked_at || s.user_id !== p.uid)) return null;
+  return (!p.exp || p.exp > Date.now()) && u && !u.deleted_at && !(u.sessions_after && +new Date(u.sessions_after) > (p.iat || 0) + 999) ? p : null;
 }
-const uidOf = req => verify((req.headers.authorization || '').replace(/^Bearer /, ''));
+const bearer = req => (req.headers.authorization || '').replace(/^Bearer /, '');
+const uidOf = req => verify(bearer(req));
 
 // ---- Límite de intentos de ingreso por IP
 // Detrás de Tailscale Funnel todas las conexiones llegan desde el propio equipo; la dirección real va en X-Forwarded-For.
@@ -135,10 +141,17 @@ async function api(req, res, path) {
   if (path === '/api/rpc' && req.method === 'POST') {
     let name, args; try { ({ name, args } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
     const ip = ipOf(req), erase = name === 'user.erase', auth = String(name).startsWith('auth.') || erase, who = erase ? 'admin:' + uid : auth ? String(args?.ident || args?.id || '').toLowerCase().replace(/[.\s-]/g, '') : '';
+    if (name === 'auth.logout') { const p = tokenInfo(bearer(req)); if (p?.sid) await commit(() => db.update('sessions', p.sid, { revoked_at: new Date().toISOString() })); return json(res, 200, { result: { ok: true } }); }
     if (auth && blocked(ip, who)) return json(res, 429, { error: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
     try {
-      const result = await commit(() => call(ctx, name, args));
-      const token = result?.session ? sign(result.session) : undefined;
+      const cur = tokenInfo(bearer(req)); let sid = null, keep = false;
+      const result = await commit(async () => { const r = await call(ctx, name, args);
+        if (r?.session) { // nueva sesión: desde el ingreso se abre un registro por dispositivo; al cambiar la contraseña se mantiene el de este dispositivo
+          if (cur?.sid && cur.uid === r.session && !String(name).startsWith('auth.')) { sid = cur.sid; keep = !cur.exp; }
+          else { keep = !!args?.remember; sid = db.insert('sessions', { user_id: r.session, device: String(req.headers['user-agent'] || '').slice(0, 160), remember: keep, created_at: new Date().toISOString() }).id; }
+        }
+        return r; });
+      const token = result?.session ? sign(result.session, sid, keep) : undefined;
       if (result) { delete result.demo_code; if (result.session) result.session = true; }
       if (erase && result?.storage) { for (const k of result.storage) try { unlinkSync(join(UPLOADS, basename(k))); } catch { /* ya no estaba */ } delete result.storage; }
       const nuid = token ? verify(token) : uid;
@@ -168,7 +181,7 @@ async function api(req, res, path) {
     res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': statSync(p).size, 'Content-Disposition': `attachment; filename="${encodeURIComponent(f.name)}"`, ...SEC });
     return createReadStream(p).pipe(res);
   }
-  if (path === '/api/health') return json(res, 200, { ok: true });
+  if (path === '/api/health') return json(res, 200, { ok: true, version: APP_VERSION });
   json(res, 404, { error: 'Ruta desconocida' });
 }
 
@@ -194,7 +207,7 @@ http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   try { if (path.startsWith('/api/')) await api(req, res, path); else serve(req, res, path); }
   catch (e) { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Algo salió mal. Intenta de nuevo.' }); }
-}).listen(PORT, () => console.log(`Keypoint Hub Providencia en http://localhost:${PORT}  (${db.all('users').length} usuarios)${ORIGINS.length ? '\nApp externa permitida: ' + ORIGINS.join(', ') : ''}\nDeja esta ventana abierta mientras el Hub use el sistema.`))
+}).listen(PORT, () => console.log(`Keypoint Hub Providencia ${APP_VERSION} en http://localhost:${PORT}  (${db.all('users').length} usuarios)${ORIGINS.length ? '\nApp externa permitida: ' + ORIGINS.join(', ') : ''}\nDeja esta ventana abierta mientras el Hub use el sistema.`))
   .on('error', e => { if (e.code !== 'EADDRINUSE') throw e;
     console.error(`\nEl puerto ${PORT} ya está en uso: probablemente el Hub ya está abierto en otra ventana.\nCierra esa ventana (o en PowerShell: netstat -ano | findstr :${PORT}  y luego  taskkill /PID <número> /F) y vuelve a iniciar.\n`); process.exit(1); });
 process.on('SIGINT', async () => { await pool.end(); process.exit(0); });

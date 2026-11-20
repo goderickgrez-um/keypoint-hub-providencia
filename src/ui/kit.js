@@ -88,10 +88,13 @@ export const dayChips = (act, cur, days) => `<div class="hs">${days.map(d => `<b
 
 // ---- Gráficos (una sola serie, un solo tono; el texto usa los colores de texto)
 const details = (head, rows) => `<details><summary>${t('Ver datos en tabla')}</summary>${table(head, rows)}</details>`;
+/** Barras horizontales. Con o.id se pueden ocultar variables para comparar las demás: la escala se ajusta a las visibles. */
 export function barsH(items, o = {}) {
   if (!items.length) return empty('Sin datos en este periodo.');
-  const max = Math.max(1, ...items.map(i => i.value));
-  return `<div class="bars">${items.map(i => `<span class="lbl" title="${esc(i.label)}">${esc(i.label)}</span><span><i class="bar" style="display:block;width:${i.value / max * 100}%" title="${esc(i.label)}: ${fmtN(i.value)}${o.unit || ''}"></i></span><span class="b r">${fmtN(i.value)}${o.unit || ''}</span>`).join('')}</div>`;
+  const hid = (o.id && S.hideBars?.[o.id]) || [], shown = items.filter(i => !hid.includes(i.label));
+  const max = Math.max(1, ...shown.map(i => i.value));
+  const chips = o.id && items.length > 1 ? `<div class="bartog" role="group" aria-label="${t('Mostrar u ocultar variables')}"><span class="sm mu">${t('Mostrar:')}</span>${items.map(i => { const on = !hid.includes(i.label); return `<button class="chip s${on ? ' on' : ''}" aria-pressed="${on}" data-a="bar-tog" data-v="${esc(o.id)}|${esc(i.label)}">${esc(i.label)}</button>`; }).join('')}${hid.length ? `<button class="btn s plain" data-a="bar-all" data-v="${esc(o.id)}">${t('Mostrar todas')}</button>` : ''}</div>` : '';
+  return `${chips}${shown.length ? `<div class="bars">${shown.map(i => `<span class="lbl" title="${esc(i.label)}">${esc(i.label)}</span><span><i class="bar" style="display:block;width:${i.value / max * 100}%" title="${esc(i.label)}: ${fmtN(i.value)}${o.unit || ''}"></i></span><span class="b r">${fmtN(i.value)}${o.unit || ''}</span>`).join('')}</div>` : `<p class="sm mu">${t('Todas las variables están ocultas.')}</p>`}`;
 }
 export function colChart(items, o = {}) {
   if (!items.length) return empty('Sin datos en este periodo.');
@@ -125,12 +128,20 @@ export const csv = (head, rows) => [head, ...rows].map(r => r.map(c => `"${Strin
 
 // ---- Pantallas, acciones y navegación (se registran desde user.js, staff.js y plan.js)
 export const screens = {}, actions = {};
+actions['bar-tog'] = v => { const [id, label] = v.split('|'), h = ((S.hideBars ||= {})[id] ||= []), k = h.indexOf(label); k < 0 ? h.push(label) : h.splice(k, 1); UI.render(); };
+actions['bar-all'] = id => { if (S.hideBars) S.hideBars[id] = []; UI.render(); };
 export const UI = { render() {} };
 export const go = r => { if (location.hash.slice(1) === r) UI.render(); else location.hash = r; };
 let toastTimer;
 export function toast(msg) { S.toast = msg; UI.render(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = ''; document.querySelector('.toast')?.remove(); }, 3400); }
 /** Abre una ventana sobre la pantalla. Queda en el historial para cerrarla con el botón Atrás del teléfono. */
 export const modal = m => { if (!S.modal) try { history.pushState({ hubModal: 1 }, ''); } catch { /* sin historial */ } S.modal = m; UI.render(); };
+/** Aviso en el perfil sobre la sesión de este dispositivo. */
+export const sessionCard = () => { const kept = App.data?.remembered?.();
+  return `<div class="card stack" role="note"><p style="margin:0">${icon('lock')} ${kept ? '<b>Tu sesión está guardada en este dispositivo.</b> No tendrás que ingresar de nuevo aquí. Se cierra cuando tocas «Cerrar sesión» o cuando cambias tu contraseña.' : 'Tu sesión se cerrará cuando cierres esta pestaña o la aplicación.'}</p>
+    <div class="row w">${btn('Cerrar sesión en este dispositivo', 'logout', { cls: 's plain', icon: 'out' })}${btn('Cerrar sesión en mis otros dispositivos', 'logout-all', { cls: 's plain' })}</div></div>`; };
+actions['logout-all'] = () => confirmBox({ title: '¿Cerrar sesión en tus otros dispositivos?', ok: 'Cerrar las otras sesiones', text: '<p>Este dispositivo sigue con la sesión abierta. En los demás tendrás que volver a ingresar.</p>',
+  fn: async () => { try { await App.data.call('me.logoutAll', {}); toast('Listo: cerraste la sesión en tus otros dispositivos'); } catch (e) { toast(e.user ? e.message : 'Algo salió mal. Intenta de nuevo.'); } } });
 /** Pide confirmación antes de una acción. fn se ejecuta al tocar el botón principal. */
 export function confirmBox({ title, text = '', ok = 'Confirmar', danger = false, fn }) {
   S.ask = fn;

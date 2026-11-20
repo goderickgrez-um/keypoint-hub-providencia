@@ -4,23 +4,9 @@ Sistema de registro de entradas y reservas de espacios del **Hub Providencia**: 
 
 Proyecto Capstone del equipo **keypoint**: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez. Docente: Ricardo Andrés Sepúlveda. Todos los derechos reservados al equipo keypoint.
 
-## Novedades de la versión 1.3
+## Versión
 
-- **Ayuda en cada pantalla**: botón (?) con una guía breve y un recorrido guiado que resalta cada parte. La primera vez, Inicio y Panel invitan a hacer el recorrido.
-- **Preguntas frecuentes** con buscador: para usuarios (Perfil › Configuración, o desde el ingreso sin sesión) y para el personal (menú › Ayuda y preguntas). El mismo contenido está en `docs/preguntas-frecuentes.pdf` (se regenera con `npm run docs:faq`; el contenido vive en `src/ui/faq-data.js`).
-- **Banners**: pasan solos cada 5 segundos; se detienen cuando la persona los desliza o usa las flechas, se pausan con el puntero encima y tienen botón de pausa y reanudar. Si el sistema pide reducir el movimiento, no avanzan solos.
-- **Eventos y banners**: orden manual con flechas y botón «Ordenar por fecha: más cercanos primero». Los vencidos aparecen en amarillo como «Terminado»; los que ya empezaron siguen visibles hasta su término (o hasta el final del día si no tienen término).
-- **Cupos**: cupos, aforos y capacidades nunca pueden ser negativos (se valida en el servidor y en los formularios).
-
-## Novedades de la versión 1.2
-
-- **Borrar datos de una persona** (Usuarios › ficha): solo el historial, solo el perfil (el historial queda anónimo para las estadísticas) o ambos. Pide la contraseña de administración y una segunda confirmación.
-- **Edad permitida** de 4 a 95 años (se cambia en Reglas). El registro explica el formato del RUT.
-- **Espacios**: textos explicativos, piso elegido de una lista, eliminar con confirmación (si tiene historial se desactiva y se cancelan sus reservas futuras con aviso). Un espacio que exige certificación crea su certificación con el día y la hora indicados.
-- **Plano**: al vincular una zona con un espacio se completan nombre, tipo y aforo; se pueden agregar y eliminar pisos (eliminar desactiva sus espacios).
-- **Agenda**: se marcan varias horas, se revisa la lista «Horas bloqueadas:» y se guardan todas con un botón y una confirmación. Se puede liberar parte de un bloqueo largo.
-- **Usuarios**: todos los eventos y avisos publicados aparecen en el carrusel de inicio (con flechas); las certificaciones inscritas aparecen en Mis reservas y en «Tu próxima reserva»; una sesión llena se muestra como «Llena» y no se puede elegir.
-- **Seguridad y accesibilidad**: ver SEGURIDAD.md. Revisión automática WCAG 2 A/AA (axe) sin observaciones en las pantallas principales, en modo claro y oscuro.
+Versión actual: **2.5.1** (20 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
 
 ## Dos formas de usarlo
 

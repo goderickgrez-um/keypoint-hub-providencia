@@ -34,6 +34,12 @@ Sí. El registro acepta personas de 4 a 95 años.
 **¿Cómo hago una reserva?**  
 Ve a Reservar, elige el tipo de espacio, el día y uno o varios bloques seguidos. Si vienes con otras personas, agrégalas con su ID o RUT. Toca «Confirmar reserva». La verás en Mis reservas y en Inicio.
 
+**¿Cómo empiezo mi reserva?**  
+Primero marca tu entrada al Hub en recepción. Luego, en Inicio, toca «Entrar a tu reserva» y escanea el QR que está en la entrada del espacio (o escribe el código que aparece bajo él). Puedes hacerlo desde 10 minutos antes. Si no confirmas dentro de 15 minutos, la reserva se libera. También puedes pedir en recepción que la inicien.
+
+**¿Cómo termino mi reserva?**  
+Toca «Terminar» bajo tu QR y acércate a recepción en los próximos 5 minutos para que escaneen tu QR. Así queda registrada tu salida del laboratorio, se descuenta el tiempo real hasta que tocaste «Terminar» y quedas en el cowork. Si no pasas por recepción a tiempo, el término no se toma en cuenta: tu reserva sigue en curso y te llega un aviso. Si te vas del Hub sin tocar «Terminar», al escanear tu QR en recepción se registra tu salida y tu reserva termina en ese momento.
+
 **¿Cuántas reservas puedo tener?**  
 Hasta 3 reservas activas a la vez. Las salas y la sala gaming se reservan en bloques de 50 minutos con 10 minutos de pausa.
 
@@ -60,6 +66,9 @@ Cada laboratorio da un saldo de horas al mes por persona. Se reinicia el día 1 
 **Una máquina falla**  
 En tu reserva toca «Reportar una falla». El aviso llega al encargado del laboratorio.
 
+**¿Cómo descargo mi diploma?**  
+En Perfil, en Certificaciones, toca «Descargar diploma» junto a la certificación. Se descarga en PDF.
+
 ### Eventos
 
 **¿Cómo me inscribo en un evento?**  
@@ -70,11 +79,19 @@ Pasan cada 5 segundos. Si deslizas uno o usas las flechas, se detienen. Con el b
 
 ### Cuenta y datos
 
+**¿Tengo que ingresar cada vez?**  
+No. Al ingresar deja marcado «Mantener la sesión iniciada en este dispositivo». La sesión queda abierta en ese teléfono o computador hasta que toques «Cerrar sesión» o cambies tu contraseña. En Perfil ves si tu sesión está guardada y puedes cerrarla en tus otros dispositivos.
+
 **¿Qué hace el Hub con mis datos?**  
 Los usa para registrar entradas y salidas, gestionar reservas y hacer estadísticas sin tu nombre ni tu RUT. No se comparten con terceros. En Perfil › Configuración › Privacidad y mis datos puedes pedir una copia o la eliminación de tu cuenta.
 
 **Mi acceso dice «restringido»**  
 Tienes una penalización vigente. En Inicio ves hasta cuándo y el motivo. Si crees que es un error, habla con recepción.
+
+### Pasantía
+
+**¿Cómo entro a la oficina de pasantía?**  
+Si administración te asignó una pasantía, verás en Inicio el botón «Entrar en oficina de pasantía». Marca tu entrada al Hub en recepción, toca el botón y escanea el QR de la oficina. Al irte, toca «Salir de la oficina de pasantía». Si la oficina está llena, espera a que alguien salga.
 
 ## Para el personal del Hub
 
@@ -82,6 +99,12 @@ Tienes una penalización vigente. En Inicio ves hasta cuándo y el motivo. Si cr
 
 **¿Cómo registro una entrada o salida?** _(Recepción)_  
 En Recepción y QR escanea el QR de la persona o escribe su RUT o ID. El sistema decide si es entrada o salida.
+
+**¿Cómo inicio o termino la reserva de alguien?** _(Recepción)_  
+Escanea su QR o escribe su RUT y toca «Buscar reserva actual»: verás sus reservas de hoy con los botones Iniciar y Terminar. También está en su ficha, en Usuarios. Al iniciar, si no había marcado su entrada, se marca.
+
+**Alguien escanea su QR después de «Terminar»** _(Recepción)_  
+Si lo escaneas dentro del plazo (5 minutos), se registra el término a la hora en que tocó «Terminar», se descuenta ese tiempo y queda en el cowork. Si el plazo ya venció, su término no se registró y la reserva sigue en curso: el escaneo cuenta como salida del Hub y cierra la reserva en ese momento. Si quiere quedarse en el cowork, usa «Buscar reserva actual» › Terminar.
 
 **La persona no tiene perfil** _(Recepción)_  
 En Recepción toca «Registrar usuario nuevo». Si es menor, pide el ID o RUT del adulto responsable: debe autorizar desde su propio perfil (o en recepción con su sesión).
@@ -127,15 +150,24 @@ La persona primero crea su perfil de usuario. Luego en Empleados agrégala, marc
 **¿Cómo aplico una penalización?** _(Administración, Encargados)_  
 En la ficha de la persona: «Restringir acceso» (administración) bloquea su entrada por un tiempo; «Penalizar horas» (encargados) descuenta horas de laboratorio. Ambas se pueden levantar o compensar.
 
+**¿Cómo asigno una pasantía?** _(Administración)_  
+En Reglas elige la oficina de pasantía (con su aforo). Luego, en Usuarios, abre la ficha de la persona y toca «Asignar pasantía». Verá el botón de la oficina en su Inicio.
+
 ### Hub
 
 **¿Cómo creo un laboratorio?** _(Administración)_  
 En Espacios crea el espacio, marca «Exige certificación» e indica el día y la hora de la sesión semanal: la certificación se crea sola.
 
+**¿Dónde está el QR de cada espacio?** _(Administración, Encargados)_  
+En Espacios, abre el espacio: abajo está su QR con el botón «Descargar cartel para imprimir». Si alguien lo copia o se daña, toca «Generar un QR nuevo» (el anterior deja de servir). En Reglas indica la dirección pública de la app para que los QR abran la página correcta.
+
 **¿Cómo agrego un piso?** _(Administración)_  
 En Plano toca «Agregar piso», dibuja sus zonas y ajusta su aforo en Reglas.
 
 ### Datos
+
+**¿Cómo comparo mejor los gráficos?** _(Administración, Analistas)_  
+En Datos, sobre cada gráfico de barras toca una variable (por ejemplo, Cowork) para ocultarla: la escala se ajusta a las demás. «Mostrar todas» la vuelve a mostrar.
 
 **¿De dónde salen las estadísticas?** _(Administración, Analistas)_  
 De las visitas, reservas y perfiles. El analista ve identificadores anónimos. Descarga CSV desde Datos.

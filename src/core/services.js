@@ -116,10 +116,44 @@ function askGuardian(ctx, minor, code) {
   return { adult: adult.name };
 }
 
-/** Marca asistencia a reservas y eventos cuando la persona está en el Hub en el momento t. */
+// ---------------------------------------------------------------- Reservas en dos pasos y pasantía
+/** Clave del QR de un espacio: 8 caracteres fáciles de dictar (sin 0/O ni 1/I). */
+const newKey = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = new Uint8Array(8); globalThis.crypto.getRandomValues(b); return [...b].map(x => A[x % A.length]).join(''); };
+/** Lee el QR de un espacio: una dirección con ?espacio=ID-CLAVE o solo ID-CLAVE. */
+export const parseSpaceCode = code => { const s = String(code || '').trim(), m = s.match(/[?&]espacio=(\d{1,6})-([A-Za-z0-9]{6,12})(?![A-Za-z0-9])/) || s.match(/^(\d{1,6})-([A-Za-z0-9]{6,12})$/); return m ? { id: +m[1], key: m[2].toUpperCase() } : null; };
+const openVisit = (db, uid) => db.find('visits', v => v.user_id === uid && !v.out_at);
+const finishWindow = ctx => (+ctx.db.cfg('finish_window_min') || 5) * 60000;
+/** Reserva que la persona (dueña o invitada) puede iniciar ahora, desde 10 minutos antes de su hora. */
+export function startable(db, uid, now, spaceId = null) {
+  return db.where('reservations', r => ['confirmada', 'en_revision'].includes(r.status) && (spaceId == null || r.space_id === spaceId) && T(r.start_at) - 10 * 60000 <= T(now) && T(now) < T(r.end_at)
+    && (r.user_id === uid || db.find('reservation_guests', g => g.reservation_id === r.id && g.user_id === uid))).sort((a, b) => T(a.start_at) - T(b.start_at))[0] || null;
+}
+/** Reserva en curso de la persona (dueña o invitada que ya entró). */
+export const running = (db, uid) => db.find('reservations', r => r.status === 'en_curso' && (r.user_id === uid || db.find('reservation_guests', g => g.reservation_id === r.id && g.user_id === uid && g.attended)));
+function startRes(ctx, r, uid, now) {
+  const db = ctx.db;
+  if (r.status === 'en_revision') fail('Tu archivo aún no se aprueba: el encargado debe revisarlo antes de empezar');
+  if (r.status === 'confirmada') db.update('reservations', r.id, { status: 'en_curso', attended_at: iso(now) });
+  const g = db.find('reservation_guests', x => x.reservation_id === r.id && x.user_id === uid); if (g) db.update('reservation_guests', g.id, { attended: true });
+  const v = openVisit(db, uid); if (v) db.update('visits', v.id, { space_id: r.space_id, cowork_until: null });
+}
+/** Cierra una reserva con el tiempo real hasta `now`. Salvo que la persona se vaya del Hub, quienes estaban en el espacio pasan al cowork. */
+function finishRes(ctx, r, now, { leaving = false } = {}) {
+  const db = ctx.db, real = Math.max(1, Math.ceil((T(now) - T(r.attended_at || r.start_at)) / 60000)), zone = Q.defaultZone(db);
+  db.update('reservations', r.id, { status: 'completada', finished_at: iso(now), real_min: real, charged_min: r.charged_min ? real : 0, attended_at: r.attended_at || r.start_at, finish_req_at: null, finish_missed_at: null });
+  if (!leaving) {
+    const people = [r.user_id, ...db.where('reservation_guests', g => g.reservation_id === r.id).map(g => g.user_id)];
+    for (const v of db.where('visits', v => !v.out_at && people.includes(v.user_id) && (v.space_id === r.space_id || v.cowork_until)))
+      db.update('visits', v.id, { space_id: zone?.id ?? null, cowork_until: null });
+  }
+  return real;
+}
+
+/** Marca asistencia a reservas y eventos cuando la persona está en el Hub en el momento t.
+ *  Con la confirmación en dos pasos, las reservas no empiezan al entrar: se inician con el QR del espacio o en recepción. */
 function attend(ctx, uid, t) {
   const db = ctx.db, out = [], tol = 15 * 60000;
-  for (const r of db.where('reservations', r => ['confirmada', 'en_revision'].includes(r.status) && T(r.start_at) - tol <= T(t) && T(t) < T(r.end_at))) {
+  if (!db.cfg('two_step')) for (const r of db.where('reservations', r => ['confirmada', 'en_revision'].includes(r.status) && T(r.start_at) - tol <= T(t) && T(t) < T(r.end_at))) {
     const g = db.find('reservation_guests', x => x.reservation_id === r.id && x.user_id === uid);
     if (r.user_id !== uid && !g) continue;
     if (g) db.update('reservation_guests', g.id, { attended: true });
@@ -148,13 +182,23 @@ function scan(ctx, { code, at, source = 'qr', dry }) {
   if (ban) return { ...base, action: 'restringido' };
   if (u.status !== 'activo') return { ...base, action: 'pendiente' };
   const open = db.find('visits', v => v.user_id === u.id && !v.out_at);
+  if (open && open.cowork_until && T(t) <= T(open.cowork_until)) { // pasó por recepción tras «Terminar»: se registra el término y queda en el cowork
+    const r = db.find('reservations', x => x.user_id === u.id && x.status === 'en_curso' && x.finish_req_at), zone = Q.defaultZone(db);
+    const real = r ? finishRes(ctx, r, new Date(r.finish_req_at)) : null;
+    db.update('visits', open.id, { cowork_until: null, space_id: zone?.id ?? null });
+    return { ...base, action: 'cowork', zone: zone?.name || null, closed: r ? db.get('spaces', r.space_id)?.name : null, real_min: real };
+  }
   if (open && T(t) - T(open.in_at) < 60000) return { ...base, action: 'duplicado' };
-  if (open) { db.update('visits', open.id, { out_at: iso(t), out_source: source }); return { ...base, inside: false, action: 'salida' }; }
+  if (open) { // sin «Terminar»: se cierra la reserva en curso y se registra la salida del Hub
+    const r = running(db, u.id), closed = r && r.user_id === u.id ? (finishRes(ctx, r, t, { leaving: true }), db.get('spaces', r.space_id)?.name) : null;
+    db.update('visits', open.id, { out_at: iso(t), out_source: source, cowork_until: null }); return { ...base, inside: false, action: 'salida', closed };
+  }
   const v = db.insert('visits', { user_id: u.id, in_at: iso(t), source, by_staff: ctx.uid || null });
   const attended = attend(ctx, u.id, t), r0 = attended.length && db.get('reservations', attended[0]);
   const zone = r0 ? db.get('spaces', r0.space_id) : Q.defaultZone(db); // sin reserva: zona por defecto (cowork)
   db.update('visits', v.id, { space_id: zone?.id ?? null });
-  return { ...base, inside: true, action: 'entrada', attended, zone: zone?.name || null, zoneByReservation: !!r0 };
+  const next = db.cfg('two_step') && startable(db, u.id, t);
+  return { ...base, inside: true, action: 'entrada', attended, zone: zone?.name || null, zoneByReservation: !!r0, next: next ? { id: next.id, space: db.get('spaces', next.space_id)?.name, start_at: next.start_at } : null };
 }
 
 export const PUBLIC = ['auth.register', 'auth.verify', 'auth.login', 'auth.code', 'auth.codeLogin', 'auth.google', 'auth.guardian', 'system.tick'];
@@ -290,11 +334,66 @@ export const SERVICES = {
   'res.finish'(ctx, { id }) {
     const db = ctx.db, r = db.get('reservations', id), now = N(ctx);
     if (!r || !['en_curso', 'confirmada'].includes(r.status)) fail('Esa reserva no está en curso');
-    if (r.user_id !== me(ctx).id && !manages(ctx, r.space_id)) fail('No puedes cerrar esta reserva');
-    if (T(now) < T(r.start_at)) fail('La reserva aún no empieza');
-    const real = Math.max(1, Math.ceil((T(now) - T(r.start_at)) / 60000));
-    db.update('reservations', id, { status: 'completada', finished_at: iso(now), real_min: real, charged_min: r.charged_min ? real : 0, attended_at: r.attended_at || r.start_at });
-    return { real_min: real };
+    const mine = r.user_id === me(ctx).id, desk = !mine && (manages(ctx, r.space_id) || has(ctx, 'recepcion'));
+    if (!mine && !desk) fail('No puedes cerrar esta reserva');
+    if (T(now) < T(r.start_at) && r.status !== 'en_curso') fail('La reserva aún no empieza');
+    if (desk || !db.cfg('two_step')) { const real = finishRes(ctx, r, now); if (desk) audit(ctx, 'termina reserva en recepción', 'reservations', id); return { real_min: real }; }
+    // «Terminar» de la persona: queda pendiente hasta que recepción escanee su QR dentro del plazo
+    if (r.status !== 'en_curso') fail('Primero confirma tu llegada escaneando el QR del espacio');
+    const until = iso(T(now) + finishWindow(ctx)), v = openVisit(db, me(ctx).id);
+    db.update('reservations', r.id, { finish_req_at: iso(now), finish_missed_at: null });
+    if (v) db.update('visits', v.id, { cowork_until: until });
+    return { requested: true, until, real_min: Math.max(1, Math.ceil((T(now) - T(r.attended_at || r.start_at)) / 60000)) };
+  },
+  /** La persona confirma que llegó al espacio escaneando su QR (o entra a la oficina de pasantía). */
+  'space.checkin'(ctx, { code }) {
+    const db = ctx.db, u = me(ctx), now = N(ctx), c = parseSpaceCode(code) || fail('Ese código no es el QR de un espacio del Hub');
+    const sp = db.get('spaces', c.id);
+    if (!sp || !sp.active || !sp.qr_key || sp.qr_key !== c.key) fail('Ese QR no es válido o fue reemplazado. Pide ayuda en recepción');
+    if (!openVisit(db, u.id)) fail('Primero registra tu entrada al Hub en recepción');
+    if (Q.activeBan(db, u.id, now)) fail('Tu acceso está restringido');
+    const r = startable(db, u.id, now, sp.id) || db.find('reservations', x => x.status === 'en_curso' && x.space_id === sp.id && x.user_id === u.id);
+    if (r) { startRes(ctx, r, u.id, now); return { started: r.id, space: sp.name, end_at: r.end_at }; }
+    if (+db.cfg('intern_space') === sp.id) {
+      if (!u.intern) fail('Esta oficina es solo para personas con pasantía');
+      const inside = db.where('visits', v => !v.out_at && v.space_id === sp.id && v.user_id !== u.id).length;
+      if (sp.capacity && inside >= sp.capacity) fail(`La oficina está llena (${sp.capacity} personas). Intenta en un rato`);
+      db.update('visits', openVisit(db, u.id).id, { space_id: sp.id, cowork_until: null });
+      return { intern: true, space: sp.name };
+    }
+    const soon = db.find('reservations', x => x.user_id === u.id && x.space_id === sp.id && ACTIVE.includes(x.status) && T(x.start_at) > T(now));
+    fail(soon ? `Tu reserva en ${sp.name} empieza a las ${String(new Date(soon.start_at).getHours()).padStart(2, '0')}:${String(new Date(soon.start_at).getMinutes()).padStart(2, '0')}. Puedes entrar desde 10 minutos antes` : `No tienes una reserva en ${sp.name} ahora`);
+  },
+  'intern.leave'(ctx) {
+    const db = ctx.db, u = me(ctx), v = openVisit(db, u.id), sp = +db.cfg('intern_space');
+    if (!v || v.space_id !== sp) fail('No estás registrada o registrado en la oficina de pasantía');
+    const zone = Q.defaultZone(db); db.update('visits', v.id, { space_id: zone?.id ?? null }); return { zone: zone?.name || null };
+  },
+  /** Recepción o el encargado inicia la reserva de alguien (si no había marcado su entrada, se marca). */
+  'res.start'(ctx, { id }) {
+    const db = ctx.db, r = db.get('reservations', +id) || fail('No encontramos esa reserva'), now = N(ctx);
+    if (!has(ctx, 'recepcion') && !manages(ctx, r.space_id)) fail('Tu credencial no permite esta acción');
+    if (!['confirmada', 'en_revision'].includes(r.status)) fail('Esa reserva no se puede iniciar');
+    if (T(now) < T(r.start_at) - 10 * 60000) fail('Se puede iniciar desde 10 minutos antes de su hora');
+    if (T(now) >= T(r.end_at)) fail('Esa reserva ya terminó');
+    if (!openVisit(db, r.user_id)) db.insert('visits', { user_id: r.user_id, in_at: iso(now), source: 'recepcion', by_staff: ctx.uid, space_id: r.space_id });
+    startRes(ctx, r, r.user_id, now); audit(ctx, 'inicia reserva en recepción', 'reservations', r.id);
+    return { started: r.id };
+  },
+  /** QR de un espacio: crea la clave la primera vez; renew la reemplaza (el QR impreso anterior deja de servir). */
+  'space.qr'(ctx, { id, renew }) {
+    const db = ctx.db, sp = db.get('spaces', +id) || fail('No encontramos ese espacio'); needSpace(ctx, sp.id);
+    if (!sp.qr_key || renew) { db.update('spaces', sp.id, { qr_key: newKey() }); audit(ctx, renew ? 'renueva QR de espacio' : 'crea QR de espacio', 'spaces', sp.id, sp.name); }
+    return { key: db.get('spaces', sp.id).qr_key };
+  },
+  'user.intern'(ctx, { id, on }) {
+    need(ctx); const db = ctx.db, u = db.get('users', id) || fail('No encontramos a esa persona');
+    db.update('users', u.id, { intern: !!on }); audit(ctx, on ? 'asigna pasantía' : 'quita pasantía', 'users', u.id);
+    if (on) notify(ctx, u.id, 'Tienes pasantía en el Hub', 'Ya puedes entrar a la oficina de pasantía desde tu Inicio, escaneando su QR.');
+    return { ok: true };
+  },
+  /** Cierra la sesión en todos los otros dispositivos (este sigue abierto). */
+  'me.logoutAll'(ctx) { const u = me(ctx); ctx.db.update('users', u.id, { sessions_after: iso(N(ctx)) }); return { session: u.id };
   },
   'res.failure'(ctx, { id, category, description }) {
     const db = ctx.db, r = db.get('reservations', id), u = me(ctx);
@@ -592,6 +691,8 @@ export const SERVICES = {
     need(ctx);
     if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key)) fail('Configuración desconocida');
     if (key === 'logo') value = dataUrl(value, 400e3);
+    if (key === 'public_url' && value && !/^https:\/\/[^\s"'<>]+$/.test(value)) fail('La dirección pública debe empezar con https://');
+    if (['intern_space', 'default_zone'].includes(key) && value != null && !ctx.db.get('spaces', +value)) fail('Ese espacio no existe');
     if (typeof DEFAULTS[key] === 'number') { value = +value; if (!Number.isFinite(value) || value < 0 || value > 1e6) fail('Valor no válido'); }
     if (key === 'floor_capacity') { if (!value || typeof value !== 'object' || !Object.keys(value).length || Object.entries(value).some(([f, c]) => !/^\d{1,2}$/.test(f) || !(+c >= 0))) fail('Aforo por piso no válido'); value = Object.fromEntries(Object.entries(value).map(([f, c]) => [f, +c])); }
     if (key === 'min_age' && value > (+ctx.db.cfg('max_age') || 95)) fail('La edad mínima no puede superar a la máxima');
@@ -677,7 +778,7 @@ export function tick(ctx) {
     const sp = db.get('spaces', r.space_id), tol = (sp?.tolerance_min ?? cfg('tolerance_min')) * 60000;
     if (r.status !== 'en_curso' && T(now) >= T(r.start_at) && T(now) < T(r.end_at)) {
       const guests = db.where('reservation_guests', g => g.reservation_id === r.id);
-      const here = inside.has(r.user_id) || (guests.some(g => inside.has(g.user_id)) && !cfg('release_room_without_host'));
+      const here = !cfg('two_step') && (inside.has(r.user_id) || (guests.some(g => inside.has(g.user_id)) && !cfg('release_room_without_host')));
       if (here && r.status === 'confirmada') { db.update('reservations', r.id, { status: 'en_curso', attended_at: r.start_at }); guests.filter(g => inside.has(g.user_id)).forEach(g => db.update('reservation_guests', g.id, { attended: true })); continue; }
       if (!here && T(now) > T(r.start_at) + tol) {
         if (r.status === 'en_revision') { db.update('reservations', r.id, { status: 'rechazada', charged_min: 0 }); notify(ctx, r.user_id, 'Tu archivo no alcanzó a revisarse', `${sp?.name}: la reserva se liberó y las horas se devolvieron.`); }
@@ -689,10 +790,19 @@ export function tick(ctx) {
       else db.update('reservations', r.id, { status: 'rechazada', charged_min: 0 });
     }
   }
+  // «Terminar» sin pasar por recepción dentro del plazo: el término no se registra y la reserva sigue en curso
+  for (const v of db.where('visits', v => v.cowork_until && T(v.cowork_until) < T(now))) {
+    db.update('visits', v.id, { cowork_until: null });
+    for (const r of db.where('reservations', r => r.user_id === v.user_id && r.status === 'en_curso' && r.finish_req_at)) {
+      db.update('reservations', r.id, { finish_req_at: null, finish_missed_at: iso(now) });
+      notify(ctx, r.user_id, 'Expiró el plazo para pasar por recepción', `Tocaste «Terminar» en ${db.get('spaces', r.space_id)?.name || 'tu reserva'}, pero no pasaste por recepción dentro de ${Math.round(finishWindow(ctx) / 60000)} minutos. El término no se registró y tu reserva sigue en curso hasta las ${R.hmOf(new Date(r.end_at))}. Cada vez que toques «Terminar», acércate a recepción para que escaneen tu QR y quede registrada tu salida del laboratorio.`);
+    }
+  }
   for (const v of db.where('visits', v => !v.out_at)) {
     const h = R.hoursFor(cfg('hours'), v.in_at), close = R.atMin(v.in_at, h ? h[1] : 1080);
     if (T(now) > T(close)) db.update('visits', v.id, { out_at: iso(Math.max(T(close), T(v.in_at) + 60000)), out_source: 'auto' });
   }
+  db.where('sessions', s => s.revoked_at ? T(now) - T(s.revoked_at) > 864e5 : !s.remember && T(now) - T(s.created_at) > 2 * 864e5).forEach(s => db.remove('sessions', s.id)); // sesiones vencidas
   const keep = cfg('keep_rejected_days') * 864e5;
   db.where('files', f => ['rechazado', 'observado'].includes(f.status) && f.reviewed_at && T(now) - T(f.reviewed_at) > keep).forEach(f => db.update('files', f.id, { status: 'eliminado', storage: null }));
   return { at: iso(now) };
@@ -711,7 +821,7 @@ export function snapshot(ctx) {
   const all = t => db.all(t), mine = t => db.where(t, r => r.user_id === uid);
   const safe = u => { const { password_hash, ...x } = u; return x; };
   const out = { config: all('config'), spaces: all('spaces'), resources: all('resources'), certifications: all('certifications'), cert_sessions: all('cert_sessions'), blocks: all('blocks'), plan_shapes: all('plan_shapes'), events: staff ? all('events') : db.where('events', e => e.published) };
-  if (!staff) out.blocks = out.blocks.map(({ by_id, ...b }) => b); // quién bloqueó solo lo ve el equipo
+  if (!staff) { out.blocks = out.blocks.map(({ by_id, ...b }) => b); out.spaces = out.spaces.map(({ qr_key, ...s }) => s); } // quién bloqueó solo lo ve el equipo
   if (!uid) return { tables: out, occ: Q.occupancy(db, N(ctx)) };
   const labOnly = staff && rs.every(r => r === 'encargado');
   if (labOnly) {

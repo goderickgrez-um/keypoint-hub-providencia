@@ -2,7 +2,7 @@
 import { ACTIVE } from '../src/core/catalog.js';
 import { seed } from '../src/core/seed.js';
 import { Store } from '../src/core/store.js';
-import { call, snapshot } from '../src/core/services.js';
+import { call, snapshot, tick } from '../src/core/services.js';
 import * as Q from '../src/core/queries.js';
 import * as R from '../src/core/rules.js';
 import assert from 'node:assert/strict';
@@ -157,6 +157,55 @@ await rejects(call(ctx(admin), 'space.save', { name: 'Neg', kind: 'sala', floor:
 await rejects(call(ctx(admin), 'cert.save', { space_id: laser.id, name: 'Neg', weekday: 1, time_min: 600, seats: -1 }), /menor que 1/);
 await rejects(call(ctx(cam), 'event.signup', { id: evA.id }), /terminó/);
 await rejects(call(ctx(cam), 'event.order', { ids: [] }), /./);
+
+// v1.4 · Reserva en dos pasos, «Terminar» con plazo en recepción, pasantía y QR de espacios
+{
+  const at = (d, h, m = 0) => { const x = R.addDays(now, d); x.setHours(h, m, 0, 0); return x; }, cx = (uid, t) => ({ db, uid, now: t, demo: true });
+  const sala = db.find('spaces', s => s.kind === 'sala'), key = (await call(cx(admin, now), 'space.qr', { id: sala.id })).key, code = `https://hub.cl/app/?espacio=${sala.id}-${key}`;
+  assert.ok(/^[A-Z2-9]{8}$/.test(key));
+  const pu = db.find('users', u => u.status === 'activo' && !u.deleted_at && !Q.rolesOf(db, u.id).length && !u.guardian_id && !db.find('visits', v => v.user_id === u.id && !v.out_at) && !db.find('bans', b => b.user_id === u.id));
+  const r = db.insert('reservations', { user_id: pu.id, space_id: sala.id, start_at: at(30, 10).toISOString(), end_at: at(30, 11).toISOString(), status: 'confirmada', charged_min: 0, created_at: now.toISOString() });
+  await rejects(call(cx(pu.id, at(30, 10, 2)), 'space.checkin', { code }), /entrada al Hub/);
+  const e1 = await call(cx(marta, at(30, 9, 55)), 'access.scan', { code: pu.id }); assert.equal(e1.action, 'entrada'); assert.equal(e1.next.id, r.id);
+  assert.equal(db.get('reservations', r.id).status, 'confirmada'); // entrar al Hub no inicia la reserva
+  await rejects(call(cx(pu.id, at(30, 10, 2)), 'space.checkin', { code: `${sala.id}-AAAAAAAA` }), /no es válido/);
+  const ck = await call(cx(pu.id, at(30, 10, 2)), 'space.checkin', { code }); assert.equal(ck.started, r.id);
+  assert.equal(db.get('reservations', r.id).status, 'en_curso'); assert.equal(db.find('visits', v => v.user_id === pu.id && !v.out_at).space_id, sala.id);
+  const fin = await call(cx(pu.id, at(30, 10, 40)), 'res.finish', { id: r.id }); assert.ok(fin.requested); assert.equal(db.get('reservations', r.id).status, 'en_curso'); // queda pendiente de recepción
+  const back = await call(cx(marta, at(30, 10, 43)), 'access.scan', { code: pu.id }); assert.equal(back.action, 'cowork'); assert.equal(back.real_min, 38); // dentro del plazo: término a la hora en que tocó «Terminar»
+  assert.equal(db.get('reservations', r.id).status, 'completada'); assert.ok(db.find('visits', v => v.user_id === pu.id && !v.out_at && v.space_id !== sala.id));
+  // Segunda reserva: «Terminar» y no pasa por recepción → el término no cuenta, la reserva sigue y se le avisa
+  const r2 = db.insert('reservations', { user_id: pu.id, space_id: sala.id, start_at: at(30, 12).toISOString(), end_at: at(30, 13).toISOString(), status: 'confirmada', charged_min: 0, created_at: now.toISOString() });
+  await call(cx(pu.id, at(30, 12)), 'space.checkin', { code: `${sala.id}-${key}` }); await call(cx(pu.id, at(30, 12, 30)), 'res.finish', { id: r2.id });
+  tick(cx(null, at(30, 12, 36)));
+  assert.equal(db.get('reservations', r2.id).status, 'en_curso'); assert.ok(db.get('reservations', r2.id).finish_missed_at && !db.get('reservations', r2.id).finish_req_at);
+  assert.ok(db.find('notifications', n => n.user_id === pu.id && n.title === 'Expiró el plazo para pasar por recepción'));
+  const v2 = db.find('visits', v => v.user_id === pu.id && !v.out_at); assert.ok(v2 && v2.space_id === sala.id && !v2.cowork_until); // sigue dentro, en el espacio
+  const late = await call(cx(marta, at(30, 12, 50)), 'access.scan', { code: pu.id }); assert.equal(late.action, 'salida'); // registra su salida del Hub: termina su tiempo
+  assert.equal(db.get('reservations', r2.id).status, 'completada'); assert.equal(db.get('reservations', r2.id).real_min, 50);
+  // Tercera: sin «Terminar», el escaneo en recepción cierra la reserva y registra la salida
+  const r3 = db.insert('reservations', { user_id: pu.id, space_id: sala.id, start_at: at(31, 10).toISOString(), end_at: at(31, 11).toISOString(), status: 'confirmada', charged_min: 0, created_at: now.toISOString() });
+  const e3 = await call(cx(marta, at(31, 9, 58)), 'access.scan', { code: pu.id }); assert.equal(e3.action, 'entrada');
+  const st3 = await call(cx(marta, at(31, 10, 1)), 'res.start', { id: r3.id }); assert.equal(st3.started, r3.id); // recepción la inicia
+  const out3 = await call(cx(marta, at(31, 10, 20)), 'access.scan', { code: pu.id }); assert.equal(out3.action, 'salida'); assert.equal(out3.closed, sala.name); assert.equal(db.get('reservations', r3.id).status, 'completada');
+  // Sin escanear el QR del espacio ni iniciar en recepción: no asistió (aunque esté dentro del Hub)
+  const r4 = db.insert('reservations', { user_id: pu.id, space_id: sala.id, start_at: at(32, 10).toISOString(), end_at: at(32, 11).toISOString(), status: 'confirmada', charged_min: 0, created_at: now.toISOString() });
+  await call(cx(marta, at(32, 9, 50)), 'access.scan', { code: pu.id }); tick(cx(null, at(32, 10, 20))); assert.equal(db.get('reservations', r4.id).status, 'no_asistio');
+  await rejects(call(cx(cam, now), 'res.start', { id: r4.id }), /credencial/);
+  // Pasantía
+  const office = db.get('spaces', +db.cfg('intern_space')), okey = (await call(cx(admin, now), 'space.qr', { id: office.id })).key;
+  await call(cx(admin, now), 'user.intern', { id: pu.id, on: false });
+  await rejects(call(cx(pu.id, at(32, 10, 30)), 'space.checkin', { code: `${office.id}-${okey}` }), /solo para personas con pasantía/);
+  await call(cx(admin, now), 'user.intern', { id: pu.id, on: true });
+  assert.ok((await call(cx(pu.id, at(32, 10, 30)), 'space.checkin', { code: `${office.id}-${okey}` })).intern);
+  assert.equal(db.find('visits', v => v.user_id === pu.id && !v.out_at).space_id, office.id);
+  await call(cx(pu.id, at(32, 11)), 'intern.leave', {}); assert.notEqual(db.find('visits', v => v.user_id === pu.id && !v.out_at).space_id, office.id);
+  await rejects(call(cx(pu.id, now), 'space.qr', { id: sala.id }), /./);
+  // El QR de los espacios no sale en los datos de un usuario
+  assert.ok(snapshot(cx(pu.id, now)).tables.spaces.every(s => !('qr_key' in s))); assert.ok(snapshot(cx(admin, now)).tables.spaces.some(s => s.qr_key));
+  // Lista de eventos: los terminados siempre al final
+  const ord = Q.sortEvents(db.all('events'), now).map(e => Q.eventState(e, now) === 'terminado'); assert.deepEqual(ord, [...ord].sort((a, b) => a - b));
+}
 
 const st = Q.stats(db, R.addDays(now, -30), now, now), occ = Q.occupancy(db, now);
 console.log('ocupación', occ.inside, occ.spaces.filter(s => s.n).map(s => s.name + ':' + s.n).join(', '));

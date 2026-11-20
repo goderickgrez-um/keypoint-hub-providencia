@@ -37,7 +37,7 @@ CUENTAS DE LA DEMO (contraseña: demo1234)
   b) Desde la carpeta descomprimida, en una terminal:
        git init
        git add .
-       git commit -m "Keypoint Hub Providencia v1.0"
+       git commit -m "Keypoint Hub Providencia v2.5.1"
        git branch -M main
        git remote add origin https://github.com/USUARIO/keypoint-hub-providencia.git
        git push -u origin main

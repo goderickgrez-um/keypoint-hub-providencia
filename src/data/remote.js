@@ -4,7 +4,14 @@ import { App } from '../ui/kit.js';
 
 const base = () => (typeof window.HUB_CONFIG === 'string' ? window.HUB_CONFIG : window.HUB_CONFIG?.api || '').replace(/\/$/, '');
 let token = null, onChange = () => {}, tag = '', busy = false;
-const store = v => { try { if (v === undefined) return sessionStorage.getItem('hub-token'); v ? sessionStorage.setItem('hub-token', v) : sessionStorage.removeItem('hub-token'); } catch { return null; } };
+/** La sesión vive en sessionStorage (se cierra con la pestaña) o, si la persona pidió mantenerla, en localStorage. */
+const store = (v, keep) => { try {
+  if (v === undefined) return localStorage.getItem('hub-token') || sessionStorage.getItem('hub-token');
+  localStorage.removeItem('hub-token'); sessionStorage.removeItem('hub-token');
+  if (v) (keep ? localStorage : sessionStorage).setItem('hub-token', v);
+} catch { return null; } };
+/** true si la sesión de este dispositivo quedó guardada. */
+export const remembered = () => { try { return !!localStorage.getItem('hub-token'); } catch { return false; } };
 const headers = extra => ({ ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra });
 async function http(path, opt = {}) {
   let r; busy = true;
@@ -22,17 +29,19 @@ function apply(j) {
 }
 
 export const remote = {
+  remembered,
   async init(cb) { onChange = cb; token = store(); await this.refresh();
     setInterval(async () => { if (document.hidden || busy) return; if (await this.refresh().catch(() => false)) onChange(); }, 15000); },
   /** Pide los datos solo si cambiaron. Devuelve true cuando hubo cambios. */
   async refresh() { const j = await http('/api/snapshot' + (tag ? '?since=' + tag : ''), { headers: headers() }); return apply(j); },
   async call(name, args) {
     const j = await http('/api/rpc', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name, args }) });
-    if (j.token) { token = j.token; store(token); }
+    if (j.token) { token = j.token; store(token, args && 'remember' in args ? !!args.remember : remembered()); }
     if (j.snap) apply(j.snap); else await this.refresh();
     return j.result;
   },
-  logout() { token = null; tag = ''; store(null); return this.refresh(); },
+  async logout() { try { await http('/api/rpc', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name: 'auth.logout' }) }); } catch { /* sin conexión: se borra igual en este dispositivo */ }
+    token = null; tag = ''; store(null); return this.refresh(); },
   tick() { /* la consulta periódica ya se hace en init */ },
   async putFile(file) { const j = await http('/api/files', { method: 'POST', headers: headers({ 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) }), body: file }); return j.key; },
   async getFile(key) { const r = await http('/api/files/' + encodeURIComponent(key), { headers: headers() }); return r.blob(); },

@@ -5,8 +5,10 @@ import { ACTIVITIES, OCCUPATIONS, GENDERS, DOC_TYPES, FAILURES, ACTIVE, WEEKDAYS
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../core/seed.js';
 import { t, LANGS, getLang, setLang } from './i18n.js';
 import { themePref, setThemePref, a11y, setA11y } from './theme.js';
-import { openCamera } from './camera.js';
-import { fileInput, UI, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, memo } from './kit.js';
+import { openCamera, closeCamera } from './camera.js';
+import { running, startable } from '../core/services.js';
+import { diplomaPdf } from './diploma.js';
+import { fileInput, UI, App, S, db, me, myRoles, screens, actions, go, run, toast, modal, closeModal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, meter, avatar, stPill, qrSvg, openDays, dayChips, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, download, memo, sessionCard, confirmBox } from './kit.js';
 
 const cfg = k => db().cfg(k);
 const T = d => +new Date(d);
@@ -27,6 +29,7 @@ screens['u-login'] = { open: true, render() {
       ${field('l_ident', 'RUT o correo', { attrs: 'autocomplete="username" data-enter="login"' })}
       ${code ? (S.codeSent ? field('l_code', 'Código de 6 dígitos', { attrs: 'inputmode="numeric" autocomplete="one-time-code" data-enter="login"' }) : '') : field('l_pass', 'Contraseña', { type: 'password', attrs: 'autocomplete="current-password" data-enter="login"' })}
       ${demoCode()}
+      ${check('l_keep', 'Mantener la sesión iniciada en este dispositivo (no la marques en equipos compartidos)', { value: true })}
       ${btn(code && !S.codeSent ? 'Enviar código a mi correo' : 'Entrar', 'login', { cls: 'block' })}
       ${gid ? '<div id="gsi" class="c"></div>' : ''}
       <div class="row between w"><button class="btn s plain" data-a="login-mode">${t(code ? 'Entrar con contraseña' : 'Entrar con un código')}</button>${btn('Crear cuenta', 'go', { v: 'u-reg', cls: 's sec' })}</div>
@@ -38,6 +41,8 @@ screens['u-login'] = { open: true, render() {
 } };
 actions.lang = v => { setLang(v); if (me()) run('me.update', { lang: v }); else go(S.k); };
 actions['login-mode'] = () => { S.loginMode = S.loginMode === 'code' ? 'pass' : 'code'; S.codeSent = false; S.demoCode = null; go(S.k); };
+/** Mantener la sesión: marcado por defecto. */
+export const keepLogin = () => val('l_keep', true) !== false;
 actions['demo-login'] = v => { fill({ l_ident: v, l_pass: DEMO_PASSWORD }); S.loginMode = 'pass'; actions.login(); };
 actions['demo-reset'] = () => App.data.reset();
 const enter = r => { if (!r?.session) return; S.demoCode = null; S.codeSent = false; S.f = {}; S.staff = myRoles().length > 0; go(S.staff ? 'a-panel' : 'u-inicio'); };
@@ -45,9 +50,9 @@ actions.login = async () => {
   const ident = val('l_ident').trim(); if (!ident) return toast(t('Escribe tu RUT o correo'));
   if (S.loginMode === 'code') {
     if (!S.codeSent) { const r = await run('auth.code', { ident }); if (r) { S.codeSent = true; S.demoCode = r.demo_code; S.codeMin = r.minutes; toast(t('Si el correo está registrado, te enviamos un código. Vence en {0} minutos', r.minutes)); } return; }
-    return enter(await run('auth.codeLogin', { ident, code: val('l_code') }));
+    return enter(await run('auth.codeLogin', { ident, code: val('l_code'), remember: keepLogin() }));
   }
-  const r = await run('auth.login', { ident, password: val('l_pass') });
+  const r = await run('auth.login', { ident, password: val('l_pass'), remember: keepLogin() });
   if (r?.need === 'correo') { S.verify = r.id; S.demoCode = r.demo_code; S.codeMin = r.minutes; return go('u-verif'); }
   enter(r);
 };
@@ -82,7 +87,7 @@ actions['file:reg-photo'] = async f => { S.regPhoto = await readImage(f, 320); g
 actions['scan-into'] = k => openCamera(code => { S.f[k] = code; go(S.k); });
 actions.register = async assisted => {
   if (assisted !== '1' && val('r_pass') !== val('r_pass2')) return toast(t('Las contraseñas no coinciden'));
-  const r = await run('auth.register', { assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), gender: val('r_gender'), reduced_mobility: val('r_mob'),
+  const r = await run('auth.register', { remember: keepLogin(), assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), gender: val('r_gender'), reduced_mobility: val('r_mob'),
     email: val('r_email'), phone: val('r_phone'), comuna: val('r_comuna'), activity: val('r_activity'), occupation: val('r_occ'), password: val('r_pass'), photo: S.regPhoto || null, guardian: val('r_guardian') || null,
     consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), lang: getLang() });
   if (!r) return;
@@ -96,7 +101,7 @@ screens['u-verif'] = { open: true, render: () => `<div class="login stack">${bac
     <p class="sm mu">${t('El código vence en {0} minutos. Si no llega, revisa la carpeta de spam.', S.codeMin || db().cfg('code_minutes') || 15)}</p>
     ${btn('Confirmar correo', 'verify', { cls: 'block' })}${btn('Reenviar código', 'resend', { cls: 'block plain' })}</div></div>` };
 actions.resend = async () => { const r = await run('auth.code', S.verify ? { id: S.verify } : { ident: val('v_ident') }); if (r) { S.codeMin = r.minutes; if (r.demo_code) S.demoCode = r.demo_code; toast(t('Te reenviamos el código. Usa el del correo más reciente o cualquiera vigente')); } };
-actions.verify = async () => enter(await run('auth.verify', { id: S.verify, ident: val('v_ident'), code: val('v_code') }));
+actions.verify = async () => enter(await run('auth.verify', { id: S.verify, ident: val('v_ident'), code: val('v_code'), remember: keepLogin() }));
 
 /** Pantalla de espera para perfiles de menores sin autorización. */
 export function pendingScreen(u) {
@@ -114,7 +119,7 @@ const closeModalQuiet = () => { S.modal = null; };
 const occ = () => App.occ || memo('occ', () => Q.occupancy(db()));
 export const occupancyCard = () => { const o = occ(); return `<div class="card stack">${Object.entries(o.floors).map(([f, v]) => meter(t('Piso {0}', f), v.n, v.cap)).join('')}
   <details><summary>${t('Ver por espacio')}</summary><div class="stack" style="margin-top:6px">${o.spaces.filter(s => s.cap && s.kind !== 'residencia').map(s => meter(s.name, s.n, s.cap)).join('')}</div></details>
-  <p class="sm mu">${t('Una zona con reserva figura ocupada cuando la persona registra su entrada.')}</p></div>`; };
+  <p class="sm mu">${t('Una zona con reserva figura ocupada cuando la persona confirma su llegada con el QR del espacio.')}</p></div>`; };
 const eventNow = () => db().find('events', e => e.published && e.kind === 'evento' && e.start_at && T(e.start_at) - 30 * 60000 <= Date.now() && Date.now() <= T(e.end_at || e.start_at) + 36e5);
 screens['u-inicio'] = { tab: 'u-inicio', render() {
   const u = me(), now = new Date(), ban = Q.activeBan(db(), u.id), ev = eventNow();
@@ -132,7 +137,8 @@ screens['u-inicio'] = { tab: 'u-inicio', render() {
     ${bannerStrip(banners)}
     ${ev ? (went ? notice(`${icon('check')} ${t('Asistencia registrada en {0}', esc(ev.title))}`, 'ok') : btn(`${icon('star')} ${t('Marcar asistencia')}: ${esc(ev.title)}`, 'event-checkin', { v: ev.id, cls: 'block sec', raw: true })) : ''}
     <div class="card qr"><div class="code">${qrSvg(u.id)}</div><div class="id">${u.id}</div><p class="sm mu">${t('Muestra este código en recepción al entrar y al salir.')}</p>
-      ${visit ? pill(t('Dentro del Hub desde las {0}', fTime(visit.in_at)), 'ok') : pill(t('Fuera del Hub'))}</div>
+      ${visit ? pill(t('Dentro del Hub desde las {0}', fTime(visit.in_at)) + (visit.space_id && db().get('spaces', visit.space_id) ? ' · ' + esc(db().get('spaces', visit.space_id).name) : ''), 'ok') : pill(t('Fuera del Hub'))}
+      ${qrActions(u, visit, now)}</div>
     ${next ? `<button class="list li" data-a="go" data-v="u-activas"><span class="sp"><b>${t('Tu próxima reserva')}</b><span>${next.cert ? esc(next.cert.name) : resName(next)} · ${fRange(next.start_at, next.end_at)}</span></span>${next.cert ? pill(t('Certificación'), 'info') : stPill(next.status)}${icon('chev')}</button>` : ''}
     <h2>${t('El Hub ahora')}</h2>${occupancyCard()}
     ${closures.length ? `<h2>${t('Próximos cierres')}</h2><div class="list">${closures.map(b => `<div class="li"><span class="sp"><b>${esc(b.space_id ? db().get('spaces', b.space_id)?.name : t('Todo el Hub'))}</b><span>${fRange(b.start_at, b.end_at)}${b.reason ? ' · ' + esc(b.reason) : ''}</span></span></div>`).join('')}</div>` : ''}`;
@@ -155,6 +161,42 @@ export function stopBanners() { if (S.bnStop) return; S.bnStop = true; const b =
 actions['bn-play'] = () => { S.bnStop = !S.bnStop; UI.render(); };
 setInterval(() => { if (S.k !== 'u-inicio' || S.bnStop || S.modal || document.hidden || calm() || document.querySelector('#banners:hover, #banners:focus-within')) return;
   const el = document.getElementById('banners'); if (el && el.children.length > 1) actions['bn-move'](1); }, BANNER_MS);
+/** Botones bajo el QR: entrar a la reserva (escaneando el QR del espacio), terminarla y la oficina de pasantía. */
+function qrActions(u, visit, now) {
+  const d = db(), out = [], run0 = running(d, u.id), st = !run0 && startable(d, u.id, now), isp = +d.cfg('intern_space'), office = isp && d.get('spaces', isp);
+  const detail = r => { const sp = d.get('spaces', r.space_id), rs = r.resource_id && d.get('resources', r.resource_id), n = d.where('reservation_guests', g => g.reservation_id === r.id).length;
+    return `<div class="qra-d"><b>${esc(sp?.name || '')}${rs ? ' · ' + esc(rs.name) : ''}</b><span>${fRange(r.start_at, r.end_at)}${n ? ' · ' + t('{0} acompañantes', n) : ''}${r.status === 'en_revision' ? ' · ' + t('archivo en revisión') : ''}</span></div>`; };
+  const pending = run0?.finish_req_at && visit?.cowork_until && T(visit.cowork_until) > +now;
+  if (run0) out.push(`${detail(run0)}${pending ? `<p class="qra-warn" role="status">${icon('clock')} <b>${t('Acércate a recepción antes de las {0}', fTime(visit.cowork_until))}</b> ${t('para que escaneen tu QR y quede registrada tu salida del laboratorio. Si no pasas, el término no se tomará en cuenta y tu reserva seguirá en curso.')}</p>`
+    : (run0.finish_missed_at ? `<p class="qra-warn" role="alert">${icon('alert')} <b>${t('Expiró tu plazo para pasar por recepción.')}</b> ${t('Tu término no se registró y la reserva sigue en curso. Cada vez que toques «Terminar», acércate a recepción para que escaneen tu QR.')}</p>` : '')
+      + (run0.user_id === u.id ? btn('Terminar', 'res-end', { v: run0.id, cls: 'block', icon: 'check' }) : `<p class="sm mu">${t('Estás en la reserva de otra persona.')}</p>`)}`);
+  else if (st) out.push(`${detail(st)}${visit ? btn('Entrar a tu reserva', 'entrar', { v: st.id, cls: 'block', icon: 'qr' }) : `<p class="sm mu">${t('Registra tu entrada en recepción y luego toca «Entrar a tu reserva».')}</p>`}`);
+  if (u.intern && office?.active) out.push(visit?.space_id === isp ? btn('Salir de la oficina de pasantía', 'intern-leave', { cls: 'block plain', icon: 'out' })
+    : btn('Entrar en oficina de pasantía', 'entrar', { v: 'pasantia', cls: 'block sec', icon: 'qr', off: !visit }) + (visit ? '' : `<p class="sm mu">${t('Primero registra tu entrada en recepción.')}</p>`));
+  return out.length ? `<div class="qra stack">${out.join('')}</div>` : '';
+}
+actions.entrar = v => { S.entrar = v; S.f.sp_code = ''; go('u-entrar'); };
+actions['res-end'] = id => { const r = db().get('reservations', +id), sp = db().get('spaces', r.space_id), min = Math.max(1, Math.ceil((Date.now() - T(r.attended_at || r.start_at)) / 60000)), w = +db().cfg('finish_window_min') || 5;
+  confirmBox({ title: '¿Terminar tu reserva?', ok: 'Terminar', text: `<p><b>${esc(sp?.name || '')}</b> · ${fRange(r.start_at, r.end_at)}</p><p><b>${t('Después de tocar «Terminar», acércate a recepción en los próximos {0} minutos para que escaneen tu QR.', w)}</b> ${t('Así queda registrada tu salida del laboratorio, se descuenta el tiempo real hasta ahora ({0}) y quedas en el cowork.', R.dur(min))}</p><p>${t('Si no pasas por recepción a tiempo, el término no se toma en cuenta y tu reserva sigue en curso.')}</p>`,
+    fn: async () => { const x = await run('res.finish', { id: r.id }); if (!x) return; toast(x.requested ? t('Acércate a recepción antes de las {0} para registrar tu salida del laboratorio', fTime(x.until)) : t('Reserva terminada. Se descontaron {0}', R.dur(x.real_min))); } }); };
+actions['intern-leave'] = () => run('intern.leave', {}, 'Saliste de la oficina de pasantía');
+actions['space-code'] = async code => { if (!code) return toast(t('Escribe el código que aparece bajo el QR'));
+  const r = await run('space.checkin', { code }); if (!r) return; closeCamera(); S.entrar = null;
+  toast(r.intern ? t('Entraste a {0}', r.space) : t('Asistencia confirmada en {0}. Tu reserva empezó', r.space)); go('u-inicio'); };
+actions['space-cam'] = () => openCamera(code => actions['space-code'](code));
+screens['u-entrar'] = { tab: 'u-inicio', render() {
+  const d = db(), u = me(), now = new Date(), intern = S.entrar === 'pasantia', r = !intern && (d.get('reservations', +S.entrar) || startable(d, u.id, now)), sp = intern ? d.get('spaces', +d.cfg('intern_space')) : r && d.get('spaces', r.space_id);
+  if (!sp) return `${backBtn()}<h1>${t('Entrar a tu reserva')}</h1><p class="mu">${t('No tienes una reserva para empezar ahora.')}</p>`;
+  const rs = r?.resource_id && d.get('resources', r.resource_id), guests = r ? d.where('reservation_guests', g => g.reservation_id === r.id) : [];
+  return `${backBtn()}<h1>${intern ? t('Oficina de pasantía') : t('Entrar a tu reserva')}</h1>
+    <div class="card stack"><h3 style="margin:0">${esc(sp.name)}${rs ? ' · ' + esc(rs.name) : ''}</h3>${r ? `<p class="mu" style="margin:0">${fRange(r.start_at, r.end_at)} · ${t('Piso {0}', sp.floor)}${guests.length ? ' · ' + t('{0} acompañantes', guests.length) : ''}</p>` : `<p class="mu" style="margin:0">${t('Piso {0}', sp.floor)}${sp.capacity ? ' · ' + t('aforo {0}', sp.capacity) : ''}</p>`}
+      ${r?.status === 'en_revision' ? notice(t('Tu archivo aún está en revisión. Podrás empezar cuando el encargado lo apruebe.'), 'warn') : ''}</div>
+    <div class="card stack c"><p style="margin:0">${icon('qr')} <b>${t('Escanea el QR que está en la entrada de {0}', esc(sp.name))}</b></p><p class="sm mu" style="margin:0">${t('Así se confirma que llegaste y empieza tu tiempo.')}</p>
+      ${btn('Abrir la cámara', 'space-cam', { cls: 'block', icon: 'cam' })}</div>
+    <div class="card stack"><div class="form">${field('sp_code', '¿No funciona la cámara? Escribe el código que aparece bajo el QR', { cls: 'full', ph: '5-ABCD2345', attrs: 'autocomplete="off" autocapitalize="characters" data-enter="space-code-typed"' })}</div>${btn('Confirmar con el código', 'space-code-typed', { cls: 'plain' })}</div>`;
+} };
+actions['space-code-typed'] = () => actions['space-code'](val('sp_code'));
+const backBtn = () => `<button class="btn plain s" data-a="go" data-v="u-inicio">${icon('back')} ${t('Volver')}</button>`;
 const seatsLeft = e => (e.seats ? Math.max(0, e.seats - db().where('event_attendance', a => a.event_id === e.id).length) : null);
 actions['event-open'] = id => { const e = db().get('events', +id), mine = db().find('event_attendance', a => a.event_id === e.id && a.user_id === App.uid), left = seatsLeft(e);
   modal({ html: `${e.poster_img || e.banner_img ? `<img class="poster" src="${esc(e.poster_img || e.banner_img)}" alt="">` : ''}<h2 style="margin:0">${esc(e.title)}</h2>
@@ -267,13 +309,18 @@ screens['u-cert'] = { tab: 'u-reservar', render() {
       const ses = db().where('cert_sessions', s => s.certification_id === c.id && T(s.start_at) > now && s.status === 'abierta').sort((a, b) => T(a.start_at) - T(b.start_at)).slice(0, 3);
       return `<div class="card stack"><div class="row between w"><div><h3>${esc(c.name)}</h3><span class="sm mu">${esc(sp?.name)} · ${t(WEEKDAYS[c.weekday])} ${R.hm(c.time_min)} · ${R.dur(c.duration_min)}${c.cost ? ` · $${fmtN(c.cost)} (${t('se paga en recepción')})` : ` · ${t('Sin costo')}`}</span></div>
         ${mine ? pill(mine.expires_at ? t('Vigente hasta {0}', fDate(mine.expires_at)) : t('Certificado'), 'ok') : pill(t('Sin certificación'))}</div>
-        ${mine?.diploma && c.diploma_download ? btn('Descargar diploma', 'diploma', { v: mine.id, cls: 's sec', icon: 'down' }) : ''}
+        ${mine && c.diploma_download ? btn('Descargar diploma', 'diploma', { v: mine.id, cls: 's sec', icon: 'down' }) : ''}
         ${mine ? '' : `<div class="list">${ses.map(s => { const en = db().find('cert_enrollments', e => e.session_id === s.id && e.user_id === u.id), left = Math.max(0, s.seats - db().where('cert_enrollments', e => e.session_id === s.id).length);
           const other = !en && db().find('cert_enrollments', e => e.user_id === u.id && e.status === 'inscrito' && ses.concat(db().where('cert_sessions', x => x.certification_id === c.id)).some(x => x.id === e.session_id));
           return `<div class="li${left <= 0 && !en ? ' off' : ''}"><span class="sp"><b>${fDT(s.start_at)}</b><span>${left <= 0 ? t('Sin cupos') : t('{0} cupos disponibles', left)}</span></span>${en ? pill(t('Inscrito'), 'ok') + btn('Cancelar inscripción', 'cert-enroll', { v: s.id + ':0', cls: 's plain' }) : left <= 0 ? pill(t('Llena'), 'bad') : btn('Inscribirme', 'cert-enroll', { v: s.id + ':1', cls: 's', off: !!other })}</div>`; }).join('') || `<div class="li mu">${t('No hay sesiones abiertas por ahora.')}</div>`}</div>`}</div>`; }).join('')}`;
 } };
 actions['cert-enroll'] = v => { const [id, on] = v.split(':'); S.modal = null; run('cert.enroll', { session_id: +id, cancel: on === '0' }, on === '1' ? 'Inscripción lista' : 'Inscripción cancelada'); };
-actions.diploma = id => { const c = db().get('user_certs', +id); if (c?.diploma) download('diploma-' + c.id + (c.diploma.startsWith('data:application/pdf') ? '.pdf' : '.jpg'), c.diploma); };
+/** Diploma: el que subió el encargado o, si no hay, uno generado por el sistema en PDF. */
+actions.diploma = async id => { const c = db().get('user_certs', +id); if (!c) return;
+  if (c.diploma) return download('diploma-' + c.id + (c.diploma.startsWith('data:application/pdf') ? '.pdf' : '.jpg'), c.diploma);
+  toast(t('Preparando tu diploma…'));
+  try { const name = (db().get('certifications', c.certification_id)?.name || 'certificacion').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').toLowerCase();
+    download(`diploma-${name}.pdf`, await diplomaPdf(c, logoSrc())); toast(t('Diploma descargado')); } catch (e) { console.error(e); toast(t('No se pudo generar el diploma')); } };
 
 screens['u-eventos'] = { tab: 'u-reservar', render() {
   const list = db().where('events', e => e.published && e.kind === 'evento' && e.start_at && Q.eventState(e) !== 'terminado').sort((a, b) => T(a.start_at) - T(b.start_at));
@@ -299,7 +346,7 @@ screens['u-activas'] = { tab: 'u-activas', render() {
   const now = Date.now(), list = [...myRes(r => ACTIVE.includes(r.status) && T(r.end_at) > now), ...myCerts(now)].sort((a, b) => T(a.start_at) - T(b.start_at));
   return `<div class="head"><h1>${t('Mis reservas')}</h1>${btn('Historial', 'go', { v: 'u-hist', cls: 's plain', icon: 'clock' })}</div>
     <p class="sm mu">${t('Puedes tener hasta {0} reservas activas. Cancela con al menos {1} minutos de aviso para recuperar tus horas; si no llegas en {2} minutos, la reserva se libera.', cfg('max_active'), cfg('cancel_notice_min'), cfg('tolerance_min'))}</p>
-    ${list.map(r => r.cert ? certCard(r) : resCard(r, r.user_id !== App.uid ? '' : (T(r.start_at) <= now ? btn('Terminé', 'res-finish', { v: r.id, cls: 's', icon: 'check' }) : '') + btn('Cancelar reserva', 'res-cancel-ask', { v: r.id, cls: 's plain' }))).join('') || empty('No tienes reservas activas. Elige un espacio en Reservar.')}
+    ${list.map(r => r.cert ? certCard(r) : resCard(r, r.user_id !== App.uid ? '' : (r.status === 'en_curso' ? (r.finish_req_at ? `<span class="sm">${icon('clock')} ${t('Pendiente: acércate a recepción para registrar tu salida')}</span>` : btn('Terminar', 'res-end', { v: r.id, cls: 's', icon: 'check' })) : startable(db(), App.uid, new Date(), r.space_id)?.id === r.id ? btn('Entrar a tu reserva', 'entrar', { v: r.id, cls: 's', icon: 'qr' }) : '') + btn('Cancelar reserva', 'res-cancel-ask', { v: r.id, cls: 's plain' }))).join('') || empty('No tienes reservas activas. Elige un espacio en Reservar.')}
     ${btn('Reservar un espacio', 'go', { v: 'u-reservar', cls: 'block sec', icon: 'plus' })}`;
 } };
 actions['res-cancel-ask'] = id => { const r = db().get('reservations', +id), late = T(r.start_at) - Date.now() < cfg('cancel_notice_min') * 60000 && r.charged_min > 0 && r.user_id === App.uid;
@@ -337,12 +384,14 @@ screens['u-perfil'] = { tab: 'u-perfil', render() {
   const row = (a, b) => `<div class="li"><span class="mu" style="flex:0 0 38%">${t(a)}</span><span class="sp">${b || '—'}</span></div>`;
   return `<div class="row">${avatar(u)}<div class="sp"><h1 style="font-size:1.4rem">${esc(u.name)}</h1><p class="mu">${u.id} · ${esc(R.fmtDoc(u.doc_number, u.doc_type))}</p></div></div>
     <label class="f">${t('Cambiar foto de perfil')}${fileInput('my-photo', 'image/*')}</label>
+    ${sessionCard()}
     ${ban ? notice(`${icon('lock')} <b>${t('Tu acceso al Hub está restringido')}</b> ${ban.until_at ? t('hasta el {0}.', fDT(ban.until_at)) : t('de forma permanente.')} ${ban.reason ? esc(ban.reason) : ''}`, 'bad') : ''}
     ${pens.length ? notice(`${icon('alert')} ${t('Tienes penalizaciones de horas este mes. Se reinician el día 1.')} ${pens.map(a => `<br>${esc(db().get('spaces', a.space_id)?.name)}: ${R.dur(a.minutes)}${a.reason ? ' · ' + esc(a.reason) : ''}`).join('')}`, 'warn') : ''}
     <h2>${t('Mis datos')}</h2><div class="list">${row('Correo', esc(u.email))}${row('Celular', esc(u.phone))}${row('Comuna', esc(u.comuna))}${row('Actividad en Providencia', esc(t(u.activity || '')))}${row('Ocupación', esc(t(u.occupation || '')))}${row('Género', esc(t(u.gender || '')))}
       ${row('Fecha de nacimiento', u.birth_date ? `${fDate(u.birth_date + 'T12:00:00')} · ${R.age(u.birth_date)} ${t('años')}` : '')}${row('Movilidad reducida', t(u.reduced_mobility ? 'Sí' : 'No'))}${g ? row('Adulto responsable', esc(g.name)) : ''}</div>
     ${btn('Editar mis datos y contacto', 'profile-edit', { cls: 'block sec', icon: 'edit' })}
-    <h2>${t('Certificaciones')}</h2><div class="chips">${certs.map(c => pill(db().get('certifications', c.certification_id)?.name || '', 'ok')).join('') || `<span class="mu sm">${t('Aún no tienes certificaciones.')}</span>`}</div>
+    <h2>${t('Certificaciones')}</h2>${certs.length ? `<div class="list">${certs.map(c => { const ce = db().get('certifications', c.certification_id), sp = ce && db().get('spaces', ce.space_id), vig = !c.expires_at || T(c.expires_at) > Date.now();
+      return `<div class="li">${icon('award')}<span class="sp"><b>${esc(ce?.name || '')}</b><span>${esc(sp?.name || '')} · ${t('desde')} ${fDate(c.granted_at)}${c.expires_at ? ` · ${t(vig ? 'vigente hasta' : 'venció el')} ${fDate(c.expires_at)}` : ''}</span></span>${ce?.diploma_download !== false ? btn('Descargar diploma', 'diploma', { v: c.id, cls: 's sec', icon: 'down' }) : ''}</div>`; }).join('')}</div>` : `<p class="mu sm">${t('Aún no tienes certificaciones.')}</p>`}
     <h2>${t('Uso de mis horas este mes')}</h2><div class="card stack">${labs.map(sp => { const b = Q.balance(db(), u.id, sp.id); return meter(sp.name, b.used, Math.max(1, b.quota), `${Math.round(b.used / Math.max(1, b.quota) * 100)} %`); }).join('')}</div>
     <h2>${t('Observaciones de mis trabajos')}</h2>${obs.length ? `<div class="list">${obs.map(o => `<div class="li"><span class="sp"><b>${esc(db().get('files', o.file_id)?.name || db().get('spaces', o.space_id)?.name)} ${pill(t(o.kind === 'rechazo' ? 'Rechazado' : 'Observación'), o.kind === 'rechazo' ? 'bad' : 'warn')}</b><span>${esc(o.text)}</span><span>${fDate(o.created_at)}</span></span><button class="icb" data-a="obs-del" data-v="${o.id}" aria-label="${t('Borrar observación')}">${icon('trash')}</button></div>`).join('')}</div>` : empty('No tienes observaciones.')}
     ${kids.length ? `<h2>${t('Menores a mi cargo')}</h2><div class="list">${kids.map(k => `<div class="li"><span class="sp"><b>${esc(k.name)}</b><span>${k.id}</span></span>${pill(t(k.status === 'activo' ? 'Autorizado' : 'Pendiente'), k.status === 'activo' ? 'ok' : 'warn')}</div>`).join('')}</div>` : ''}
@@ -363,7 +412,7 @@ screens['u-config'] = { tab: 'u-perfil', render: () => `${back('u-perfil')}<h1>$
     <h3>${t('Accesibilidad')}</h3><label class="ck"><input type="checkbox" data-a="a11y" data-v="big" ${a11y('big') ? 'checked' : ''}><span>${t('Texto más grande')}</span></label><label class="ck"><input type="checkbox" data-a="a11y" data-v="contrast" ${a11y('contrast') ? 'checked' : ''}><span>${t('Mayor contraste')}</span></label></div>
   <div class="card stack"><h3>${t('Contraseña')}</h3>${field('np', 'Nueva contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' })}${field('np2', 'Confirmar contraseña', { type: 'password', attrs: 'autocomplete="new-password" data-enter="pass-save"' })}${btn('Guardar contraseña', 'pass-save', { cls: 's sec' })}</div>
   <div class="list">${[['u-perfil', 'user', 'Perfil y actualizar datos'], ['u-notif', 'bell', 'Notificaciones'], ['u-priv', 'shield', 'Privacidad y mis datos'], ['u-ayuda', 'help', 'Ayuda y preguntas frecuentes']].map(([k, i, l]) => `<button class="li" data-a="go" data-v="${k}">${icon(i)}<span class="sp"><b>${t(l)}</b></span>${icon('chev')}</button>`).join('')}</div>
-  <div class="card"><h3>${t('Acerca de')}</h3><p class="sm mu">${esc(cfg('system_name'))} · ${t('versión')} 1.0. ${t('Desarrollado por el equipo keypoint: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez.')}</p>
+  <div class="card"><h3>${t('Acerca de')}</h3><p class="sm mu">${esc(cfg('system_name'))} · ${t('versión')} ${typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : ''}. ${t('Desarrollado por el equipo keypoint: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez.')}</p>
     <p class="sm mu">${t('Para instalar la app, abre el menú del navegador y elige «Instalar» o «Agregar a la pantalla de inicio».')}</p></div>
   ${btn('Cerrar sesión', 'logout', { cls: 'block plain', icon: 'out' })}` };
 actions.theme = v => { setThemePref(v); go(S.k); };

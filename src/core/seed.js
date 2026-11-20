@@ -82,6 +82,7 @@ export async function seed(nowArg = new Date()) {
   const laser = space({ name: 'Cortadora láser', kind: 'lab', floor: 2, capacity: 1, requires_cert: true, monthly_hours: 48, gap_min: 30, accept: ACCEPT_LASER, manager_id: vale.id, color: '#B26A1F' });
   const textil = space({ name: 'Laboratorio textil', kind: 'lab', floor: 2, capacity: 6, requires_cert: true, monthly_hours: 48, gap_min: 30, manager_id: vale.id, color: '#4E8D5B' });
   const audit = space({ name: 'Auditorio', kind: 'auditorio', mode: 'evento', floor: 2, capacity: 60, color: '#7FC8A0' });
+  const office = space({ name: 'Oficina de pasantía', kind: 'otro', mode: 'libre', floor: 1, capacity: 8, color: '#9A8C5B', notes: 'Solo personas con pasantía' });
   const resid = space({ name: 'Residencias', kind: 'residencia', mode: 'evento', floor: 2, capacity: 30, color: '#0E7C86' });
   // Encargados: cada uno puede tener uno o más espacios (Valentina tiene láser y textil)
   for (const sp of db.all('spaces')) if (sp.manager_id) db.insert('space_managers', { space_id: sp.id, user_id: sp.manager_id });
@@ -203,7 +204,11 @@ export async function seed(nowArg = new Date()) {
   db.where('reservations', r => r.status === 'confirmada' && +new Date(r.start_at) <= +now && +now < +new Date(r.end_at)).forEach(r => {
     if (rnd() < .85 && !db.find('visits', v => v.user_id === r.user_id && !v.out_at)) db.insert('visits', { user_id: r.user_id, in_at: iso(+new Date(r.start_at) - 5 * 60000), source: 'qr', by_staff: marta.id });
   });
-  db.all('spaces').forEach(s => { s.manager_id = null; }); // reemplazado por space_managers
+  db.all('spaces').forEach(s => { s.manager_id = null; s.qr_key = Array.from({ length: 8 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[int(0, 31)]).join(''); }); // reemplazado por space_managers · QR de cada espacio
+  db.setCfg('intern_space', office.id); db.update('users', camila.id, { intern: true }); // demo: Camila tiene pasantía
+  // Reservas que van ahora: con la confirmación en dos pasos ya se iniciaron (escanearon el QR del espacio)
+  db.where('reservations', r => r.status === 'confirmada' && +new Date(r.start_at) <= +now && +now < +new Date(r.end_at)).forEach(r => { const v = db.find('visits', x => x.user_id === r.user_id && !x.out_at);
+    if (v) { db.update('reservations', r.id, { status: 'en_curso', attended_at: iso(+new Date(r.start_at) + 3 * 60000) }); db.update('visits', v.id, { space_id: r.space_id }); } });
   tick(ctx);
   db.take();
   return db.dump();

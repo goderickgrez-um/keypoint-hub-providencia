@@ -12,7 +12,7 @@ export const TABLES = {
       comuna: 'text?', activity: 'text?', occupation: 'text?', gender: 'text?', birth_date: 'date?',
       reduced_mobility: 'bool=false', photo: 'text?', password_hash: 'text?', email_verified: 'bool=false',
       status: 'text=activo', guardian_id: 'users?', guardian_ok: 'bool=false', consent_data: 'bool=false', consent_image: 'bool=false',
-      consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?' },
+      consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?', intern: 'bool=false' },
     unique: ['doc_number'], index: ['email'],
     check: ["status in ('pendiente_correo','pendiente_adulto','activo')"] },
 
@@ -28,7 +28,7 @@ export const TABLES = {
 
   spaces: { doc: 'Espacios del Hub: cowork, salas, sala gaming, laboratorios, auditorio, residencias.',
     cols: { id: 'int', name: 'text', kind: 'text', mode: 'text=reserva', floor: 'int=1', capacity: 'int=0',
-      accessible: 'bool=true', requires_cert: 'bool=false', min_level: 'int=1', manager_id: 'users?', /* obsoleto: ver space_managers */
+      accessible: 'bool=true', requires_cert: 'bool=false', min_level: 'int=1', qr_key: 'text?', manager_id: 'users?', /* obsoleto: ver space_managers */
       monthly_hours: 'num=0', gap_min: 'int=0', tolerance_min: 'int?', max_hours: 'num?',
       allow_overnight: 'bool=false', accept: 'text?', color: 'text?', notes: 'text?', active: 'bool=true' },
     check: ["mode in ('libre','reserva','evento')"] },
@@ -58,7 +58,8 @@ export const TABLES = {
   reservations: { doc: 'Reservas de salas, equipos gaming y máquinas. charged_min es lo que se descuenta del saldo.',
     cols: { id: 'int', user_id: 'users', space_id: 'spaces', resource_id: 'resources?', kind: 'text=equipo', title: 'text?',
       start_at: 'ts', end_at: 'ts', status: 'text=confirmada', est_min: 'int=0', real_min: 'int?', charged_min: 'int=0',
-      attended_at: 'ts?', finished_at: 'ts?', cancelled_at: 'ts?', created_by: 'users?', created_at: 'ts' },
+      attended_at: 'ts?', finished_at: 'ts?', cancelled_at: 'ts?', created_by: 'users?', created_at: 'ts',
+      finish_req_at: 'ts?', finish_missed_at: 'ts?' }, // «Terminar» pendiente de recepción · plazo vencido
     index: ['user_id', 'space_id, start_at'],
     check: ["status in ('confirmada','en_revision','en_curso','completada','cancelada','no_asistio','rechazada')", 'end_at > start_at'] },
 
@@ -75,7 +76,7 @@ export const TABLES = {
       text: 'text', created_at: 'ts' } },
 
   visits: { doc: 'Entradas y salidas del edificio.',
-    cols: { id: 'int', user_id: 'users', in_at: 'ts', out_at: 'ts?', source: 'text=qr', out_source: 'text?', by_staff: 'users?', space_id: 'spaces?' },
+    cols: { id: 'int', user_id: 'users', in_at: 'ts', out_at: 'ts?', source: 'text=qr', out_source: 'text?', by_staff: 'users?', space_id: 'spaces?', cowork_until: 'ts?' },
     index: ['user_id', 'in_at'] },
 
   hour_adjustments: { doc: 'Penalizaciones y premios de horas por laboratorio. period nulo = se aplica todos los meses.',
@@ -114,6 +115,9 @@ export const TABLES = {
   outbox: { doc: 'Correos por enviar o enviados (confirmaciones, códigos, avisos).',
     cols: { id: 'int', to_email: 'text', subject: 'text', body: 'text', created_at: 'ts', sent_at: 'ts?' } },
 
+  sessions: { doc: 'Sesiones abiertas por dispositivo. Cerrar sesión las revoca; cambiar la contraseña invalida todas.',
+    cols: { id: 'int', user_id: 'users', device: 'text?', remember: 'bool=false', created_at: 'ts', revoked_at: 'ts?' },
+    index: ['user_id'] },
   audit_log: { doc: 'Registro de acciones del personal.',
     cols: { id: 'int', at: 'ts', actor_id: 'users?', action: 'text', entity: 'text?', entity_id: 'text?', detail: 'text?' },
     index: ['at'] },

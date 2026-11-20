@@ -5,11 +5,12 @@ import { build, transform } from 'esbuild';
 import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
 
 const root = fileURLToPath(new URL('..', import.meta.url)), P = f => root + f;
-const VERSION = new Date().toISOString().slice(0, 16).replace(/\D/g, '');
+const VERSION = new Date().toISOString().slice(0, 16).replace(/\D/g, ''); // sello de compilación (caché del navegador)
+const APP_VERSION = JSON.parse(await readFile(P('package.json'), 'utf8')).version; // versión de la aplicación: una sola fuente, package.json
 await rm(P('web'), { recursive: true, force: true });
 await mkdir(P('web/assets'), { recursive: true }); await mkdir(P('dist'), { recursive: true });
 
-const app = (await build({ entryPoints: [P('src/ui/app.js')], bundle: true, format: 'iife', minify: true, target: 'es2020', write: false, legalComments: 'none' })).outputFiles[0].text;
+const app = (await build({ entryPoints: [P('src/ui/app.js')], bundle: true, format: 'iife', minify: true, target: 'es2020', write: false, legalComments: 'none', define: { __APP_VERSION__: JSON.stringify(APP_VERSION) } })).outputFiles[0].text;
 const vendor = (await transform((await readFile(P('vendor/qrcode.js'), 'utf8')) + '\n;' + (await readFile(P('vendor/jsQR.js'), 'utf8')), { minify: true, target: 'es2020' })).code;
 const css = (await transform(await readFile(P('src/ui/styles.css'), 'utf8'), { loader: 'css', minify: true })).code;
 await writeFile(P('web/app.js'), app); await writeFile(P('web/vendor.js'), vendor); await writeFile(P('web/styles.css'), css);
