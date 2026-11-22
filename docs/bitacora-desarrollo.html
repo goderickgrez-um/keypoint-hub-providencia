@@ -189,6 +189,18 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <td>2.5.1</td>
 <td>Ajuste de «Terminar», versión única, trípticos B/N</td>
 </tr>
+<tr>
+<td>Video comercial</td>
+<td>21 nov. 2026</td>
+<td>—</td>
+<td>Tomas reales de la app, gráficos y maqueta de 56 s</td>
+</tr>
+<tr>
+<td>Idiomas, manual y QA</td>
+<td>22 nov. 2026</td>
+<td>2.6.0</td>
+<td>Ayudas en inglés y portugués, manual actualizado, informe de QA</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -372,6 +384,20 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li class="done">Trípticos por cargo actualizados y pensados para impresión láser en blanco y negro.</li>
 </ul>
 <p><strong>Corrección de versiones.</strong> El repositorio usaba «v2.1.1» y «v2.2», mientras que las entregas siguientes se habían nombrado 1.2, 1.3 y 1.4. Se adoptó el versionado semántico continuando la serie del repositorio (ver anexo).</p>
+<h3>5.13 Material para el video comercial (21 de noviembre)</h3>
+<p><strong>Solicitud.</strong> Cómo hacer un video comercial profesional del sistema y, después, dejar listas las tomas para incluirlas en él.</p>
+<p><strong>Entrega.</strong> Un kit con grabaciones reales de la app en modo demostración (cinco tomas de teléfono y cinco de computador, sin audio), las mismas tomas dentro de un marco de teléfono o ventana sobre el fondo de la marca, gráficos en PNG (intro, cierre con el QR de la app, títulos), una maqueta de 56 segundos con transiciones y la locución sugerida con tiempos (<code>locucion.srt</code>). Las tomas de ambiente, la voz y la música quedaron para el equipo.</p>
+<h3>5.14 Idiomas, manual y QA (versión 2.6.0, 22 de noviembre)</h3>
+<p><strong>Solicitud.</strong> «Actualizar las ayudas para incluirlas en inglés y portugués, actualizar el manual de usuario y realizar pruebas de QA para el sistema.»</p>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Guías de cada pantalla, recorrido guiado, invitación al recorrido y preguntas frecuentes de la app de usuarios en inglés y portugués. Las pantallas del equipo siguen en español, como el resto de su app.</li>
+<li class="done">Notificaciones, aviso de sesión, ayudas del registro y mensajes del servidor con datos variables traducidos al mostrarse.</li>
+<li class="done">Preguntas frecuentes impresas en inglés y portugués (<code>docs/faq-en.pdf</code>, <code>docs/faq-pt.pdf</code>).</li>
+<li class="done">Manual de uso actualizado a la versión vigente, con capturas nuevas y un capítulo sobre la reserva en dos pasos.</li>
+<li class="done">Pruebas de QA: núcleo, funcionamiento por rol, servidor con PostgreSQL y migración desde 2.5.1, seguridad, accesibilidad, tamaños de pantalla, idiomas y carga. Resultado en <code>docs/informe-qa.pdf</code>; scripts en <code>tools/qa/</code>.</li>
+</ul>
+<p><strong>Defectos encontrados por QA y corregidos:</strong> contraste de la etiqueta DEMO, dos desbordes horizontales (gráficos de Datos y etiquetas en teléfonos de 320 px), bloqueo de cuentas que un tercero podía provocar con 8 intentos fallidos, textos sin traducir y un botón de la ayuda que se partía en inglés.</p>
 <hr />
 <h2>6. Evolución técnica</h2>
 <table>
@@ -379,7 +405,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <th>Aspecto</th>
 <th>Primera entrega (1.0.0)</th>
-<th>Versión 2.5.1</th>
+<th>Versión 2.6.0</th>
 </tr>
 </thead>
 <tbody>
@@ -416,7 +442,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <td>Ayuda</td>
 <td>Manual y trípticos</td>
-<td>Ayuda por pantalla, recorridos y preguntas frecuentes integradas</td>
+<td>Ayuda por pantalla, recorridos y preguntas frecuentes integradas, en español, inglés y portugués</td>
 </tr>
 <tr>
 <td>Accesibilidad</td>
@@ -439,18 +465,19 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li><strong>Actualización:</strong> cada versión se probó sobre una base de la versión anterior.</li>
 <li><strong>Seguridad:</strong> inyección SQL sin efecto, archivos no permitidos rechazados, bloqueo tras intentos fallidos, sesiones revocadas.</li>
 <li><strong>Accesibilidad:</strong> axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.</li>
+<li><strong>QA de la versión 2.6.0:</strong> informe completo en <code>docs/informe-qa.pdf</code>, con los resultados por área, los defectos corregidos y lo que falta probar en el Hub.</li>
 <li><strong>Pendiente de verificación en terreno:</strong> la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.</li>
 </ul>
 <hr />
 <h2>8. Pendientes y recomendaciones</h2>
 <ol>
-<li>Actualizar el manual de uso (<code>docs/manual.pdf</code>), que describe la versión 1.0: no incluye la reserva en dos pasos, la pasantía ni la ayuda integrada.</li>
+<li>Hacer en el Hub las pruebas que quedaron fuera del QA automático (lista en <code>docs/informe-qa.pdf</code>): Safari y Firefox, cámara y lector reales, correo real y producción.</li>
 <li>Validación del RUT con una API externa (definida desde el inicio como etapa futura).</li>
 <li>Doble factor para las cuentas de administración.</li>
 <li>Respaldos cifrados fuera del equipo (la base y el archivo <code>.data-key</code> juntos).</li>
-<li>Prueba con personas que usan lectores de pantalla y traducción de la ayuda al inglés y al portugués.</li>
+<li>Prueba con personas que usan lectores de pantalla.</li>
 <li>Revisión de seguridad externa antes del uso definitivo.</li>
-<li>Etiquetar las versiones en Git (<code>git tag v2.5.1</code>) al subir cada entrega.</li>
+<li>Etiquetar las versiones en Git (<code>git tag v2.6.0</code>) al subir cada entrega.</li>
 </ol>
 <hr />
 <h2>Anexo · Equivalencia de versiones</h2>
@@ -503,8 +530,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <td>2.5.0</td>
 </tr>
 <tr>
-<td>Esta entrega</td>
+<td>Término con recepción, bitácora y trípticos</td>
 <td>2.5.1</td>
+</tr>
+<tr>
+<td>Esta entrega</td>
+<td>2.6.0</td>
 </tr>
 </tbody>
 </table></body></html>

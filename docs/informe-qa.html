@@ -1,0 +1,223 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de QA · Keypoint Hub Providencia</title><style>
+@page { size: A4; margin: 20mm 18mm 18mm; }
+* { box-sizing: border-box; } body { font: 10.2pt/1.5 Inter, 'DejaVu Sans', Arial, sans-serif; color: #000; margin: 0; }
+h1 { font-size: 22pt; letter-spacing: -.02em; margin: 0 0 4mm; padding-bottom: 3mm; border-bottom: .8mm solid #000; }
+h2 { font-size: 14pt; margin: 9mm 0 3mm; padding-bottom: 1.5mm; border-bottom: .3mm solid #000; break-after: avoid; }
+h3 { font-size: 11pt; margin: 6mm 0 2mm; break-after: avoid; }
+p { margin: 0 0 2.5mm; } ul, ol { margin: 0 0 3mm; padding-left: 6mm; } li { margin-bottom: 1mm; }
+li.done, li.todo { list-style: none; position: relative; } li.done::before { content: '☑'; position: absolute; left: -5.5mm; } li.todo::before { content: '☐'; position: absolute; left: -5.5mm; }
+hr { border: 0; border-top: .3mm solid #000; margin: 6mm 0; }
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9pt; break-inside: auto; }
+th, td { border: .25mm solid #000; padding: 1.6mm 2mm; text-align: left; vertical-align: top; } th { font-weight: 700; border-bottom: .6mm solid #000; }
+tr { break-inside: avoid; } code { font-family: 'DejaVu Sans Mono', Consolas, monospace; font-size: 8.8pt; }
+h1 + p { font-size: 10.5pt; }
+</style></head><body><h1>Informe de QA · Keypoint Hub Providencia 2.6.0</h1>
+<p>Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués.</p>
+<h2>1. Resumen</h2>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Pruebas</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reglas del núcleo</td>
+<td>Más de 110 verificaciones</td>
+<td>Todas correctas</td>
+</tr>
+<tr>
+<td>Funcionamiento por rol en el navegador (modo demostración)</td>
+<td>87 verificaciones y recorrido de 39 pantallas</td>
+<td>Todas correctas, sin errores de JavaScript</td>
+</tr>
+<tr>
+<td>Servidor real con PostgreSQL</td>
+<td>29 verificaciones y migración desde 2.5.1</td>
+<td>Todas correctas</td>
+</tr>
+<tr>
+<td>Seguridad</td>
+<td>34 verificaciones</td>
+<td>Todas correctas, tras corregir D4</td>
+</tr>
+<tr>
+<td>Accesibilidad (WCAG 2 A y AA, axe-core)</td>
+<td>98 revisiones: 49 pantallas en tema claro y oscuro</td>
+<td>Sin infracciones, tras corregir D1</td>
+</tr>
+<tr>
+<td>Pantallas de distintos tamaños</td>
+<td>259 combinaciones de pantalla, ancho e idioma</td>
+<td>Sin desbordes, tras corregir D2 y D3</td>
+</tr>
+<tr>
+<td>Idiomas (inglés y portugués)</td>
+<td>App de usuarios completa, ayudas y notificaciones</td>
+<td>Sin textos del sistema en español, tras corregir D5</td>
+</tr>
+<tr>
+<td>Rendimiento y carga</td>
+<td>50 sesiones simultáneas</td>
+<td>0 errores; p95 de 282 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Se encontraron <strong>6 defectos</strong>, todos corregidos y verificados de nuevo en esta misma versión. Ninguno afectaba datos guardados.</p>
+<h2>2. Defectos encontrados y corregidos</h2>
+<table>
+<thead>
+<tr>
+<th>N.º</th>
+<th>Gravedad</th>
+<th>Dónde</th>
+<th>Qué pasaba</th>
+<th>Corrección</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td>Media (accesibilidad)</td>
+<td>Cabecera, todas las pantallas del teléfono</td>
+<td>La etiqueta DEMO tenía un contraste de 3,05:1 (mínimo 4,5:1) porque heredaba la transparencia del lema. La misma regla impedía ocultarla en pantallas angostas, como pedía el diseño.</td>
+<td>La regla del lema ya no alcanza a la etiqueta: contraste de 5,5:1. La etiqueta se deja visible en todos los tamaños para que siempre se note el modo demostración.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>Baja</td>
+<td>Datos (analista y administración)</td>
+<td>En los gráficos, el botón de una variable con nombre largo («Labores del hogar, cesantes, jubilados…») desbordaba la pantalla a 1366 px.</td>
+<td>Los nombres largos se parten en dos líneas.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>Baja</td>
+<td>Mis reservas, en teléfonos de 320 px</td>
+<td>La etiqueta «Archivo en revisión» sobresalía 5 px y aparecía una barra horizontal.</td>
+<td>En pantallas de 360 px o menos, las etiquetas se parten en dos líneas.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>Media (seguridad)</td>
+<td>Ingreso</td>
+<td>8 contraseñas incorrectas desde cualquier equipo bloqueaban la cuenta 15 minutos: cualquiera podía dejar fuera a administración a propósito.</td>
+<td>Límite de 8 intentos por cuenta desde una misma dirección, 50 por cuenta en total y 30 por dirección. Verificado: tras el ataque desde otra dirección, administración sigue entrando.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>Media (idiomas)</td>
+<td>App de usuarios en inglés y portugués</td>
+<td>Las guías de cada pantalla, el recorrido guiado, las preguntas frecuentes, las notificaciones, el aviso de sesión y algunas ayudas del registro seguían en español.</td>
+<td>Traducidas: 16 guías, 25 preguntas frecuentes, 34 textos fijos y 18 mensajes con datos variables, por idioma.</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>Baja</td>
+<td>Ventana de ayuda en inglés</td>
+<td>El botón «Guided tour» se partía en dos líneas.</td>
+<td>Los botones de la ventana toman su ancho natural y bajan de línea si no caben.</td>
+</tr>
+</tbody>
+</table>
+<p>Además se actualizó una prueba que había quedado antigua: esperaba 4 pasos en el recorrido de Inicio y desde la versión 2.5.0 son 5. No era un defecto.</p>
+<h2>3. Alcance y entorno</h2>
+<ul>
+<li><strong>Versión probada:</strong> 2.6.0 (app web, servidor y base de datos).</li>
+<li><strong>Navegador:</strong> Chromium 1243 (motor de Chrome y Edge) controlado con Playwright.</li>
+<li><strong>Servidor:</strong> Node.js 22 y PostgreSQL 16 con columnas cifradas, igual que en el Acer.</li>
+<li><strong>Datos:</strong> los de ejemplo (<code>init-db.mjs --demo</code>): 160 usuarios, 725 reservas y 2836 visitas.</li>
+<li><strong>Credenciales probadas:</strong> persona usuaria (también menor de edad), recepción, encargado de laboratorio, administración y analista.</li>
+</ul>
+<h2>4. Resultados por área</h2>
+<h3>4.1 Reglas del núcleo</h3>
+<p><code>node tools/test-core.mjs</code>: más de 110 verificaciones sobre reservas y bloques, saldo de horas, reserva en dos pasos (entrar, terminar, plazo vencido, salida sin terminar), pasantía con aforo, borrado de datos y perfiles, edades de 4 a 95 años, pisos, agenda, eventos y estadísticas. Todas correctas.</p>
+<h3>4.2 Funcionamiento en el navegador</h3>
+<ul>
+<li><strong>Pruebas por versión:</strong> 87 verificaciones de las funciones agregadas desde la 1.2 (banners automáticos, orden de eventos, ayuda y recorrido, QR de espacios, búsqueda de certificados, ocultar variables, pasantía, reserva en dos pasos desde la pantalla, «Buscar reserva actual», sesión guardada, diploma en PDF). Todas correctas.</li>
+<li><strong>Recorrido de humo:</strong> 39 pantallas de los cinco roles. Sin errores de JavaScript.</li>
+</ul>
+<h3>4.3 Servidor real y base de datos</h3>
+<ul>
+<li><strong>Migración:</strong> la base se creó con la versión 2.5.1 y se abrió con el servidor 2.6.0. Arrancó sin errores, informó la versión 2.6.0 y conservó los datos (160 usuarios).</li>
+<li><strong>Sesiones y dos pasos con el servidor:</strong> 17 verificaciones (sesión por dispositivo, cierre de sesión, cambio de contraseña, entrar y terminar una reserva con la interfaz). Todas correctas.</li>
+<li><strong>API:</strong> 8 verificaciones de archivos, borrado con contraseña y permisos. Todas correctas.</li>
+<li><strong>App publicada en modo real:</strong> sin cuentas de demostración, encargado ve solo sus laboratorios, código por correo y sin bloqueos de la política de seguridad (CSP).</li>
+</ul>
+<h3>4.4 Seguridad</h3>
+<p>34 verificaciones, todas correctas:</p>
+<ul>
+<li>Una persona usuaria no puede ejecutar acciones del personal (10 acciones probadas). Recepción no puede cambiar reglas, borrar ni eliminar espacios.</li>
+<li>Una persona usuaria no recibe las claves de los QR, los datos de contacto de otras personas (salvo su adulto responsable o sus menores a cargo), las sesiones, los códigos ni la auditoría. Sin sesión no se recibe ningún dato de personas. La analista no ve RUT ni correos.</li>
+<li>Se rechazan los tokens alterados o inventados.</li>
+<li>Solo GitHub Pages queda autorizado como origen externo (CORS).</li>
+<li>Las rutas con <code>..</code> no exponen archivos del servidor. Se rechazan las subidas sin sesión o de formatos no aceptados.</li>
+<li>La página lleva política de seguridad de contenido (sin <code>unsafe-eval</code>) y <code>nosniff</code>.</li>
+<li>Hay bloqueo por intentos fallidos (ver D4). La inyección SQL en el ingreso no entra.</li>
+</ul>
+<h3>4.5 Accesibilidad</h3>
+<p>axe-core (WCAG 2 A y AA) en 49 pantallas de los cinco roles, en tema claro y oscuro: 98 revisiones sin infracciones. Incluye las pantallas nuevas («Entrar a tu reserva», Ayuda y preguntas frecuentes, Ayuda para el personal). Las pruebas por versión vuelven a revisar las pantallas después de cada acción.</p>
+<h3>4.6 Tamaños de pantalla</h3>
+<p>Se buscó desborde horizontal en 39 pantallas a 320, 375, 768, 1024 y 1920 px (195 combinaciones). También se revisaron las 16 pantallas de usuarios en inglés y en portugués a 320 y 375 px (64 combinaciones). Sin desbordes después de corregir D2 y D3.</p>
+<h3>4.7 Idiomas</h3>
+<ul>
+<li>Se recorrieron en inglés y portugués todas las pantallas de usuarios, con la ayuda, el recorrido y las ventanas de confirmación abiertos. Solo quedan en español los datos que ingresa el equipo del Hub: nombres de espacios y eventos, observaciones y motivos.</li>
+<li><strong>Mensajes del servidor:</strong> hay 116 mensajes de error (107 fijos y 9 con datos variables). Todos los que puede ver una persona usuaria tienen traducción. Los 47 restantes son exclusivos de acciones del personal, cuya app queda en español por diseño.</li>
+<li>Las preguntas frecuentes de usuarios también se generaron impresas: <code>docs/faq-en.pdf</code> y <code>docs/faq-pt.pdf</code>.</li>
+</ul>
+<h3>4.8 Rendimiento y carga</h3>
+<table>
+<thead>
+<tr>
+<th>Medición</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50 sesiones simultáneas pidiendo sus datos (980 pedidos)</td>
+<td>304 pedidos por segundo, p50 152 ms, p95 282 ms, 0 errores</td>
+</tr>
+<tr>
+<td>Escaneo en recepción (40 personas seguidas)</td>
+<td>p50 44 ms, p95 56 ms</td>
+</tr>
+<tr>
+<td>Datos completos de administración</td>
+<td>p50 25 ms, p95 43 ms</td>
+</tr>
+<tr>
+<td>Núcleo: estadísticas de 90 días</td>
+<td>8 ms</td>
+</tr>
+</tbody>
+</table>
+<h2>5. Lo que no se pudo verificar aquí</h2>
+<p>Estas pruebas necesitan equipos reales o el Hub. Quedan en la lista de la sección 6.</p>
+<ul>
+<li><strong>Firefox y Safari:</strong> solo había Chromium (motor de Chrome y Edge). Falta probar Safari en iPhone y Firefox.</li>
+<li><strong>Dispositivos reales:</strong> la cámara del teléfono leyendo un QR impreso y el lector USB del mesón. En las pruebas se escribió el código.</li>
+<li><strong>Correo real:</strong> el envío de códigos por SMTP (en las pruebas, el correo queda en la bandeja de salida).</li>
+<li><strong>Producción:</strong> el Acer con Tailscale Funnel y la app en GitHub Pages apuntando a ese servidor.</li>
+<li><strong>Lectores de pantalla:</strong> NVDA y VoiceOver. axe-core revisa reglas automáticas, no reemplaza la prueba con personas.</li>
+<li><strong>Carga mayor:</strong> más de 50 sesiones simultáneas y archivos cercanos al máximo de 4 GB.</li>
+<li><strong>Formato de las fechas:</strong> dentro del texto de algunas notificaciones, las fechas usan el formato chileno también en inglés y portugués.</li>
+</ul>
+<h2>6. Lista para la prueba en el Hub</h2>
+<ul>
+<li class="todo">Instalar la 2.6.0 en el Acer sin borrar <code>.data-key</code> ni <code>.env</code>. Abrir <code>/api/health</code> y comprobar que dice 2.6.0.</li>
+<li class="todo">Imprimir el QR de un laboratorio y de una sala, pegarlos y leerlos con Android y con iPhone desde «Entrar a tu reserva».</li>
+<li class="todo">Terminar una reserva y pasar por recepción antes del plazo. Debe aparecer «Término registrado: queda en el cowork».</li>
+<li class="todo">Terminar una reserva y no pasar por recepción. Tras 5 minutos debe llegar el aviso, y la reserva debe seguir en curso.</li>
+<li class="todo">Salir del Hub sin tocar «Terminar». El escaneo de salida debe cerrar la reserva.</li>
+<li class="todo">Leer QR con el lector USB en «Recepción y QR», con y sin «Registro automático».</li>
+<li class="todo">Recibir un código por correo real y entrar con él.</li>
+<li class="todo">Cambiar el idioma a inglés y a portugués en un teléfono y recorrer la ayuda de Inicio.</li>
+<li class="todo">Probar en Safari (iPhone) y Firefox: ingreso, reserva, ayuda y diploma.</li>
+<li class="todo">Recorrer Inicio con VoiceOver o TalkBack.</li>
+<li class="todo">Descargar el diploma de una certificación aprobada y abrirlo en el teléfono.</li>
+</ul>
+<h2>7. Cómo repetir las pruebas</h2>
+<p>Los scripts están en <code>tools/qa/</code>, con instrucciones en <code>tools/qa/LEEME.md</code>. Las pruebas de seguridad y de carga deben ejecutarse contra una base de prueba, nunca contra la del Hub.</p></body></html>

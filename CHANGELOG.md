@@ -18,6 +18,20 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.6.0] · 22 de noviembre de 2026
+### Agregado
+- Ayudas de la app de usuarios en **inglés y portugués**: guía de cada pantalla, recorrido guiado, invitación al recorrido y preguntas frecuentes. Las pantallas del equipo del Hub siguen en español.
+- Notificaciones, aviso de sesión, ayudas del registro y mensajes del servidor con datos variables se muestran en el idioma elegido.
+- Preguntas frecuentes impresas en inglés y portugués: `docs/faq-en.pdf` y `docs/faq-pt.pdf` (`npm run docs:faq`).
+- Manual de uso actualizado (`docs/manual.pdf`): reserva en dos pasos, «Buscar reserva actual», pasantía, QR de espacios, sesión, diploma, ayuda e idiomas, con capturas nuevas.
+- Informe de QA (`docs/informe-qa.pdf`) y scripts de prueba en `tools/qa/`.
+### Corregido
+- La etiqueta DEMO tenía contraste insuficiente (3,05:1) y no respetaba la regla para pantallas angostas. Ahora tiene 5,5:1 y queda siempre visible.
+- Datos: los nombres largos de variables desbordaban la pantalla.
+- Teléfonos de 320 px: las etiquetas largas desbordaban la pantalla en Mis reservas.
+- Seguridad: 8 intentos fallidos desde cualquier equipo bloqueaban la cuenta. Ahora el límite es de 8 por cuenta desde una misma dirección y de 50 por cuenta en total, así nadie puede dejar fuera a administración a propósito.
+- Ventana de ayuda: el botón «Recorrido guiado» se partía en dos líneas en inglés.
+
 ## [2.5.1] · 20 de noviembre de 2026
 ### Cambiado
 - «Terminar» ya no cierra la reserva por sí solo: queda **pendiente** hasta que recepción escanee el QR de la persona dentro del plazo (5 minutos por defecto). En ese momento se registra el término a la hora en que tocó «Terminar» y la persona queda en el cowork.

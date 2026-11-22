@@ -32,9 +32,9 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px max(14px, env(safe-area-inset-right, 0px)) 6px max(14px, env(safe-area-inset-left, 0px)); background: color-mix(in srgb, var(--bar) 86%, transparent); color: var(--bartx); backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px); border-bottom: 1px solid var(--ln); }
 .top .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .top .brand > div { min-width: 0; }
-@media (max-width: 420px) { .top .demo { display: none; } }
 .top .brand b { display: block; font-size: 1rem; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.top .brand span { display: block; font-size: .74rem; opacity: .7; margin-top: -2px; }
+.top .brand > div > span { display: block; font-size: .74rem; opacity: .7; margin-top: -2px; } /* lema; la etiqueta DEMO queda con su contraste */
+.top .demo { flex: none; }
 .logo { width: 36px; height: 36px; border-radius: 50%; flex: none; object-fit: cover; }
 .wrap { width: 100%; max-width: 720px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 96px max(16px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 12px; }
 .staff { display: flex; align-items: flex-start; }
@@ -96,6 +96,7 @@ label.ck { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; fo
 .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: .76rem; font-weight: 650; white-space: nowrap; background: var(--fill); color: var(--mu); }
 .pill.ok { background: var(--okbg); color: var(--ok); } .pill.warn { background: var(--warnbg); color: var(--warn); } .pill.bad { background: var(--badbg); color: var(--bad); } .pill.info { background: var(--tint); color: var(--act); }
 button.pill { border: 0; min-height: 28px; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 360px) { .pill { white-space: normal; max-width: 100%; } } /* pantallas muy angostas: la etiqueta se parte en dos líneas */
 .meter { display: flex; flex-direction: column; gap: 4px; } .meter .trk { height: 7px; border-radius: 4px; background: var(--fill); overflow: hidden; } .meter .trk i { display: block; height: 100%; border-radius: 4px; background: var(--ac); }
 .meter.hot .trk i { background: var(--warn); } .meter.full .trk i { background: var(--bad); }
 
@@ -108,7 +109,7 @@ button.pill { border: 0; min-height: 28px; text-decoration: underline; text-unde
 .banner.gen { display: flex; align-items: center; padding: 14px 16px 26px; background: var(--ac); color: var(--on); }
 .banner.gen b { font-size: 1.15rem; line-height: 1.2; text-wrap: balance; }
 .li.off { opacity: .6; }
-.bartog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; } .bartog .chip.s { padding: 4px 10px; font-size: .78rem; } .bartog .chip:not(.on) { text-decoration: line-through; opacity: .75; }
+.bartog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; } .bartog .chip.s { padding: 4px 10px; font-size: .78rem; max-width: 100%; white-space: normal; text-align: left; } .bartog .chip:not(.on) { text-decoration: line-through; opacity: .75; }
 .certbox { border-radius: 12px; } .certbox.tall { height: 330px; min-height: 160px; overflow: auto; resize: vertical; } .certbox.all { height: auto !important; overflow: visible; resize: none; } .certbox thead th { position: sticky; top: 0; background: var(--sf); z-index: 1; }
 .certbox:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
 .spqr { width: min(240px, 70%); margin: 0 auto; background: #fff; padding: 12px; border-radius: 12px; } .spqr svg { width: 100%; height: auto; display: block; } .mono { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em; }

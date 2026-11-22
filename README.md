@@ -6,7 +6,7 @@ Proyecto Capstone del equipo **keypoint**: Constanza Martinez, Maite Martinez, C
 
 ## Versión
 
-Versión actual: **2.5.1** (20 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
+Versión actual: **2.6.0** (22 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
 
 ## Dos formas de usarlo
 
@@ -31,8 +31,8 @@ server/        Servidor Node.js, conexión a PostgreSQL y carga inicial
 database/      schema.sql y seed.sql (generados con npm run db:build)
 web/           Sitio listo para publicar (generado con npm run build)
 dist/          Demo en un solo archivo HTML
-docs/          Informe, manual de uso, trípticos por cargo y capturas
-tools/         Construcción, pruebas y generación de documentos
+docs/          Informe, manual de uso, preguntas frecuentes (es, en, pt), informe de QA, trípticos y capturas
+tools/         Construcción, pruebas (tools/qa) y generación de documentos
 ```
 
 ## Seguridad

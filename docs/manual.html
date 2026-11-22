@@ -1,0 +1,163 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Manual de uso · Keypoint Hub Providencia</title><style>
+@page { size: Letter; margin: 18mm 18mm 20mm; }
+body { font: 10.5pt/1.5 Inter, 'DejaVu Sans', sans-serif; color: #1D1D1F; margin: 0; }
+h1 { font-size: 26pt; letter-spacing: -.02em; margin: 0 0 4mm; line-height: 1.1; }
+h2 { font-size: 17pt; margin: 0 0 3mm; letter-spacing: -.01em; color: #0E7C86; break-after: avoid; }
+h3 { font-size: 12pt; margin: 6mm 0 2mm; break-after: avoid; }
+p, li { margin: 0 0 2mm; } ul, ol { padding-left: 6mm; margin: 0 0 3mm; }
+.chap { break-before: page; } .muted { color: #63636A; } .sm { font-size: 9pt; }
+.cover { height: 235mm; display: flex; flex-direction: column; justify-content: space-between; }
+.cover img.logo { width: 34mm; } .cover .t { font-size: 34pt; font-weight: 700; letter-spacing: -.025em; line-height: 1.05; }
+.box { background: #EAF3F2; border-radius: 3mm; padding: 3mm 4mm; margin: 3mm 0; break-inside: avoid; }
+.warn { background: #FFF4D6; }
+table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 2mm 0 4mm; break-inside: avoid; }
+th, td { text-align: left; padding: 1.6mm 2mm; border-bottom: .3mm solid #DAD5CA; vertical-align: top; } th { color: #63636A; font-weight: 600; }
+.shots { display: flex; gap: 4mm; margin: 3mm 0; break-inside: avoid; align-items: flex-start; }
+.shots figure { margin: 0; flex: 1; } .shots img { width: 100%; border-radius: 2mm; border: .3mm solid #DAD5CA; display: block; }
+.shots.m figure { flex: 0 0 52mm; } figcaption { font-size: 8.5pt; color: #63636A; margin-top: 1mm; }
+.wide img { width: 100%; border-radius: 2mm; border: .3mm solid #DAD5CA; } .wide { margin: 3mm 0; break-inside: avoid; }
+.toc li { margin: 0 0 1.2mm; } code { font-family: 'DejaVu Sans Mono', monospace; font-size: 9pt; background: #F1F1F3; padding: .3mm 1mm; border-radius: 1mm; }
+</style></head><body>
+<section class="cover"><div><img class="logo" src="../assets/logo.png"><p class="muted" style="margin-top:8mm">Hub Providencia · Equipo keypoint</p>
+<div class="t">Manual de uso<br>Keypoint Hub Providencia</div><p style="font-size:13pt;margin-top:5mm">Registro de entradas, reservas de espacios y laboratorios, y gestión del Hub.</p></div>
+<div class="sm muted"><p>Versión 2.6.0 · noviembre de 2026 · documento para el piloto.</p><p>Equipo keypoint: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez. Docente: Ricardo Andrés Sepúlveda. Proyecto Capstone.</p></div></section>
+
+<section class="chap"><h2>Contenido</h2><ol class="toc">
+<li>Qué es el sistema y cómo se organiza</li><li>Usuarios del Hub</li><li>Reserva en dos pasos: entrar y terminar</li><li>Recepción</li><li>Encargados de laboratorio y sala gaming</li><li>Administración</li><li>Analista de datos</li><li>Reglas por defecto</li><li>Ayuda, idiomas y problemas comunes</li></ol>
+
+<h2 style="margin-top:8mm">1. Qué es el sistema y cómo se organiza</h2>
+<p>Keypoint Hub Providencia reemplaza el libro de registro, los correos de reserva y las planillas por una sola aplicación web. Funciona en cualquier navegador, en teléfono o computador, y también puede instalarse como app.</p>
+<p>Hay dos apps dentro del mismo sistema:</p>
+<ul><li><b>App de usuarios.</b> Credencial con QR, reservas, certificaciones, horas de laboratorio, avisos y perfil.</li>
+<li><b>App del equipo.</b> Recepción, revisión de archivos, certificaciones, espacios, agenda, datos y configuración. Cada persona ve solo las secciones de sus credenciales.</li></ul>
+<table><tr><th>Credencial</th><th>Qué puede hacer</th></tr><tr><td>Recepción</td><td>Registrar entradas y salidas, registrar usuarios de forma asistida, actualizar datos, hacer reservas asistidas, ver la agenda.</td></tr><tr><td>Encargado de laboratorio</td><td>Revisar archivos, gestionar certificaciones, penalizar o premiar horas, bloquear horarios y editar los laboratorios a su cargo.</td></tr><tr><td>Administración</td><td>Todo lo anterior, más espacios, plano, eventos, apariencia, reglas, empleados, restricciones de acceso y auditoría.</td></tr><tr><td>Analista de datos</td><td>Ver estadísticas sin nombres ni RUT, importar históricos y descargar los datos.</td></tr></table>
+<div class="box">Una misma persona puede tener varias credenciales, por ejemplo encargado y analista. Toda persona del equipo tiene además su perfil de usuario.</div>
+<h3>Entrar al sistema</h3>
+<p>Se entra con RUT o correo y contraseña, con un código de 6 dígitos que llega al correo, o con la cuenta de Google cuando administración lo habilite. Quien tiene credenciales del equipo pasa directo al panel; el botón de engranaje en la app de usuarios también lleva al panel, y «App de usuario» en el menú lateral vuelve.</p>
+<p><b>Mantener la sesión iniciada.</b> La casilla viene marcada: en el teléfono propio la sesión queda abierta hasta tocar «Cerrar sesión» o cambiar la contraseña. En equipos compartidos hay que desmarcarla; así la sesión termina al cerrar la pestaña. Cada dispositivo tiene su propia sesión, y desde el perfil se puede cerrar la sesión en los demás.</p>
+<div class="shots m"><figure><img src="img/login.png"><figcaption>Pantalla de ingreso.</figcaption></figure><figure><img src="img/u-reg.png"><figcaption>Crear cuenta: el RUT se acepta con o sin puntos.</figcaption></figure></div>
+<div class="box warn"><b>Modo demostración.</b> La versión publicada en GitHub Pages guarda datos de ejemplo en el navegador y muestra la etiqueta DEMO. Cada computador tiene su propia copia. La versión con servidor guarda todo en la base de datos del Hub.</div></section>
+
+<section class="chap"><h2>2. Usuarios del Hub</h2>
+<h3>Crear la cuenta</h3>
+<ol><li>Toca <b>Crear cuenta</b> y completa los datos del formulario: documento (RUT, RUT provisorio o pasaporte), nombre, fecha de nacimiento, género, correo, celular, comuna, actividad en Providencia, ocupación y movilidad reducida.</li>
+<li>Crea una contraseña de al menos 8 caracteres y acepta las tres declaraciones. El registro acepta personas de 4 a 95 años (rango ajustable en Reglas).</li>
+<li>Escribe el código que llega al correo para activar la cuenta.</li></ol>
+<p><b>Menores de 18 años.</b> El formulario pide el ID o RUT de un adulto con perfil en el Hub (también se puede escanear su QR). El adulto recibe el aviso en su inicio y confirma con «Sí, autorizo». Al aceptar queda como responsable ante accidentes, pérdida de equipos o mala conducta del menor. Si responde «No», el menor recibe el aviso y puede pedirla a otra persona.</p>
+<h3>Inicio y credencial</h3>
+<p>El inicio muestra los banners de eventos, la credencial QR, la próxima reserva, la ocupación del Hub por piso y los cierres próximos. Los banners avanzan solos cada 5 segundos y se detienen cuando la persona desliza uno o usa las flechas; el botón de pausa los vuelve a activar. Durante un evento aparece el botón <b>Marcar asistencia</b> sobre el QR.</p>
+<p>Bajo el QR aparecen los botones del día: <b>Entrar a tu reserva</b> y <b>Terminar</b> (capítulo 3) y, para quien tenga pasantía asignada, <b>Entrar en oficina de pasantía</b>.</p>
+<div class="shots m"><figure><img src="img/u-inicio.png"><figcaption>Inicio: invitación al recorrido, banners y QR.</figcaption></figure><figure><img src="img/u-reservar.png"><figcaption>Menú de reservas.</figcaption></figure><figure><img src="img/u-perfil.png"><figcaption>Perfil.</figcaption></figure></div>
+<div class="box">El QR contiene solo el ID del perfil (por ejemplo HUB-00007). Se puede mostrar desde el teléfono o una captura; quien no tenga teléfono dice su RUT en el mesón.</div>
+<h3>Reservar</h3>
+<ul><li><b>Sala de reuniones:</b> elige sala, día y uno o más bloques seguidos. Agrega a cada asistente con su ID o RUT; todos deben tener perfil.</li>
+<li><b>Sala gaming:</b> elige un computador en la grilla (libre u ocupado) o la sala completa para un grupo.</li>
+<li><b>Laboratorios:</b> requiere la certificación del laboratorio. Sube el archivo, indica el tiempo que entrega tu programa y elige máquina y hora. La reserva se redondea a horas completas y se confirma de inmediato; el encargado revisa el archivo.</li></ul>
+<div class="shots m"><figure><img src="img/u-gaming.png"><figcaption>PC gaming: día, bloques y equipo.</figcaption></figure><figure><img src="img/u-sala.png"><figcaption>Sala de reuniones con asistentes.</figcaption></figure><figure><img src="img/u-lab.png"><figcaption>Laboratorio con saldo y archivo.</figcaption></figure></div>
+<h3>Mis reservas, historial y fallas</h3>
+<p>En <b>Mis reservas</b> están las reservas y certificaciones activas, de la más cercana a la más lejana, y desde ahí se cancelan. El inicio y el término de cada reserva se hacen con los botones bajo el QR (capítulo 3). En <b>Historial</b> se puede <b>Reportar una falla</b> de la máquina usada, eligiendo uno de los seis tipos más comunes u «Otra», con una descripción de hasta 1.000 caracteres.</p>
+<h3>Certificaciones, horas y perfil</h3>
+<p>En Reservar › Certificaciones se ven las sesiones semanales y sus cupos; las sesiones llenas aparecen como «Llena» y no se pueden elegir. La inscripción aparece en Mis reservas y en «Tu próxima reserva». En Perfil están los datos, certificaciones (cada una con <b>Descargar diploma</b> en PDF), uso de horas por laboratorio, observaciones de los encargados (se pueden borrar), penalizaciones vigentes, el historial y el estado de la sesión. En Configuración se elige tema (según el dispositivo, claro u oscuro), idioma (español, inglés o portugués), texto grande y mayor contraste.</p>
+<div class="shots m"><figure><img src="img/u-cert.png"><figcaption>Certificaciones.</figcaption></figure><figure><img src="img/u-activas.png"><figcaption>Mis reservas.</figcaption></figure><figure><img src="img/u-config.png"><figcaption>Configuración.</figcaption></figure></div>
+<div class="shots m"><figure><img src="img/u-diploma.png"><figcaption>Certificaciones con su diploma.</figcaption></figure><figure><img src="img/u-sesion.png"><figcaption>Sesión guardada y cierre en otros dispositivos.</figcaption></figure><figure><img src="img/u-lab.png"><figcaption>Laboratorio con saldo y archivo.</figcaption></figure></div></section>
+
+<section class="chap"><h2>3. Reserva en dos pasos: entrar y terminar</h2>
+<p>Con la confirmación en dos pasos (activada por defecto en Reglas), una reserva empieza cuando la persona está dentro del Hub y escanea el QR pegado en la entrada del espacio. Así el tiempo que se descuenta es el real y recepción sabe quién está en cada laboratorio o sala.</p>
+<h3>Empezar la reserva</h3>
+<ol><li>La persona registra su entrada al Hub en recepción, como siempre.</li>
+<li>En su inicio toca <b>Entrar a tu reserva</b>. Se puede hacer desde 10 minutos antes de la hora reservada; si no se confirma dentro de la tolerancia (15 minutos), la reserva se libera.</li>
+<li>Escanea el QR del espacio con la cámara o escribe el código que aparece bajo el QR. Aparece «Asistencia confirmada» y empieza a correr su tiempo.</li></ol>
+<div class="shots m"><figure><img src="img/u-qra.png"><figcaption>Inicio con «Entrar a tu reserva».</figcaption></figure><figure><img src="img/u-entrar.png"><figcaption>Escanear o escribir el código del espacio.</figcaption></figure><figure><img src="img/u-encurso.png"><figcaption>Reserva en curso con «Terminar».</figcaption></figure></div>
+<h3>Terminar la reserva</h3>
+<ol><li>Al terminar, la persona toca <b>Terminar</b> y confirma.</li>
+<li>Tiene 5 minutos (ajustable) para acercarse a recepción y que escaneen su QR. El inicio muestra la hora límite.</li>
+<li>Si recepción la escanea dentro del plazo, se registra la salida del laboratorio, se descuenta el tiempo real hasta el momento en que tocó «Terminar» y la persona queda en el cowork.</li></ol>
+<div class="shots m"><figure><img src="img/u-terminar.png"><figcaption>Confirmación de «Terminar».</figcaption></figure><figure><img src="img/u-pendiente.png"><figcaption>Aviso con la hora límite para pasar por recepción.</figcaption></figure><figure><img src="img/a-scan-m.png"><figcaption>Recepción: «Término registrado: queda en el cowork».</figcaption></figure></div>
+<table><tr><th>Situación</th><th>Qué pasa</th></tr><tr><td>Toca «Terminar» y pasa por recepción a tiempo</td><td>Se cierra la reserva con el tiempo real y la persona sigue en el Hub, en el cowork.</td></tr><tr><td>Toca «Terminar» y no pasa por recepción</td><td>El término no se toma en cuenta: la reserva sigue en curso y la persona recibe el aviso «Expiró el plazo para pasar por recepción». Cada vez que toque «Terminar» debe pasar por recepción.</td></tr><tr><td>Sale del Hub sin tocar «Terminar»</td><td>El escaneo de salida en recepción registra la salida del Hub y cierra la reserva en ese momento.</td></tr><tr><td>No puede usar el teléfono</td><td>Recepción usa «Buscar reserva actual» y los botones Iniciar y Terminar (capítulo 4).</td></tr></table>
+<div class="box"><b>QR de cada espacio.</b> Administración descarga el cartel desde el detalle del espacio y lo pega en la entrada. Si alguien copia el código o el cartel se daña, «Generar un QR nuevo» invalida el anterior.</div>
+<h3>Oficina de pasantía</h3>
+<p>Las personas con pasantía asignada ven <b>Entrar en oficina de pasantía</b> bajo su QR. Con la entrada al Hub ya registrada, tocan el botón y escanean el QR de la oficina; al irse, tocan «Salir de la oficina de pasantía». Si la oficina está llena (según su aforo), el sistema lo avisa.</p></section>
+
+<section class="chap"><h2>4. Recepción</h2>
+<p>Recepción usa la pantalla <b>Recepción y QR</b>, a la que también se llega con el botón QR arriba a la derecha. Se recomienda instalarla como app en el computador del mesón: en Chrome o Edge abrir <code>recepcion.html</code> y elegir «Instalar».</p>
+<div class="wide"><img src="img/a-scan.png"><div class="sm muted">Recepción: lectura de código, ficha de la persona y últimos movimientos.</div></div>
+<h3>Registrar entradas y salidas</h3>
+<ol><li>El cursor queda en el campo de código. El lector USB escribe el ID y presiona Enter solo; también se puede escribir el RUT o usar <b>Cámara</b>.</li>
+<li>Con <b>Registro automático</b> activo, el primer escaneo del día marca la entrada y el siguiente la salida. Desactívalo para ver la ficha y confirmar con un botón.</li>
+<li>La ficha muestra nombre, documento, correo, teléfono, reservas de hoy y avisos pendientes de la persona, para comunicárselos si no usa correo ni celular.</li></ol>
+<table><tr><th>Resultado</th><th>Qué hacer</th></tr><tr><td>Entrada o salida registrada (verde o azul)</td><td>Nada más.</td></tr><tr><td>Acceso restringido (rojo)</td><td>Indicar a la persona la fecha de término que aparece; no se registra la entrada.</td></tr><tr><td>Perfil pendiente</td><td>Falta confirmar el correo o la autorización del adulto responsable.</td></tr><tr><td>No encontramos ese código</td><td>Registrar a la persona con «Registrar usuario nuevo».</td></tr></table>
+<p>Si alguien no marca su salida, el sistema la cierra sola a la hora de cierre. Si la persona tiene una reserva para esa hora, su entrada la marca como asistida, aunque llegue hasta 15 minutos tarde.</p>
+<h3>Buscar reserva actual</h3>
+<p>El botón <b>Buscar reserva actual</b> muestra la ficha y las reservas de hoy de la persona sin registrar entrada ni salida. Junto a cada reserva aparecen <b>Iniciar</b> (dentro de su horario) y <b>Terminar</b> (si está en curso): sirven para quien no puede usar el teléfono, y desde el mesón el inicio y el término son inmediatos.</p>
+<div class="wide"><img src="img/a-scan-find.png"><div class="sm muted">Buscar reserva actual: ficha, reservas de hoy y botones Iniciar y Terminar.</div></div>
+<p>Cuando la persona tocó «Terminar» en su teléfono y se la escanea dentro del plazo, el resultado es «Término registrado: queda en el cowork». Si no lo tocó, o ya venció el plazo, el escaneo registra su salida del Hub y cierra la reserva en curso.</p>
+<h3>Sin internet</h3>
+<p>La app de recepción sigue abierta sin conexión: los escaneos se guardan en el equipo y aparece un aviso con la cantidad pendiente. Al volver la conexión se envían solos (o con <b>Sincronizar</b>) y se actualizan las reservas de quienes entraron.</p>
+<h3>Registro, actualización de datos y reserva asistida</h3>
+<p><b>Registrar usuario nuevo</b> usa el mismo formulario, con correo y celular opcionales y sin contraseña; al terminar muestra su QR. Desde la ficha, <b>Actualizar sus datos</b> permite corregir información o reemplazar un RUT provisorio por el definitivo, y <b>Reserva asistida</b> abre las mismas pantallas de reserva a nombre de la persona.</p>
+<div class="wide"><img src="img/a-prox.png"><div class="sm muted">Próximas reservas del día y de los días siguientes.</div></div></section>
+
+<section class="chap"><h2>5. Encargados de laboratorio y sala gaming</h2>
+<p>Cada encargado tiene uno o más laboratorios asignados por administración en <b>Empleados</b> y ve solo los datos de esos laboratorios: su panel «Mis laboratorios», reservas, archivos, certificaciones, fallas y personas que los usan.</p>
+<h3>Revisión de archivos</h3>
+<p>La lista muestra nombre, peso, tiempo estimado, usuario y horario. El color del nombre indica el estado: amarillo en espera, verde aprobado, rojo rechazado. Al tocar el nombre se descarga el archivo.</p>
+<ul><li><b>Aprobar:</b> confirma la reserva.</li><li><b>Observar:</b> abre un cuadro para escribir la observación; la reserva se mantiene.</li>
+<li><b>Rechazar:</b> pide la observación, libera la reserva y devuelve las horas. El usuario recibe el texto en su perfil y su correo.</li>
+<li>Solo el encargado puede borrar archivos. Los rechazados se borran solos a los 7 días; los aprobados se guardan al menos 30 días.</li></ul>
+<div class="wide"><img src="img/a-rev.png"><div class="sm muted">Revisión de archivos.</div></div>
+<h3>Solicitudes</h3><p>Reservas presentes y futuras de los espacios a cargo. Permite cerrar una reserva con su tiempo real o cancelarla con aviso al usuario.</p>
+<h3>Certificaciones</h3>
+<p>Elige la certificación, la sesión y marca el resultado de cada inscrito (aprobado, reprobado, ausente) en la lista. También se puede certificar directamente con ID o RUT, subir el diploma y crear certificaciones nuevas o por niveles (por ejemplo FDM 1 a FDM 5), con día, hora, cupos, duración, vigencia, valor y quién la imparte. Las sesiones bloquean el laboratorio mientras duran. El cuadro de personas certificadas tiene un buscador por nombre, RUT o ID, muestra seis personas y se puede agrandar arrastrando su borde inferior.</p>
+<div class="wide"><img src="img/a-cert.png"><div class="sm muted">Certificaciones: lista de la sesión, configuración y personas certificadas.</div></div>
+<h3>Penalizaciones y premios</h3>
+<p>En <b>Usuarios</b> busca a la persona y usa <b>Penalizar horas</b> o <b>Premiar con horas</b>, indicando laboratorio, horas y motivo. La persona recibe el aviso. Una penalización se puede perdonar con un toque. Las restricciones de acceso al Hub completo son solo de administración.</p>
+<div class="wide"><img src="img/a-husr.png"><div class="sm muted">Ficha de una persona con saldo, penalizaciones y actividad.</div></div>
+<h3>Fallas de máquinas y agenda</h3><p>Fallas muestra los reportes por máquina y por tipo en la semana, el mes, tres meses u otro periodo, y permite marcarlos como resueltos. En Agenda y bloqueos se bloquean horas o días de los espacios a cargo; las reservas afectadas se cancelan con aviso y devolución de horas.</p></section>
+
+<section class="chap"><h2>6. Administración</h2>
+<h3>Panel</h3><p>Personas dentro del Hub, reservas y archivos pendientes, ocupación por piso y espacio, mapa de calor de los últimos 30 días, proyección de las próximas horas y plano en vivo.</p>
+<div class="wide"><img src="img/a-panel.png"><div class="sm muted">Panel de administración.</div></div>
+<h3>Espacios y plano</h3>
+<p>La lista muestra cada espacio con tipo, piso, aforo, accesibilidad y encargado; el botón <b>Editar</b> abre su detalle. Ahí se cambian aforo, horas mensuales por persona, minutos entre trabajos, espera antes de liberar, duración máxima, nivel de certificación, formatos de archivo, trabajos nocturnos, accesibilidad y se agregan equipos con sus especificaciones. Para abrir un laboratorio nuevo: <b>Crear espacio</b>, agregar sus equipos, crear su certificación y asignar su encargado en Empleados. Los cambios quedan en «Cambios recientes».</p>
+<p><b>Editar el plano del Hub</b> abre un editor de rectángulos por piso: agregar, arrastrar, cambiar tamaño desde la esquina, traer al frente o enviar atrás, unir dos rectángulos del mismo color en una zona, y asignar nombre, tipo, aforo, colores y el espacio vinculado. El plano alimenta el plano en vivo y el mapa de calor de Datos.</p>
+<p>Un espacio sin historial se puede eliminar; si ya tiene visitas o reservas, se desactiva y se conserva para las estadísticas. Al vincular una zona del plano con un espacio se completan solos su nombre, tipo y aforo. En el plano también se agregan pisos y se eliminan (eliminar un piso desactiva sus espacios y cancela con aviso sus reservas futuras).</p>
+<p>En el detalle de cada espacio está su <b>QR</b>: «Descargar cartel para imprimir» genera una imagen lista para pegar en la entrada.</p>
+<div class="shots"><figure><img src="img/a-esp.png"><figcaption>Espacios.</figcaption></figure><figure><img src="img/a-plano.png"><figcaption>Editor del plano.</figcaption></figure></div>
+<div class="wide"><img src="img/a-espd.png"><div class="sm muted">Detalle de un laboratorio: equipos y su QR.</div></div>
+<h3>Eventos y banners</h3><p>Crea eventos con fecha, cupos y lugar, o avisos sin fecha. Cada uno lleva una imagen de banner (1200 × 400 px) y una imagen de anuncio que se abre al tocarlo. Los banners se muestran en el orden de la lista: se mueven con las flechas o con <b>Ordenar por fecha</b>. Los eventos en curso siguen visibles; los terminados aparecen en amarillo con la etiqueta «terminado», pasan solos al final y ya no se muestran. Los cupos nunca bajan de cero. Se puede descargar la lista de inscritos y asistentes.</p>
+<div class="wide"><img src="img/a-eventos.png"><div class="sm muted">Eventos y banners con su orden.</div></div>
+<h3>Agenda y bloqueos</h3><p>Elige el espacio (o todo el Hub) y el día, toca las horas que quieres bloquear o liberar y revisa la lista «Horas bloqueadas». Los cambios se aplican con <b>Guardar cambios</b> y una confirmación; las reservas afectadas se cancelan con aviso y devolución de horas.</p>
+<div class="wide"><img src="img/a-agenda.png"><div class="sm muted">Agenda: horas marcadas y lista de horas bloqueadas antes de guardar.</div></div>
+<h3>Apariencia, reglas y empleados</h3>
+<ul><li><b>Apariencia:</b> colores de fondo (con degradado de dos colores), tarjetas, texto, acento, texto sobre el acento y barras, por separado para tema claro y oscuro. El tema claro solo ofrece fondos claros y el oscuro, fondos oscuros. Avisa cuando un texto queda con poco contraste. También logo, nombre y lema.</li>
+<li><b>Reglas:</b> horario de atención, aforo por piso, bloques, avisos, tolerancias, reservas activas, horas extra del personal, archivos, cuenta de correo y cuentas de Google o Microsoft.</li>
+<li><b>Empleados:</b> agrega a una persona ya registrada como usuario, con su cargo y credenciales. Al darle la credencial de encargado de laboratorio se abre una lista para marcar sus laboratorios (uno o más) y se pide confirmación. El botón <b>Laboratorios</b> permite cambiarlos después.</li>
+<li><b>Reglas:</b> también define la zona donde queda registrada una persona que entra sin reserva (cowork por defecto), la vigencia de los códigos del correo, la confirmación en dos pasos y el plazo para pasar por recepción tras «Terminar», la oficina de pasantía, las edades permitidas, el aforo de cada piso y la dirección pública de la app que llevan los QR.</li>
+<li><b>Usuarios:</b> en la ficha de cada persona, administración puede asignar o quitar la pasantía y <b>Borrar datos o perfil</b>: «datos» borra el historial (visitas, reservas, archivos) y «perfil» elimina la cuenta. Ambas piden la contraseña de administración.</li>
+<li><b>Restringir acceso:</b> desde Usuarios, por horas, días o de forma permanente. Recepción verá el aviso al escanear.</li>
+<li><b>Auditoría:</b> registro de las acciones del equipo.</li></ul>
+<div class="shots"><figure><img src="img/a-apar.png"><figcaption>Apariencia.</figcaption></figure><figure><img src="img/a-reglas-2.png"><figcaption>Reglas: dos pasos, pasantía y aforo por piso.</figcaption></figure></div>
+<div class="wide"><img src="img/a-husr-admin.png"><div class="sm muted">Ficha de una persona vista por administración: pasantía, restricciones, borrado y reserva actual.</div></div></section>
+
+<section class="chap"><h2>7. Analista de datos</h2>
+<p>La pantalla <b>Datos</b> resume el periodo elegido (semana, mes, 3 meses u otro): visitas, personas distintas, usuarios registrados, edad promedio, movilidad reducida e inasistencias; visitas por espacio, horas de uso por laboratorio, personas por día, mapa de calor por día y hora, uso por zona del plano, actividad en Providencia, género, ocupación, comuna y fallas de máquinas. Cada gráfico tiene su tabla de datos. En los gráficos de barras se puede tocar una variable para ocultarla (por ejemplo, el cowork) y comparar mejor las demás: la escala se ajusta sola, y «Mostrar todas» las vuelve a mostrar.</p>
+<p>El analista ve a las personas como «Usuario 000xx», sin nombre, RUT ni contacto. <b>Descargar datos</b> entrega cuatro archivos CSV (usuarios, visitas, reservas y fallas), y es la única credencial con esa opción.</p>
+<div class="wide"><img src="img/a-datos.png"><div class="sm muted">Datos del Hub.</div></div>
+<h3>Importar históricos</h3><p>Carga un CSV con las columnas <code>fecha;espacio;visitas</code> exportado desde Power BI, Google Forms o el libro. Se guarda solo como estadística y no crea cuentas: cada persona se registra por decisión propia.</p></section>
+
+<section class="chap"><h2>8. Reglas por defecto</h2><p>Todas se cambian en Reglas o en el detalle de cada espacio.</p>
+<table><tr><th>Regla</th><th>Valor</th></tr><tr><td>Horario de atención</td><td>Lunes a jueves 8:30 a 18:00; viernes 8:30 a 17:00</td></tr><tr><td>Aforo</td><td>Piso 1: 130 · Piso 2: 80 · Cowork 60 · Residencias 30 en 6 grupos de 5</td></tr><tr><td>Equipos</td><td>6 impresoras Ender 3, 2 Mars 4K, 1 cortadora láser, 9 máquinas de coser, 6 PC gaming</td></tr><tr><td>Salas de reuniones</td><td>Sala 1: 8 personas · Sala 2: 10 personas</td></tr><tr><td>Bloques de salas y gaming</td><td>50 min con 10 min de pausa (50, 110, 170 min…)</td></tr><tr><td>Laboratorios</td><td>Tiempo declarado redondeado hacia arriba a horas completas; 30 min entre trabajos</td></tr><tr><td>Saldo de horas</td><td>48 h al mes por laboratorio y sala gaming; se reinicia el día 1 y no se acumula; personal certificado +6 h</td></tr><tr><td>Reservas activas por persona</td><td>3</td></tr><tr><td>Confirmación en dos pasos</td><td>Activada: la reserva empieza al escanear el QR del espacio (desde 10 min antes)</td></tr><tr><td>Plazo para pasar por recepción tras «Terminar»</td><td>5 minutos</td></tr><tr><td>Edades para registrarse</td><td>4 a 95 años; menores de 18 con adulto responsable</td></tr><tr><td>Duración máxima</td><td>12 h</td></tr><tr><td>Cancelación sin perder horas</td><td>Hasta 15 minutos antes</td></tr><tr><td>Espera antes de liberar</td><td>15 minutos (inasistencia: no se devuelven las horas)</td></tr><tr><td>Sala sin anfitrión</td><td>Se mantiene para los invitados</td></tr><tr><td>Certificaciones</td><td>Láser martes, resina miércoles, filamento jueves, textil viernes; 12:00, 90 min, 6 cupos, sin costo</td></tr><tr><td>Archivos</td><td>Hasta 4 GB; 3D: .stl .3mf .obj .ctb; láser: .svg .dxf .pdf .png .jpg; también .zip y .rar</td></tr></table></section>
+
+<section class="chap"><h2>9. Ayuda, idiomas y problemas comunes</h2>
+<h3>Ayuda dentro de la app</h3>
+<ul><li>Cada pantalla tiene el botón <b>?</b> arriba: explica en pocos pasos qué hacer ahí y ofrece un <b>Recorrido guiado</b> que resalta cada elemento.</li>
+<li>La primera vez que alguien abre el inicio (o el panel del equipo) aparece la invitación «¿Primera vez en el sistema?».</li>
+<li><b>Ayuda y preguntas frecuentes</b> (desde Perfil o desde la ayuda de cada pantalla) reúne las respuestas con buscador. El personal tiene además «Ayuda para el personal», filtrada por su credencial.</li>
+<li>Los valores que aparecen en las respuestas (minutos de tolerancia, reservas activas, edades) se toman de las Reglas vigentes.</li></ul>
+<div class="shots m"><figure><img src="img/u-help.png"><figcaption>Ayuda de la pantalla.</figcaption></figure><figure><img src="img/u-tour.png"><figcaption>Recorrido guiado.</figcaption></figure><figure><img src="img/u-ayuda.png"><figcaption>Preguntas frecuentes con buscador.</figcaption></figure></div>
+<h3>Idiomas</h3>
+<p>La app de usuarios está en español, inglés y portugués, incluidas las ayudas, los recorridos, las preguntas frecuentes y las notificaciones. El idioma se elige en Configuración y queda guardado en la cuenta. Las pantallas del equipo del Hub quedan en español. Las preguntas frecuentes también están impresas en <code>docs/preguntas-frecuentes.pdf</code> (usuarios y personal), <code>docs/faq-en.pdf</code> y <code>docs/faq-pt.pdf</code>.</p>
+<h3>Problemas comunes</h3>
+<table><tr><th>Situación</th><th>Qué hacer</th></tr><tr><td>No llegó el código al correo</td><td>Revisar spam. Si persiste, recepción puede actualizar el correo y la persona entra con «Entrar con un código».</td></tr><tr><td>La persona olvidó la contraseña</td><td>Entrar con un código y crear una nueva en Configuración.</td></tr><tr><td>La cámara no abre</td><td>Dar permiso de cámara al navegador o usar el lector USB o el RUT. La cámara requiere HTTPS.</td></tr><tr><td>El lector USB no escribe</td><td>Hacer clic en el campo de código; el lector funciona como un teclado.</td></tr><tr><td>Una reserva no aparece disponible</td><td>Revisar bloqueos de agenda, certificaciones en ese horario, saldo y el máximo de 3 reservas activas.</td></tr><tr><td>Se cayó internet en recepción</td><td>Seguir escaneando: los registros se guardan y se envían al volver la conexión.</td></tr><tr><td>Hay que cerrar el Hub un día</td><td>Agenda y bloqueos › Todo el Hub › Bloquear el día completo.</td></tr><tr><td>Un menor quedó pendiente</td><td>El adulto debe aceptar desde su inicio. Desde el perfil del menor se puede pedir a otro adulto.</td></tr><tr><td>La persona tocó «Terminar» pero su reserva sigue en curso</td><td>No pasó por recepción dentro del plazo. Debe tocar «Terminar» otra vez y acercarse al mesón, o recepción la termina con «Buscar reserva actual».</td></tr><tr><td>El QR de un espacio no funciona</td><td>Revisar que el cartel sea el último generado y que la persona tenga su entrada al Hub registrada. Si hace falta, escribir el código bajo el QR.</td></tr><tr><td>Hay que cerrar la sesión en un equipo prestado</td><td>Desde otro dispositivo: Perfil › «Cerrar sesión en mis otros dispositivos», o cambiar la contraseña.</td></tr></table>
+<div class="box">Soporte del equipo keypoint durante el piloto: respuesta dentro de 12 horas hábiles.</div></section>
+</body></html>

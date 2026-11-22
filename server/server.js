@@ -60,8 +60,10 @@ const ipOf = req => { const a = req.socket.remoteAddress || ''; const loop = /^(
 const fails = new Map(), hits = new Map(), WIN = 15 * 60000;
 const recent = (m, k, win = WIN) => { const now = Date.now(), t = (m.get(k) || []).filter(x => now - x < win); m.set(k, t); return t; };
 const LOOP = ip => /^(::1|127\.|::ffff:127\.)/.test(ip); // sin dirección real: no se limita por dirección, solo por cuenta
-const blocked = (ip, who) => (!LOOP(ip) && recent(fails, 'ip:' + ip).length >= 30) || (who && recent(fails, 'id:' + who).length >= 8);
-const failed = (ip, who) => { recent(fails, 'ip:' + ip).push(Date.now()); if (who) recent(fails, 'id:' + who).push(Date.now()); };
+// Límites de intentos fallidos en 15 minutos: 30 por dirección, 8 por cuenta desde una misma dirección y 50 por cuenta en total.
+// Así nadie puede dejar bloqueada la cuenta de otra persona con pocos intentos desde su equipo, y un ataque repartido sigue limitado.
+const blocked = (ip, who) => (!LOOP(ip) && recent(fails, 'ip:' + ip).length >= 30) || (who && (recent(fails, 'id:' + who + '@' + ip).length >= 8 || recent(fails, 'id:' + who).length >= 50));
+const failed = (ip, who) => { recent(fails, 'ip:' + ip).push(Date.now()); if (who) { recent(fails, 'id:' + who + '@' + ip).push(Date.now()); recent(fails, 'id:' + who).push(Date.now()); } };
 const flooding = ip => { if (LOOP(ip)) return false; const t = recent(hits, ip, 60000); t.push(Date.now()); return t.length > 600; };
 setInterval(() => { for (const m of [fails, hits]) for (const [k] of m) if (!recent(m, k).length) m.delete(k); }, 10 * 60000);
 

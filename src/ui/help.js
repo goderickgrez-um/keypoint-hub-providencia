@@ -2,6 +2,8 @@
 // Las preguntas frecuentes están en faq-data.js; `npm run docs:faq` genera con ellas docs/preguntas-frecuentes.pdf.
 import { FAQ_USER, FAQ_STAFF, fillRules as fillWith } from './faq-data.js';
 import { S, db, me, myRoles, screens, actions, go, modal, closeModal, esc, icon, btn, field, val, UI } from './kit.js';
+import { t, getLang } from './i18n.js';
+import { GUIDES_I18N, FAQ_USER_I18N } from './help-i18n.js';
 
 const fillRules = txt => fillWith(txt, k => db()?.cfg(k));
 export { FAQ_USER, FAQ_STAFF };
@@ -108,24 +110,34 @@ export const GUIDES = {
   'a-emp': { title: 'Empleados', steps: [[null, 'Asigna credenciales (administración, encargado, recepción, analista) y los laboratorios de cada encargado.']] },
   'a-reglas': { title: 'Reglas', steps: [[null, 'Horarios, bloques, tolerancia, saldo, aforo por piso, edades permitidas y correo.']] },
 };
-const generic = k => ({ title: (typeof document !== 'undefined' && document.querySelector('main h1')?.textContent.trim()) || 'Esta pantalla', steps: [[null, k.startsWith('a-') ? 'Usa el menú de la izquierda para moverte entre secciones. En Ayuda encontrarás las preguntas frecuentes del personal.' : 'Usa las pestañas de abajo para moverte. En Ayuda encontrarás las preguntas frecuentes.']] });
-export const guideFor = k => GUIDES[k] || GUIDES[k?.replace(/^a-(espd)$/, 'a-esp')] || generic(k);
+// Las pantallas del personal quedan en español, como el resto de su app; las de usuarios siguen el idioma elegido.
+const staffK = k => String(k || '').startsWith('a-');
+const tr = (k, s, ...a) => staffK(k) ? s.replace(/\{(\d)\}/g, (_, i) => a[i]) : t(s, ...a);
+const generic = k => ({ title: (typeof document !== 'undefined' && document.querySelector('main h1')?.textContent.trim()) || tr(k, 'Esta pantalla'), steps: [[null, staffK(k) ? 'Usa el menú de la izquierda para moverte entre secciones. En Ayuda encontrarás las preguntas frecuentes del personal.' : t('Usa las pestañas de abajo para moverte. En Ayuda encontrarás las preguntas frecuentes.')]] });
+/** Guía de la pantalla en el idioma actual: los selectores vienen de GUIDES y los textos de GUIDES_I18N. */
+function localized(k, g) {
+  const x = !staffK(k) && GUIDES_I18N[getLang()]?.[k];
+  return x && x[1].length === g.steps.length ? { title: x[0], steps: g.steps.map(([sel], i) => [sel, x[1][i]]) } : g;
+}
+export const guideFor = k => { const g = GUIDES[k] || GUIDES[k?.replace(/^a-(espd)$/, 'a-esp')]; return g ? localized(k, g) : generic(k); };
+/** Preguntas frecuentes de usuarios en el idioma actual. */
+export const faqUser = () => FAQ_USER_I18N[getLang()] || FAQ_USER;
 
 // ---------------------------------------------------------------- Botón de ayuda y recorrido
-export const helpButton = k => `<button class="icb" data-a="help" data-v="${k}" aria-label="Ayuda de esta pantalla" title="Ayuda">${icon('help')}</button>`;
-actions.help = k => { const g = guideFor(k || S.k), staff = (k || S.k).startsWith('a-');
-  modal({ html: `<h2 id="dlg-t" style="margin:0">${icon('help')} Ayuda: ${esc(g.title)}</h2>
+export const helpButton = k => `<button class="icb" data-a="help" data-v="${k}" aria-label="${esc(tr(k, 'Ayuda de esta pantalla'))}" title="${esc(tr(k, 'Ayuda'))}">${icon('help')}</button>`;
+actions.help = k => { k = k || S.k; const g = guideFor(k), staff = staffK(k);
+  modal({ html: `<h2 id="dlg-t" style="margin:0">${icon('help')} ${esc(tr(k, 'Ayuda: {0}', g.title))}</h2>
     <ol class="steps">${g.steps.map(([, txt]) => `<li>${esc(fillRules(txt))}</li>`).join('')}</ol>
-    <div class="row w">${g.steps.some(([sel]) => sel) ? btn('Recorrido guiado', 'tour-start', { v: k || S.k, cls: 'sp', icon: 'play' }) : ''}${btn('Preguntas frecuentes', 'go', { v: staff ? 'a-ayuda' : 'u-ayuda', cls: 'plain', icon: 'list' })}</div>` }); };
+    <div class="row w">${g.steps.some(([sel]) => sel) ? btn(tr(k, 'Recorrido guiado'), 'tour-start', { v: k, icon: 'play', raw: true }) : ''}${btn(tr(k, 'Preguntas frecuentes'), 'go', { v: staff ? 'a-ayuda' : 'u-ayuda', cls: 'plain', icon: 'list', raw: true })}</div>` }); };
 actions['tour-start'] = k => { closeModal(); S.tour = { k, i: 0 }; setTimeout(() => UI.render(), 0); };
 actions['tour-step'] = d => { const g = guideFor(S.tour.k), i = S.tour.i + +d; if (i < 0) return; if (i >= g.steps.length) return actions['tour-end'](); S.tour.i = i; UI.render(); };
 actions['tour-end'] = () => { S.tour = null; document.querySelector('.tour-hl')?.classList.remove('tour-hl'); try { localStorage.setItem('hub-tour-' + S.k, '1'); } catch { /* sin almacenamiento */ } UI.render(); };
 /** Tarjeta del recorrido. Se agrega al final de la pantalla; placeTour() resalta el elemento. */
 export function tourCard() {
   if (!S.tour || S.tour.k !== S.k || S.modal) return '';
-  const g = guideFor(S.k), [, txt] = g.steps[S.tour.i], n = g.steps.length, last = S.tour.i === n - 1;
-  return `<div class="tourcard" role="dialog" aria-label="Recorrido guiado" aria-live="polite"><p class="sm mu" style="margin:0">Paso ${S.tour.i + 1} de ${n} · ${esc(g.title)}</p><p style="margin:4px 0 10px">${esc(fillRules(txt))}</p>
-    <div class="row">${S.tour.i ? btn('Atrás', 'tour-step', { v: -1, cls: 's plain' }) : ''}<span class="sp"></span>${btn('Salir', 'tour-end', { cls: 's plain' })}${btn(last ? 'Terminar' : 'Siguiente', 'tour-step', { v: 1, cls: 's', attrs: 'data-tour-next="1"' })}</div></div>`;
+  const k = S.k, g = guideFor(k), [, txt] = g.steps[S.tour.i], n = g.steps.length, last = S.tour.i === n - 1, o = { raw: true };
+  return `<div class="tourcard" role="dialog" aria-label="${esc(tr(k, 'Recorrido guiado'))}" aria-live="polite"><p class="sm mu" style="margin:0">${esc(tr(k, 'Paso {0} de {1} · {2}', S.tour.i + 1, n, g.title))}</p><p style="margin:4px 0 10px">${esc(fillRules(txt))}</p>
+    <div class="row">${S.tour.i ? btn(tr(k, 'Atrás'), 'tour-step', { ...o, v: -1, cls: 's plain' }) : ''}<span class="sp"></span>${btn(tr(k, 'Salir'), 'tour-end', { ...o, cls: 's plain' })}${btn(tr(k, last ? 'Terminar' : 'Siguiente'), 'tour-step', { ...o, v: 1, cls: 's', attrs: 'data-tour-next="1"' })}</div></div>`;
 }
 export function placeTour() {
   document.querySelectorAll('.tour-hl').forEach(x => x.classList.remove('tour-hl'));
@@ -138,24 +150,25 @@ export function placeTour() {
 export function firstVisit(k) {
   if (!['u-inicio', 'a-panel'].includes(k) || S.tour) return '';
   try { if (localStorage.getItem('hub-tour-' + k)) return ''; } catch { return ''; }
-  return `<div class="card stack tourinv"><p style="margin:0"><b>¿Primera vez en el sistema?</b> Haz un recorrido de un minuto por esta pantalla.</p><div class="row">${btn('Ver recorrido', 'tour-start', { v: k, cls: 's sp' })}${btn('No, gracias', 'tour-end', { cls: 's plain' })}</div></div>`;
+  return `<div class="card stack tourinv"><p style="margin:0"><b>${esc(tr(k, '¿Primera vez en el sistema?'))}</b> ${esc(tr(k, 'Haz un recorrido de un minuto por esta pantalla.'))}</p><div class="row">${btn(tr(k, 'Ver recorrido'), 'tour-start', { v: k, cls: 's sp', raw: true })}${btn(tr(k, 'No, gracias'), 'tour-end', { cls: 's plain', raw: true })}</div></div>`;
 }
 
 // ---------------------------------------------------------------- Pantallas de preguntas frecuentes
-const faqList = (items, q) => {
+const faqList = (items, q, es) => {
   const n = (s = '') => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''), words = n(q).split(/\s+/).filter(Boolean);
   const hits = items.filter(([topic, qq, a]) => words.every(w => n(topic + ' ' + qq + ' ' + a).includes(w)));
-  if (!hits.length) return '<p class="mu">No encontramos preguntas con esas palabras. Prueba con otras o pregunta en recepción.</p>';
+  const nf = 'No encontramos preguntas con esas palabras. Prueba con otras o pregunta en recepción.';
+  if (!hits.length) return `<p class="mu">${esc(es ? nf : t(nf))}</p>`;
   const topics = [...new Set(hits.map(x => x[0]))];
   return topics.map(tp => `<h2>${esc(tp)}</h2><div class="faq">${hits.filter(x => x[0] === tp).map(([, qq, a]) => `<details${words.length ? ' open' : ''}><summary>${esc(qq)}</summary><p>${esc(fillRules(a))}</p></details>`).join('')}</div>`).join('');
 };
-screens['u-ayuda'] = { tab: 'u-perfil', open: true, render: () => `${me() ? '' : `<button class="btn plain s" data-a="go" data-v="u-login">${icon('back')} Volver</button>`}<h1>Ayuda y preguntas frecuentes</h1>
-  <p class="mu">Respuestas rápidas sobre el uso del Hub. En cada pantalla, el botón ${icon('help')} explica qué hacer ahí.</p>
-  <div class="form">${field('faq_q', 'Buscar en las preguntas', { cls: 'full', live: true, attrs: 'type="search" autocomplete="off"', ph: 'reserva, certificación, menor…' })}</div>${faqList(FAQ_USER, val('faq_q'))}` };
+screens['u-ayuda'] = { tab: 'u-perfil', open: true, render: () => `${me() ? '' : `<button class="btn plain s" data-a="go" data-v="u-login">${icon('back')} ${t('Volver')}</button>`}<h1>${t('Ayuda y preguntas frecuentes')}</h1>
+  <p class="mu">${t('Respuestas rápidas sobre el uso del Hub. En cada pantalla, el botón {0} explica qué hacer ahí.', icon('help'))}</p>
+  <div class="form">${field('faq_q', 'Buscar en las preguntas', { cls: 'full', live: true, attrs: 'type="search" autocomplete="off"', ph: 'reserva, certificación, menor…' })}</div>${faqList(faqUser(), val('faq_q'))}` };
 screens['a-ayuda'] = { roles: ['admin', 'encargado', 'recepcion', 'analista'], render() {
   const mine = myRoles(), all = S.faqAll || mine.includes('admin'), items = FAQ_STAFF.filter(x => all || x[3].some(r => mine.includes(r)));
   return `<h1>Ayuda para el personal</h1><p class="mu">Preguntas frecuentes del equipo del Hub. ${mine.includes('admin') ? '' : `Se muestran las de tu credencial. <button class="btn s plain" data-a="faq-all">${all ? 'Ver solo las mías' : 'Ver todas'}</button>`}</p>
-    <div class="form">${field('faq_q', 'Buscar en las preguntas', { cls: 'full', live: true, attrs: 'type="search" autocomplete="off"', ph: 'bloquear horas, certificación, banner…' })}</div>${faqList(items, val('faq_q'))}
-    <h2>Preguntas de los usuarios</h2><p class="sm mu">Las mismas que ven las personas en su app, para responder en recepción.</p>${faqList(FAQ_USER, val('faq_q'))}`;
+    <div class="form">${field('faq_q', 'Buscar en las preguntas', { cls: 'full', live: true, attrs: 'type="search" autocomplete="off"', ph: 'bloquear horas, certificación, banner…' })}</div>${faqList(items, val('faq_q'), true)}
+    <h2>Preguntas de los usuarios</h2><p class="sm mu">Las mismas que ven las personas en su app, para responder en recepción.</p>${faqList(FAQ_USER, val('faq_q'), true)}`;
 } };
 actions['faq-all'] = () => { S.faqAll = !S.faqAll; go(S.k); };

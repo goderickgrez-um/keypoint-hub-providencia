@@ -1,8 +1,11 @@
 # Genera docs/bitacora-desarrollo.html desde docs/bitacora-desarrollo.md (luego: node tools/docs/print.cjs para el PDF).
+# Con argumentos convierte otro documento: python3 tools/docs/bitacora.py informe-qa "Informe de QA"
 # Diseño apto para imprimir en blanco y negro.
-import os, markdown
+import os, sys, markdown
+NAME = sys.argv[1] if len(sys.argv) > 1 else 'bitacora-desarrollo'
+TITLE = sys.argv[2] if len(sys.argv) > 2 else 'Bitácora de desarrollo'
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-src = open(os.path.join(ROOT, 'docs', 'bitacora-desarrollo.md'), encoding='utf-8').read()
+src = open(os.path.join(ROOT, 'docs', NAME + '.md'), encoding='utf-8').read()
 html = markdown.markdown(src, extensions=['tables', 'sane_lists'])
 html = html.replace('<li>[x] ', '<li class="done">').replace('<li>[ ] ', '<li class="todo">')
 CSS = """
@@ -19,5 +22,5 @@ th, td { border: .25mm solid #000; padding: 1.6mm 2mm; text-align: left; vertica
 tr { break-inside: avoid; } code { font-family: 'DejaVu Sans Mono', Consolas, monospace; font-size: 8.8pt; }
 h1 + p { font-size: 10.5pt; }
 """
-open(os.path.join(ROOT, 'docs', 'bitacora-desarrollo.html'), 'w', encoding='utf-8').write(f'<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Bitácora de desarrollo · Keypoint Hub Providencia</title><style>{CSS}</style></head><body>{html}</body></html>')
-print('docs/bitacora-desarrollo.html')
+open(os.path.join(ROOT, 'docs', NAME + '.html'), 'w', encoding='utf-8').write(f'<!doctype html><html lang="es"><head><meta charset="utf-8"><title>{TITLE} · Keypoint Hub Providencia</title><style>{CSS}</style></head><body>{html}</body></html>')
+print(f'docs/{NAME}.html')

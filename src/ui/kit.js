@@ -138,10 +138,10 @@ export function toast(msg) { S.toast = msg; UI.render(); clearTimeout(toastTimer
 export const modal = m => { if (!S.modal) try { history.pushState({ hubModal: 1 }, ''); } catch { /* sin historial */ } S.modal = m; UI.render(); };
 /** Aviso en el perfil sobre la sesión de este dispositivo. */
 export const sessionCard = () => { const kept = App.data?.remembered?.();
-  return `<div class="card stack" role="note"><p style="margin:0">${icon('lock')} ${kept ? '<b>Tu sesión está guardada en este dispositivo.</b> No tendrás que ingresar de nuevo aquí. Se cierra cuando tocas «Cerrar sesión» o cuando cambias tu contraseña.' : 'Tu sesión se cerrará cuando cierres esta pestaña o la aplicación.'}</p>
+  return `<div class="card stack" role="note"><p style="margin:0">${icon('lock')} ${kept ? `<b>${t('Tu sesión está guardada en este dispositivo.')}</b> ${t('No tendrás que ingresar de nuevo aquí. Se cierra cuando tocas «Cerrar sesión» o cuando cambias tu contraseña.')}` : t('Tu sesión se cerrará cuando cierres esta pestaña o la aplicación.')}</p>
     <div class="row w">${btn('Cerrar sesión en este dispositivo', 'logout', { cls: 's plain', icon: 'out' })}${btn('Cerrar sesión en mis otros dispositivos', 'logout-all', { cls: 's plain' })}</div></div>`; };
-actions['logout-all'] = () => confirmBox({ title: '¿Cerrar sesión en tus otros dispositivos?', ok: 'Cerrar las otras sesiones', text: '<p>Este dispositivo sigue con la sesión abierta. En los demás tendrás que volver a ingresar.</p>',
-  fn: async () => { try { await App.data.call('me.logoutAll', {}); toast('Listo: cerraste la sesión en tus otros dispositivos'); } catch (e) { toast(e.user ? e.message : 'Algo salió mal. Intenta de nuevo.'); } } });
+actions['logout-all'] = () => confirmBox({ title: '¿Cerrar sesión en tus otros dispositivos?', ok: 'Cerrar las otras sesiones', text: `<p>${t('Este dispositivo sigue con la sesión abierta. En los demás tendrás que volver a ingresar.')}</p>`,
+  fn: async () => { try { await App.data.call('me.logoutAll', {}); toast(t('Listo: cerraste la sesión en tus otros dispositivos')); } catch (e) { toast(e.user ? t(e.message) : t('Algo salió mal. Intenta de nuevo.')); } } });
 /** Pide confirmación antes de una acción. fn se ejecuta al tocar el botón principal. */
 export function confirmBox({ title, text = '', ok = 'Confirmar', danger = false, fn }) {
   S.ask = fn;

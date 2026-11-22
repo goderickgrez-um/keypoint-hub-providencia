@@ -70,6 +70,8 @@ Cada versión siguió el mismo ciclo:
 | Ayuda y banners | 19 nov. 2026 | 2.4.0 | Ayuda por pantalla, preguntas frecuentes |
 | Reserva en dos pasos | 20 nov. 2026 | 2.5.0 | QR de espacios, pasantía, sesión por dispositivo |
 | Término con recepción | 20 nov. 2026 | 2.5.1 | Ajuste de «Terminar», versión única, trípticos B/N |
+| Video comercial | 21 nov. 2026 | — | Tomas reales de la app, gráficos y maqueta de 56 s |
+| Idiomas, manual y QA | 22 nov. 2026 | 2.6.0 | Ayudas en inglés y portugués, manual actualizado, informe de QA |
 
 ---
 
@@ -258,11 +260,31 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 
 **Corrección de versiones.** El repositorio usaba «v2.1.1» y «v2.2», mientras que las entregas siguientes se habían nombrado 1.2, 1.3 y 1.4. Se adoptó el versionado semántico continuando la serie del repositorio (ver anexo).
 
+### 5.13 Material para el video comercial (21 de noviembre)
+
+**Solicitud.** Cómo hacer un video comercial profesional del sistema y, después, dejar listas las tomas para incluirlas en él.
+
+**Entrega.** Un kit con grabaciones reales de la app en modo demostración (cinco tomas de teléfono y cinco de computador, sin audio), las mismas tomas dentro de un marco de teléfono o ventana sobre el fondo de la marca, gráficos en PNG (intro, cierre con el QR de la app, títulos), una maqueta de 56 segundos con transiciones y la locución sugerida con tiempos (`locucion.srt`). Las tomas de ambiente, la voz y la música quedaron para el equipo.
+
+### 5.14 Idiomas, manual y QA (versión 2.6.0, 22 de noviembre)
+
+**Solicitud.** «Actualizar las ayudas para incluirlas en inglés y portugués, actualizar el manual de usuario y realizar pruebas de QA para el sistema.»
+
+**Tareas incluidas:**
+
+- [x] Guías de cada pantalla, recorrido guiado, invitación al recorrido y preguntas frecuentes de la app de usuarios en inglés y portugués. Las pantallas del equipo siguen en español, como el resto de su app.
+- [x] Notificaciones, aviso de sesión, ayudas del registro y mensajes del servidor con datos variables traducidos al mostrarse.
+- [x] Preguntas frecuentes impresas en inglés y portugués (`docs/faq-en.pdf`, `docs/faq-pt.pdf`).
+- [x] Manual de uso actualizado a la versión vigente, con capturas nuevas y un capítulo sobre la reserva en dos pasos.
+- [x] Pruebas de QA: núcleo, funcionamiento por rol, servidor con PostgreSQL y migración desde 2.5.1, seguridad, accesibilidad, tamaños de pantalla, idiomas y carga. Resultado en `docs/informe-qa.pdf`; scripts en `tools/qa/`.
+
+**Defectos encontrados por QA y corregidos:** contraste de la etiqueta DEMO, dos desbordes horizontales (gráficos de Datos y etiquetas en teléfonos de 320 px), bloqueo de cuentas que un tercero podía provocar con 8 intentos fallidos, textos sin traducir y un botón de la ayuda que se partía en inglés.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.5.1 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.6.0 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |
@@ -270,7 +292,7 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 | Sesiones | 12 horas, sin cierre remoto | Por dispositivo, revocables; cierre de otros dispositivos; se invalidan al cambiar la contraseña |
 | Encargados | Un encargado por espacio | Varios laboratorios por encargado; cada uno ve solo los suyos |
 | Asistencia | Al entrar al Hub | En dos pasos: entrada en recepción y QR del espacio; término confirmado por recepción |
-| Ayuda | Manual y trípticos | Ayuda por pantalla, recorridos y preguntas frecuentes integradas |
+| Ayuda | Manual y trípticos | Ayuda por pantalla, recorridos y preguntas frecuentes integradas, en español, inglés y portugués |
 | Accesibilidad | Sin revisión formal | WCAG 2 A/AA revisado en todas las pantallas, claro y oscuro |
 | Versión | Sin registro | `package.json`, `CHANGELOG.md` y esta bitácora |
 
@@ -285,19 +307,20 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 - **Actualización:** cada versión se probó sobre una base de la versión anterior.
 - **Seguridad:** inyección SQL sin efecto, archivos no permitidos rechazados, bloqueo tras intentos fallidos, sesiones revocadas.
 - **Accesibilidad:** axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.
+- **QA de la versión 2.6.0:** informe completo en `docs/informe-qa.pdf`, con los resultados por área, los defectos corregidos y lo que falta probar en el Hub.
 - **Pendiente de verificación en terreno:** la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.
 
 ---
 
 ## 8. Pendientes y recomendaciones
 
-1. Actualizar el manual de uso (`docs/manual.pdf`), que describe la versión 1.0: no incluye la reserva en dos pasos, la pasantía ni la ayuda integrada.
+1. Hacer en el Hub las pruebas que quedaron fuera del QA automático (lista en `docs/informe-qa.pdf`): Safari y Firefox, cámara y lector reales, correo real y producción.
 2. Validación del RUT con una API externa (definida desde el inicio como etapa futura).
 3. Doble factor para las cuentas de administración.
 4. Respaldos cifrados fuera del equipo (la base y el archivo `.data-key` juntos).
-5. Prueba con personas que usan lectores de pantalla y traducción de la ayuda al inglés y al portugués.
+5. Prueba con personas que usan lectores de pantalla.
 6. Revisión de seguridad externa antes del uso definitivo.
-7. Etiquetar las versiones en Git (`git tag v2.5.1`) al subir cada entrega.
+7. Etiquetar las versiones en Git (`git tag v2.6.0`) al subir cada entrega.
 
 ---
 
@@ -315,4 +338,5 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 | Arreglo del puerto en uso | 2.3.1 |
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
-| Esta entrega | 2.5.1 |
+| Término con recepción, bitácora y trípticos | 2.5.1 |
+| Esta entrega | 2.6.0 |

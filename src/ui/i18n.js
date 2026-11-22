@@ -1,5 +1,5 @@
 // Idiomas de la app de usuarios. Las claves son los textos en español; lo que no tenga traducción se muestra en español.
-import { EN, PT } from './lang.js';
+import { EN, PT, PATTERNS } from './lang.js';
 
 export const LANGS = { es: 'Español', en: 'English', pt: 'Português' };
 const DICT = { en: EN, pt: PT };
@@ -11,6 +11,7 @@ export const getLang = () => lang;
 export const locale = () => ({ es: 'es-CL', en: 'en-GB', pt: 'pt-BR' }[lang]);
 export function setLang(l) { lang = LANGS[l] ? l : 'es'; try { localStorage.setItem('hub-lang', lang); } catch { /* sin almacenamiento */ } document.documentElement.lang = lang; }
 export function t(s, ...args) {
-  const x = lang === 'es' ? s : DICT[lang][s] ?? s;
+  let x = lang === 'es' ? s : DICT[lang][s];
+  if (x == null) { x = s; if (typeof s === 'string') for (const [re, en, pt] of PATTERNS) if (re.test(s)) { x = s.replace(re, lang === 'en' ? en : pt); break; } } // mensajes con datos variables
   return args.length ? String(x).replace(/\{(\d)\}/g, (_, i) => args[i]) : x;
 }

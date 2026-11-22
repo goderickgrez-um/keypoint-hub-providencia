@@ -422,7 +422,7 @@ actions['pass-save'] = async () => { if (val('np') !== val('np2')) return toast(
 screens['u-notif'] = { tab: 'u-perfil', render() {
   const list = db().where('notifications', n => n.user_id === App.uid && n.kind !== 'tutor').sort((a, b) => T(b.created_at) - T(a.created_at)).slice(0, 40);
   if (list.some(n => !n.read_at)) setTimeout(() => App.data.call('me.readAll').catch(() => {}), 1500);
-  return `${back('u-inicio')}<h1>${t('Notificaciones')}</h1>${list.length ? `<div class="list">${list.map(n => `<div class="li">${icon({ penalizacion: 'alert', observacion: 'file', revision: 'file', falla: 'alert' }[n.kind] || 'bell')}<span class="sp"><b>${esc(n.title)}${n.read_at ? '' : ' ' + pill(t('Nuevo'), 'info')}</b><span>${esc(n.text || '')}</span><span>${fDT(n.created_at)}</span></span></div>`).join('')}</div>` : empty('No tienes notificaciones.')}`;
+  return `${back('u-inicio')}<h1>${t('Notificaciones')}</h1>${list.length ? `<div class="list">${list.map(n => `<div class="li">${icon({ penalizacion: 'alert', observacion: 'file', revision: 'file', falla: 'alert' }[n.kind] || 'bell')}<span class="sp"><b>${esc(t(n.title))}${n.read_at ? '' : ' ' + pill(t('Nuevo'), 'info')}</b><span>${esc(t(n.text || ''))}</span><span>${fDT(n.created_at)}</span></span></div>`).join('')}</div>` : empty('No tienes notificaciones.')}`;
 } };
 screens['u-priv'] = { tab: 'u-perfil', render: () => `${back('u-config')}<h1>${t('Privacidad y mis datos')}</h1>
   <div class="card stack"><p>${t('Hub Providencia es responsable de tus datos personales. Los usamos para registrar tus entradas y salidas, gestionar tus reservas y elaborar estadísticas del Hub. No se comparten con terceros.')}</p>

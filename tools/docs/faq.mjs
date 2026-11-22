@@ -1,4 +1,5 @@
 // Genera docs/preguntas-frecuentes.md, .html y .pdf con las preguntas frecuentes de la app (src/ui/faq-data.js).
+// También genera docs/faq-en.* y docs/faq-pt.* (preguntas de usuarios en inglés y portugués).
 // Uso: npm run docs:faq   (el PDF requiere Playwright; sin él se generan solo .md y .html)
 import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -6,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { FAQ_USER, FAQ_STAFF, fillRules } from '../../src/ui/faq-data.js';
 import { DEFAULTS } from '../../src/core/catalog.js';
+import { FAQ_USER_I18N } from '../../src/ui/help-i18n.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url)), OUT = join(ROOT, 'docs');
 const fill = t => fillRules(t, k => DEFAULTS[k]);
@@ -33,10 +35,28 @@ h2 { column-span: all; color: #0E7C86; font-size: 14pt; margin: 6px 0 8px; } h3 
 ${sec('Para las personas usuarias', FAQ_USER)}${sec('Para el personal del Hub', FAQ_STAFF, true)}</body></html>`;
 writeFileSync(join(OUT, 'preguntas-frecuentes.html'), html);
 
+// ---- Inglés y portugués (solo las preguntas de las personas usuarias; la app del personal está en español)
+const I18N = {
+  en: { title: 'Frequently asked questions', sub: 'Keypoint Hub Providencia · also in the app: the help button (?) on every screen and the “Help and FAQ” section. Values follow the default rules; the app always shows the current ones.', sec: 'For Hub users' },
+  pt: { title: 'Perguntas frequentes', sub: 'Keypoint Hub Providencia · também no app: o botão de ajuda (?) em cada tela e a seção “Ajuda e perguntas frequentes”. Os valores seguem as regras padrão; o app sempre mostra os vigentes.', sec: 'Para as pessoas usuárias' },
+};
+const pages = [['preguntas-frecuentes', 'es']];
+for (const [L, x] of Object.entries(I18N)) {
+  const list = FAQ_USER_I18N[L];
+  if (list.length !== FAQ_USER.length) throw new Error(`FAQ_USER_I18N.${L} tiene ${list.length} preguntas y FAQ_USER ${FAQ_USER.length}`);
+  let m = `# ${x.title} · Keypoint Hub Providencia\n\n${x.sub}\n\n## ${x.sec}\n`;
+  for (const [t, qs] of groups(list)) m += `\n### ${t}\n\n` + qs.map(([, q, a]) => `**${q}**  \n${fill(a)}\n`).join('\n');
+  writeFileSync(join(OUT, `faq-${L}.md`), m);
+  writeFileSync(join(OUT, `faq-${L}.html`), html.replace('<html lang="es">', `<html lang="${L}">`).replace(/<title>.*?<\/title>/, `<title>${x.title} · Keypoint Hub Providencia</title>`)
+    .replace(/<header>[\s\S]*<\/body>/, `<header><h1>${esc(x.title)}</h1><p>${esc(x.sub)}</p></header>${sec(x.sec, list)}</body>`));
+  pages.push([`faq-${L}`, L]);
+}
+
 // ---- PDF
 try {
   const { chromium } = createRequire(import.meta.url)('playwright');
-  const b = await chromium.launch(), p = await b.newPage(); await p.goto('file://' + join(OUT, 'preguntas-frecuentes.html'));
-  await p.pdf({ path: join(OUT, 'preguntas-frecuentes.pdf'), preferCSSPageSize: true, printBackground: true, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: '<div style="font:8px Inter,sans-serif;color:#888;width:100%;text-align:center"><span class="pageNumber"></span> / <span class="totalPages"></span></div>' });
-  await b.close(); console.log('docs/preguntas-frecuentes.md, .html y .pdf listos');
+  const b = await chromium.launch(), p = await b.newPage();
+  for (const [name] of pages) { await p.goto('file://' + join(OUT, name + '.html'));
+  await p.pdf({ path: join(OUT, name + '.pdf'), preferCSSPageSize: true, printBackground: true, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: '<div style="font:8px Inter,sans-serif;color:#888;width:100%;text-align:center"><span class="pageNumber"></span> / <span class="totalPages"></span></div>' }); }
+  await b.close(); console.log('docs/preguntas-frecuentes.* y docs/faq-en.*, faq-pt.* listos (md, html y pdf)');
 } catch (e) { console.log('docs/preguntas-frecuentes.md y .html listos (PDF omitido: ' + e.message.split('\n')[0] + ')'); }

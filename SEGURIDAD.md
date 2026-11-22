@@ -1,6 +1,6 @@
 # Revisión de seguridad · Keypoint Hub Providencia
 
-Versión 2.5.1 · noviembre de 2026 · equipo keypoint
+Versión 2.6.0 · noviembre de 2026 · equipo keypoint
 
 Este documento resume cómo se protege el sistema y qué quedó pendiente. Sigue como referencia el OWASP Top 10 (2021) y la Ley N.º 19.628, con la Ley N.º 21.719 en vista.
 
@@ -30,7 +30,7 @@ Este documento resume cómo se protege el sistema y qué quedó pendiente. Sigue
 | A03 Inyección | Consultas parametrizadas. Todo texto que viene de personas se escapa antes de mostrarse. Las imágenes solo se aceptan como PNG, JPG, WebP o GIF (y PDF para diplomas) y con tamaño máximo. Solo se aceptan claves de configuración conocidas, números dentro de rango y colores con formato `#RRGGBB` (también en el plano). |
 | A04 Diseño inseguro | Las reservas se procesan de a una para que dos personas no tomen el mismo horario; la base además lo impide con una restricción. |
 | A05 Configuración | Cabeceras de seguridad: política de contenido (CSP) sin scripts en línea, `X-Frame-Options: DENY`, `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. La versión de GitHub Pages lleva la misma política en la página y solo permite conectarse al servidor indicado en `config.web.js`. |
-| A07 Autenticación | Tras 8 intentos fallidos sobre una misma cuenta se bloquea 15 minutos (también para códigos del correo y para la contraseña que confirma un borrado). También hay límite por dirección cuando se conoce la dirección real. Al cambiar la contraseña se cierran las sesiones abiertas en otros dispositivos; una cuenta borrada pierde su sesión de inmediato. «Mantener la sesión» guarda en el dispositivo una sesión sin vencimiento, registrada en la tabla `sessions`: cerrar sesión la revoca en el servidor, y desde el perfil se pueden cerrar las de los otros dispositivos. No se recomienda en equipos compartidos (la casilla lo advierte). |
+| A07 Autenticación | Tras 8 intentos fallidos sobre una misma cuenta desde una misma dirección, esa dirección queda bloqueada para la cuenta por 15 minutos; con 50 intentos fallidos en total (desde cualquier dirección) se bloquea la cuenta (también para códigos del correo y para la contraseña que confirma un borrado). Así un tercero no puede dejar bloqueada la cuenta de administración con pocos intentos (corrección 2.6.0). También hay límite de 30 intentos por dirección cuando se conoce la dirección real. Al cambiar la contraseña se cierran las sesiones abiertas en otros dispositivos; una cuenta borrada pierde su sesión de inmediato. «Mantener la sesión» guarda en el dispositivo una sesión sin vencimiento, registrada en la tabla `sessions`: cerrar sesión la revoca en el servidor, y desde el perfil se pueden cerrar las de los otros dispositivos. No se recomienda en equipos compartidos (la casilla lo advierte). |
 | A08 Integridad | Las bibliotecas van incluidas en el proyecto (no se cargan de servidores externos), salvo el botón opcional de Google. |
 | A09 Registro | Las acciones del equipo quedan en la auditoría (Sistema › Auditoría). |
 | QR de los espacios | Cada QR lleva una clave aleatoria de 8 caracteres que solo ve el equipo. Confirmar la llegada exige además estar registrado dentro del Hub. Si un QR se copia, se renueva y el anterior deja de servir. |
