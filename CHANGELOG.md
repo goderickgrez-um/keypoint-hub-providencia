@@ -18,6 +18,20 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.7.0] · 22 de noviembre de 2026
+### Agregado
+- **Eliminar mi cuenta** (Privacidad y mis datos): con la contraseña, la cuenta queda inactiva, no puede ingresar ni usar su QR, y se cancelan sus reservas e inscripciones futuras con devolución de horas. Llega un correo.
+- **Restablecer una cuenta eliminada:** quien se registra con el RUT de una cuenta eliminada puede restablecerla con un código enviado al correo anterior (se muestra oculto). Recupera ID, QR, certificaciones, horas e historial con los datos nuevos; un correo nuevo se confirma con otro código. Sin acceso a ese correo, recepción la restablece revisando el carnet (desde el registro asistido o desde la ficha).
+- **Pedir la eliminación de mis datos** reemplaza a «Pedir la eliminación de mi cuenta». La solicitud aparece en Usuarios; administración la ejecuta («datos personales») o la descarta. Se borran visitas, archivos, observaciones, avisos y los datos opcionales del perfil; se conservan cuenta, certificaciones, horas, reservas y penalizaciones. Correo automático al terminar.
+- **Periodo de las certificaciones:** fechas «Desde» y «Hasta»; las sesiones semanales se crean solo dentro del periodo. «Lugar de las sesiones» y «Bloquear ese lugar durante las sesiones»: las reservas que ya chocaban se cancelan con aviso y devolución de horas. Al cambiar día u hora, las sesiones sin inscritos se rehacen. Las personas usuarias ven el periodo y «Sin cupos» cuando todas las sesiones del periodo están llenas.
+- Recepción ve «Cuenta eliminada» al escanear a una persona que eliminó su cuenta.
+- Ayudas, preguntas frecuentes y manual actualizados en español, inglés y portugués. Pruebas nuevas en `tools/qa/` (`funciones-2.7.cjs`, `cuentas.mjs`).
+### Corregido
+- **Listas dentro de ventanas:** al elegir otro laboratorio en «Penalizar horas», el cuadro volvía a la primera opción, aunque se aplicaba la elegida. Afectaba a todas las listas, casillas y campos de las ventanas al redibujarse (por ejemplo, «Unidad» al restringir el acceso).
+### Confirmado (sin cambios)
+- Al salir de la oficina de pasantía, la persona queda en el cowork, sin plazo, hasta marcar su salida en recepción.
+- Administración penaliza horas en cualquier laboratorio y restringe el acceso; cada encargado penaliza solo en sus laboratorios y no puede restringir.
+
 ## [2.6.0] · 22 de noviembre de 2026
 ### Agregado
 - Ayudas de la app de usuarios en **inglés y portugués**: guía de cada pantalla, recorrido guiado, invitación al recorrido y preguntas frecuentes. Las pantallas del equipo del Hub siguen en español.

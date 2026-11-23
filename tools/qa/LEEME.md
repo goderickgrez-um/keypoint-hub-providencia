@@ -12,6 +12,8 @@ Scripts usados para el informe de QA (`docs/informe-qa.pdf`). Requieren Node 20+
 | `accesibilidad.cjs` | axe-core (WCAG 2 A y AA) en tema claro y oscuro, todas las pantallas por rol | demo en `HUB_URL` |
 | `responsive.cjs` | Desborde horizontal en 320, 375, 768, 1024 y 1920 px; `LX=en` o `LX=pt` revisa la app de usuarios en ese idioma | demo en `HUB_URL` |
 | `seguridad.mjs` | Permisos por credencial, datos filtrados, tokens alterados, CORS, rutas, subidas, CSP, intentos fallidos, inyección SQL | servidor con base de prueba en `HUB_API` (por defecto `http://localhost:8080`) |
+| `funciones-2.7.cjs` | Listas dentro de ventanas, eliminar y restablecer cuenta, pedir eliminación de datos, periodo de certificaciones (navegador, con axe) | demo en `HUB_URL` |
+| `cuentas.mjs` | Lo mismo contra el servidor real: sesiones, códigos por correo, correos automáticos, permisos de penalización y sesiones dentro del periodo | servidor con base de prueba **recién creada** en `HUB_API`; lee los códigos con `psql` usando `DATABASE_URL` |
 | `carga.mjs` | 50 sesiones simultáneas pidiendo datos, escaneos de recepción y datos de administración | servidor con base de prueba en `HUB_API` |
 
 Para servir la demo: copia `web/` a una carpeta de pruebas, cambia su `config.js` por `window.HUB_CONFIG = null;` y ejecuta `python -m http.server 8765` dentro de ella.

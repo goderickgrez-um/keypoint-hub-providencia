@@ -54,6 +54,8 @@ export function balance(db, uid, spaceId, when = new Date()) {
   return { quota: quota + bonus, used, left: quota + bonus - used, penalties: adj.filter(a => a.minutes < 0) };
 }
 
+/** Espacio que una certificación bloquea durante sus sesiones: su lugar (o su laboratorio), o null si no bloquea. */
+export const certPlace = c => (!c || c.block_place === false ? null : c.place_id || c.space_id);
 /** Motivo por el que un espacio o equipo no está disponible en [start, end), o null si está libre. */
 export function unavailable(db, sp, res, start, end, ignoreId = null) {
   const h = R.hoursFor(db.cfg('hours'), start);
@@ -64,7 +66,7 @@ export function unavailable(db, sp, res, start, end, ignoreId = null) {
   if (T(end) > T(closing) && !sp.allow_overnight) return 'La reserva termina después del cierre';
   const bl = db.find('blocks', b => (b.space_id == null || b.space_id === sp.id) && R.overlaps(start, end, b.start_at, b.end_at));
   if (bl) return 'Ese horario está bloqueado' + (bl.reason ? ': ' + bl.reason : '');
-  const cs = db.find('cert_sessions', c => c.status !== 'cancelada' && R.overlaps(start, end, c.start_at, c.end_at) && db.get('certifications', c.certification_id)?.space_id === sp.id);
+  const cs = db.find('cert_sessions', c => c.status !== 'cancelada' && R.overlaps(start, end, c.start_at, c.end_at) && certPlace(db.get('certifications', c.certification_id)) === sp.id);
   if (cs) return 'Hay una certificación en ese horario';
   const gap = (sp.gap_min || 0) * 60000;
   const clash = db.find('reservations', r => r.id !== ignoreId && r.space_id === sp.id && ACTIVE.includes(r.status)

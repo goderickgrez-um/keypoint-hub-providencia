@@ -69,6 +69,9 @@ Na sua reserva, toque em “Relatar uma falha”. O aviso chega ao responsável 
 **Como baixo meu diploma?**  
 Em Perfil, em Certificações, toque em “Baixar diploma” ao lado da certificação. Ele é baixado em PDF.
 
+**Uma certificação diz “Sem vagas”**  
+Todas as sessões do período estão lotadas. Cada certificação é dada só entre as datas indicadas. Pergunte na recepção se vão abrir mais vagas.
+
 ### Eventos
 
 **Como me inscrevo em um evento?**  
@@ -83,10 +86,16 @@ Eles mudam a cada 5 segundos. Se deslizar um ou usar as setas, eles param. O bot
 Não. Ao entrar, deixe marcado “Manter a sessão iniciada neste dispositivo”. A sessão fica aberta nesse celular ou computador até você tocar em “Sair” ou trocar a senha. Em Perfil você vê se a sessão está salva e pode encerrá-la nos seus outros dispositivos.
 
 **O que o Hub faz com meus dados?**  
-Usa-os para registrar entradas e saídas, gerir reservas e fazer estatísticas sem seu nome nem seu RUT. Não são compartilhados com terceiros. Em Perfil › Configurações › Privacidade e meus dados você pode pedir uma cópia ou a exclusão da sua conta.
+Usa-os para registrar entradas e saídas, gerir reservas e fazer estatísticas sem seu nome nem seu RUT. Não são compartilhados com terceiros. Em Perfil › Configurações › Privacidade e meus dados você pode pedir uma cópia ou a exclusão dos seus dados, ou excluir sua conta.
 
 **Meu acesso diz “restrito”**  
 Você tem uma penalidade vigente. O Início mostra até quando e o motivo. Se achar que é um erro, fale com a recepção.
+
+**O que acontece se eu pedir a exclusão dos meus dados?**  
+A administração revisa o pedido e exclui seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular e foto. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades. Você recebe um e-mail quando for feito.
+
+**Excluí minha conta e quero voltar**  
+Cadastre-se com o mesmo RUT. O sistema vai oferecer restaurá-la e enviar um código ao e-mail que ela tinha. Você recupera seu ID, seu QR, suas certificações e suas horas. Se não tiver mais esse e-mail, vá à recepção com seu documento.
 
 ### Estágio
 

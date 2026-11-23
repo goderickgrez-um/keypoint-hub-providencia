@@ -74,9 +74,17 @@ body = f"""
 <h3>Mis reservas, historial y fallas</h3>
 <p>En <b>Mis reservas</b> están las reservas y certificaciones activas, de la más cercana a la más lejana, y desde ahí se cancelan. El inicio y el término de cada reserva se hacen con los botones bajo el QR (capítulo 3). En <b>Historial</b> se puede <b>Reportar una falla</b> de la máquina usada, eligiendo uno de los seis tipos más comunes u «Otra», con una descripción de hasta 1.000 caracteres.</p>
 <h3>Certificaciones, horas y perfil</h3>
-<p>En Reservar › Certificaciones se ven las sesiones semanales y sus cupos; las sesiones llenas aparecen como «Llena» y no se pueden elegir. La inscripción aparece en Mis reservas y en «Tu próxima reserva». En Perfil están los datos, certificaciones (cada una con <b>Descargar diploma</b> en PDF), uso de horas por laboratorio, observaciones de los encargados (se pueden borrar), penalizaciones vigentes, el historial y el estado de la sesión. En Configuración se elige tema (según el dispositivo, claro u oscuro), idioma (español, inglés o portugués), texto grande y mayor contraste.</p>
+<p>En Reservar › Certificaciones se ven las sesiones semanales y sus cupos. Cada certificación indica el periodo en que se imparte («Empieza el…», «Hasta el…»); terminado el periodo deja de mostrarse. Las sesiones llenas aparecen como «Llena» y, cuando todas las del periodo están llenas, la certificación dice «Sin cupos» y no se puede elegir. La inscripción aparece en Mis reservas y en «Tu próxima reserva». En Perfil están los datos, certificaciones (cada una con <b>Descargar diploma</b> en PDF), uso de horas por laboratorio, observaciones de los encargados (se pueden borrar), penalizaciones vigentes, el historial y el estado de la sesión. En Configuración se elige tema (según el dispositivo, claro u oscuro), idioma (español, inglés o portugués), texto grande y mayor contraste.</p>
 {shots(('u-cert', 'Certificaciones.'), ('u-activas', 'Mis reservas.'), ('u-config', 'Configuración.'), mobile=True)}
-{shots(('u-diploma', 'Certificaciones con su diploma.'), ('u-sesion', 'Sesión guardada y cierre en otros dispositivos.'), ('u-lab', 'Laboratorio con saldo y archivo.'), mobile=True)}</section>
+{shots(('u-diploma', 'Certificaciones con su diploma.'), ('u-sesion', 'Sesión guardada y cierre en otros dispositivos.'), ('u-lab', 'Laboratorio con saldo y archivo.'), mobile=True)}
+<h3>Privacidad y mis datos</h3>
+<p>En Perfil › Configuración › <b>Privacidad y mis datos</b> hay tres opciones:</p>
+<ul><li><b>Pedir una copia de mis datos:</b> avisa a administración.</li>
+<li><b>Pedir la eliminación de mis datos:</b> la solicitud queda en revisión. Cuando administración la ejecuta, se borran el historial de visitas, los archivos, las observaciones y los avisos, y la comuna, actividad, ocupación, género, movilidad reducida, celular y foto. Se conservan la cuenta, las certificaciones, las horas, las reservas y las penalizaciones. Llega un correo automático.</li>
+<li><b>Eliminar mi cuenta:</b> con la contraseña, la cuenta queda inactiva: no se puede entrar ni usar el QR, y se cancelan las reservas e inscripciones futuras (las horas se devuelven). Llega un correo con los detalles.</li></ul>
+<p><b>Restablecer la cuenta.</b> Si la persona vuelve a registrarse con el mismo RUT, el sistema le ofrece restablecer la cuenta y envía un código al correo que tenía (se muestra oculto, por ejemplo p•••@ejemplo.cl). Con el código recupera su ID, su QR, sus certificaciones, sus horas y su historial, con los datos nuevos del formulario; si cambió de correo, lo confirma con otro código. Sin acceso a ese correo, recepción la restablece revisando el carnet.</p>
+{shots(('u-priv', 'Privacidad y mis datos.'), ('u-eliminar', 'Eliminar mi cuenta.'), ('u-priv-pedida', 'Solicitud de eliminación en revisión.'), mobile=True)}
+{shots(('u-restablecer', 'Registro con el RUT de una cuenta eliminada.'), ('u-reopen', 'Código para restablecer.'), mobile=True)}</section>
 
 <section class="chap"><h2>3. Reserva en dos pasos: entrar y terminar</h2>
 <p>Con la confirmación en dos pasos (activada por defecto en Reglas), una reserva empieza cuando la persona está dentro del Hub y escanea el QR pegado en la entrada del espacio. Así el tiempo que se descuenta es el real y recepción sabe quién está en cada laboratorio o sala.</p>
@@ -97,7 +105,7 @@ body = f"""
  ['No puede usar el teléfono', 'Recepción usa «Buscar reserva actual» y los botones Iniciar y Terminar (capítulo 4).']])}
 <div class="box"><b>QR de cada espacio.</b> Administración descarga el cartel desde el detalle del espacio y lo pega en la entrada. Si alguien copia el código o el cartel se daña, «Generar un QR nuevo» invalida el anterior.</div>
 <h3>Oficina de pasantía</h3>
-<p>Las personas con pasantía asignada ven <b>Entrar en oficina de pasantía</b> bajo su QR. Con la entrada al Hub ya registrada, tocan el botón y escanean el QR de la oficina; al irse, tocan «Salir de la oficina de pasantía». Si la oficina está llena (según su aforo), el sistema lo avisa.</p></section>
+<p>Las personas con pasantía asignada ven <b>Entrar en oficina de pasantía</b> bajo su QR. Con la entrada al Hub ya registrada, tocan el botón y escanean el QR de la oficina; al irse, tocan «Salir de la oficina de pasantía» y quedan registradas en el cowork, sin plazo, hasta que marcan su salida en recepción. Si la oficina está llena (según su aforo), el sistema lo avisa.</p></section>
 
 <section class="chap"><h2>4. Recepción</h2>
 <p>Recepción usa la pantalla <b>Recepción y QR</b>, a la que también se llega con el botón QR arriba a la derecha. Se recomienda instalarla como app en el computador del mesón: en Chrome o Edge abrir <code>recepcion.html</code> y elegir «Instalar».</p>
@@ -107,7 +115,7 @@ body = f"""
 <li>Con <b>Registro automático</b> activo, el primer escaneo del día marca la entrada y el siguiente la salida. Desactívalo para ver la ficha y confirmar con un botón.</li>
 <li>La ficha muestra nombre, documento, correo, teléfono, reservas de hoy y avisos pendientes de la persona, para comunicárselos si no usa correo ni celular.</li></ol>
 {tbl(['Resultado', 'Qué hacer'], [['Entrada o salida registrada (verde o azul)', 'Nada más.'], ['Acceso restringido (rojo)', 'Indicar a la persona la fecha de término que aparece; no se registra la entrada.'],
- ['Perfil pendiente', 'Falta confirmar el correo o la autorización del adulto responsable.'], ['No encontramos ese código', 'Registrar a la persona con «Registrar usuario nuevo».']])}
+ ['Perfil pendiente', 'Falta confirmar el correo o la autorización del adulto responsable.'], ['Cuenta eliminada (rojo)', 'La persona eliminó su cuenta. Si quiere volver, revisar su carnet y tocar «Abrir en Usuarios» › «Restablecer cuenta».'], ['No encontramos ese código', 'Registrar a la persona con «Registrar usuario nuevo».']])}
 <p>Si alguien no marca su salida, el sistema la cierra sola a la hora de cierre. Si la persona tiene una reserva para esa hora, su entrada la marca como asistida, aunque llegue hasta 15 minutos tarde.</p>
 <h3>Buscar reserva actual</h3>
 <p>El botón <b>Buscar reserva actual</b> muestra la ficha y las reservas de hoy de la persona sin registrar entrada ni salida. Junto a cada reserva aparecen <b>Iniciar</b> (dentro de su horario) y <b>Terminar</b> (si está en curso): sirven para quien no puede usar el teléfono, y desde el mesón el inicio y el término son inmediatos.</p>
@@ -116,7 +124,7 @@ body = f"""
 <h3>Sin internet</h3>
 <p>La app de recepción sigue abierta sin conexión: los escaneos se guardan en el equipo y aparece un aviso con la cantidad pendiente. Al volver la conexión se envían solos (o con <b>Sincronizar</b>) y se actualizan las reservas de quienes entraron.</p>
 <h3>Registro, actualización de datos y reserva asistida</h3>
-<p><b>Registrar usuario nuevo</b> usa el mismo formulario, con correo y celular opcionales y sin contraseña; al terminar muestra su QR. Desde la ficha, <b>Actualizar sus datos</b> permite corregir información o reemplazar un RUT provisorio por el definitivo, y <b>Reserva asistida</b> abre las mismas pantallas de reserva a nombre de la persona.</p>
+<p><b>Registrar usuario nuevo</b> usa el mismo formulario, con correo y celular opcionales y sin contraseña; al terminar muestra su QR. Si el RUT corresponde a una cuenta que la persona eliminó, el sistema ofrece restablecerla con los datos escritos, después de revisar el carnet. Desde la ficha, <b>Actualizar sus datos</b> permite corregir información o reemplazar un RUT provisorio por el definitivo, y <b>Reserva asistida</b> abre las mismas pantallas de reserva a nombre de la persona.</p>
 {wide('a-prox', 'Próximas reservas del día y de los días siguientes.')}</section>
 
 <section class="chap"><h2>5. Encargados de laboratorio y sala gaming</h2>
@@ -129,10 +137,12 @@ body = f"""
 {wide('a-rev', 'Revisión de archivos.')}
 <h3>Solicitudes</h3><p>Reservas presentes y futuras de los espacios a cargo. Permite cerrar una reserva con su tiempo real o cancelarla con aviso al usuario.</p>
 <h3>Certificaciones</h3>
-<p>Elige la certificación, la sesión y marca el resultado de cada inscrito (aprobado, reprobado, ausente) en la lista. También se puede certificar directamente con ID o RUT, subir el diploma y crear certificaciones nuevas o por niveles (por ejemplo FDM 1 a FDM 5), con día, hora, cupos, duración, vigencia, valor y quién la imparte. Las sesiones bloquean el laboratorio mientras duran. El cuadro de personas certificadas tiene un buscador por nombre, RUT o ID, muestra seis personas y se puede agrandar arrastrando su borde inferior.</p>
+<p>Elige la certificación, la sesión y marca el resultado de cada inscrito (aprobado, reprobado, ausente) en la lista. También se puede certificar directamente con ID o RUT, subir el diploma y crear certificaciones nuevas o por niveles (por ejemplo FDM 1 a FDM 5), con día, hora, cupos, duración, vigencia, valor y quién la imparte. El cuadro de personas certificadas tiene un buscador por nombre, RUT o ID, muestra seis personas y se puede agrandar arrastrando su borde inferior.</p>
 {wide('a-cert', 'Certificaciones: lista de la sesión, configuración y personas certificadas.')}
+<p><b>Periodo y lugar.</b> En Configuración, «Desde» y «Hasta» definen el periodo en que se imparte: las sesiones semanales se crean solo entre esas fechas, así el calendario no se llena indefinidamente (sin fecha de término se crean las de las próximas 4 semanas). La certificación aparece para las personas usuarias apenas se guarda. «Lugar de las sesiones» permite usar otro espacio a cargo (por defecto, el mismo laboratorio) y, con «Bloquear ese lugar durante las sesiones», nadie puede reservarlo a esa hora: las reservas que ya chocaban se cancelan, se devuelven sus horas y se avisa a cada persona. Si se cambia el día o la hora, las sesiones sin inscritos se rehacen; las que tienen inscritos se mantienen y el sistema lo avisa. Encargados y administración pueden editarla aunque esté sin cupos.</p>
+{wide('a-cert-periodo', 'Periodo en que se imparte, lugar de las sesiones y bloqueo.')}
 <h3>Penalizaciones y premios</h3>
-<p>En <b>Usuarios</b> busca a la persona y usa <b>Penalizar horas</b> o <b>Premiar con horas</b>, indicando laboratorio, horas y motivo. La persona recibe el aviso. Una penalización se puede perdonar con un toque. Las restricciones de acceso al Hub completo son solo de administración.</p>
+<p>En <b>Usuarios</b> busca a la persona y usa <b>Penalizar horas</b> o <b>Premiar con horas</b>, indicando laboratorio, horas y motivo. La persona recibe el aviso. Una penalización se puede perdonar con un toque. Administración puede penalizar en cualquier laboratorio; cada encargado, solo en los suyos. Las restricciones de acceso al Hub completo son solo de administración.</p>
 {wide('a-husr', 'Ficha de una persona con saldo, penalizaciones y actividad.')}
 <h3>Fallas de máquinas y agenda</h3><p>Fallas muestra los reportes por máquina y por tipo en la semana, el mes, tres meses u otro periodo, y permite marcarlos como resueltos. En Agenda y bloqueos se bloquean horas o días de los espacios a cargo; las reservas afectadas se cancelan con aviso y devolución de horas.</p></section>
 
@@ -155,11 +165,14 @@ body = f"""
 <li><b>Reglas:</b> horario de atención, aforo por piso, bloques, avisos, tolerancias, reservas activas, horas extra del personal, archivos, cuenta de correo y cuentas de Google o Microsoft.</li>
 <li><b>Empleados:</b> agrega a una persona ya registrada como usuario, con su cargo y credenciales. Al darle la credencial de encargado de laboratorio se abre una lista para marcar sus laboratorios (uno o más) y se pide confirmación. El botón <b>Laboratorios</b> permite cambiarlos después.</li>
 <li><b>Reglas:</b> también define la zona donde queda registrada una persona que entra sin reserva (cowork por defecto), la vigencia de los códigos del correo, la confirmación en dos pasos y el plazo para pasar por recepción tras «Terminar», la oficina de pasantía, las edades permitidas, el aforo de cada piso y la dirección pública de la app que llevan los QR.</li>
-<li><b>Usuarios:</b> en la ficha de cada persona, administración puede asignar o quitar la pasantía y <b>Borrar datos o perfil</b>: «datos» borra el historial (visitas, reservas, archivos) y «perfil» elimina la cuenta. Ambas piden la contraseña de administración.</li>
+<li><b>Usuarios:</b> en la ficha de cada persona, administración puede asignar o quitar la pasantía y <b>Borrar datos o perfil</b>: «datos personales» es lo que pide la persona desde su app (conserva certificaciones, horas, reservas y penalizaciones, y le envía un correo), «historial» borra visitas, reservas y archivos, y «perfil» elimina la cuenta. Todas piden la contraseña de administración.</li>
+<li><b>Solicitudes de eliminación de datos:</b> con la búsqueda vacía, Usuarios muestra las solicitudes pendientes. En la ficha, <b>Eliminar sus datos</b> la ejecuta y <b>Descartar solicitud</b> la cierra sin cambios.</li>
+<li><b>Cuentas eliminadas por la persona:</b> la ficha lo indica y recepción ve «Cuenta eliminada» al escanear. Revisando el carnet, recepción o administración pueden <b>Restablecer cuenta</b>.</li>
 <li><b>Restringir acceso:</b> desde Usuarios, por horas, días o de forma permanente. Recepción verá el aviso al escanear.</li>
 <li><b>Auditoría:</b> registro de las acciones del equipo.</li></ul>
 {shots(('a-apar', 'Apariencia.'), ('a-reglas-2', 'Reglas: dos pasos, pasantía y aforo por piso.'))}
-{wide('a-husr-admin', 'Ficha de una persona vista por administración: pasantía, restricciones, borrado y reserva actual.')}</section>
+{wide('a-husr-admin', 'Ficha de una persona vista por administración: pasantía, restricciones, borrado y reserva actual.')}
+{wide('a-husr-solic', 'Solicitudes de eliminación de datos y su ejecución desde la ficha.')}</section>
 
 <section class="chap"><h2>7. Analista de datos</h2>
 <p>La pantalla <b>Datos</b> resume el periodo elegido (semana, mes, 3 meses u otro): visitas, personas distintas, usuarios registrados, edad promedio, movilidad reducida e inasistencias; visitas por espacio, horas de uso por laboratorio, personas por día, mapa de calor por día y hora, uso por zona del plano, actividad en Providencia, género, ocupación, comuna y fallas de máquinas. Cada gráfico tiene su tabla de datos. En los gráficos de barras se puede tocar una variable para ocultarla (por ejemplo, el cowork) y comparar mejor las demás: la escala se ajusta sola, y «Mostrar todas» las vuelve a mostrar.</p>

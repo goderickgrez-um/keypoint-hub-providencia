@@ -72,6 +72,7 @@ Cada versión siguió el mismo ciclo:
 | Término con recepción | 20 nov. 2026 | 2.5.1 | Ajuste de «Terminar», versión única, trípticos B/N |
 | Video comercial | 21 nov. 2026 | — | Tomas reales de la app, gráficos y maqueta de 56 s |
 | Idiomas, manual y QA | 22 nov. 2026 | 2.6.0 | Ayudas en inglés y portugués, manual actualizado, informe de QA |
+| Cuentas, datos y certificaciones | 22 nov. 2026 | 2.7.0 | Eliminar y restablecer cuenta, pedir eliminación de datos, periodo de certificaciones, arreglo de listas en ventanas |
 
 ---
 
@@ -280,11 +281,28 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 
 **Defectos encontrados por QA y corregidos:** contraste de la etiqueta DEMO, dos desbordes horizontales (gráficos de Datos y etiquetas en teléfonos de 320 px), bloqueo de cuentas que un tercero podía provocar con 8 intentos fallidos, textos sin traducir y un botón de la ayuda que se partía en inglés.
 
+### 5.15 Cuentas, datos y certificaciones (versión 2.7.0, 22 de noviembre)
+
+**Solicitud.** Confirmar la lógica de pasantía y de penalizaciones, corregir la lista de laboratorios al penalizar, permitir que la persona elimine su cuenta y la restablezca con su RUT, cambiar «Pedir eliminación de mi cuenta» por «Pedir eliminación de mis datos», agregar el periodo de las certificaciones con bloqueo del laboratorio, y explicar cómo podría hacerse un formulario de registro configurable.
+
+**Decisiones del equipo:** al restablecer se recupera todo con los datos nuevos; se verifica con un código al correo anterior o, sin acceso, en recepción con el carnet; la eliminación de datos la aprueba administración y borra historial y datos opcionales del perfil; los cupos siguen siendo por sesión; la certificación se ve apenas se guarda y el periodo limita las sesiones que se crean. El formulario configurable queda solo como propuesta.
+
+**Tareas incluidas:**
+
+- [x] Confirmado: al salir de la oficina de pasantía se queda en el cowork hasta marcar salida en recepción.
+- [x] Confirmado: administración penaliza en cualquier laboratorio y restringe; el encargado solo penaliza en los suyos.
+- [x] Corregido: las listas, campos y casillas de las ventanas volvían a su valor inicial al redibujarse.
+- [x] Eliminar mi cuenta y restablecerla con el mismo RUT (código al correo anterior o recepción).
+- [x] Pedir la eliminación de mis datos, con aprobación de administración y correo automático.
+- [x] Periodo de las certificaciones, lugar de las sesiones y bloqueo con cancelación avisada de reservas que chocan.
+- [x] Ayudas, preguntas frecuentes, traducciones y manual.
+- [x] Pruebas: núcleo, navegador (demostración), servidor con PostgreSQL y migración desde 2.6.0, seguridad, accesibilidad, tamaños de pantalla e idiomas.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.6.0 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.7.0 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |
@@ -308,6 +326,7 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 - **Seguridad:** inyección SQL sin efecto, archivos no permitidos rechazados, bloqueo tras intentos fallidos, sesiones revocadas.
 - **Accesibilidad:** axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.
 - **QA de la versión 2.6.0:** informe completo en `docs/informe-qa.pdf`, con los resultados por área, los defectos corregidos y lo que falta probar en el Hub.
+- **Versión 2.7.0:** pruebas del núcleo, 47 verificaciones en el navegador y 30 contra el servidor real para las funciones nuevas; repetidas las de versiones anteriores, seguridad (34), accesibilidad (98 revisiones), tamaños de pantalla e idiomas. Detalle en la sección 8 de `docs/informe-qa.pdf`.
 - **Pendiente de verificación en terreno:** la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.
 
 ---
@@ -320,7 +339,8 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 4. Respaldos cifrados fuera del equipo (la base y el archivo `.data-key` juntos).
 5. Prueba con personas que usan lectores de pantalla.
 6. Revisión de seguridad externa antes del uso definitivo.
-7. Etiquetar las versiones en Git (`git tag v2.6.0`) al subir cada entrega.
+7. Etiquetar las versiones en Git (`git tag v2.7.0`) al subir cada entrega.
+8. Formulario de registro configurable (propuesta de la versión 2.7.0): campos opcionales activables y editables, y luego un constructor de campos nuevos con análisis en Datos.
 
 ---
 
@@ -339,4 +359,5 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 | Término con recepción, bitácora y trípticos | 2.5.1 |
-| Esta entrega | 2.6.0 |
+| Idiomas, manual y QA | 2.6.0 |
+| Esta entrega | 2.7.0 |

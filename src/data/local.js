@@ -28,7 +28,7 @@ export const local = {
     let data = await read();
     if (!data || data.__v !== VERSION) data = await seed(new Date());
     App.db.load(data);
-    App.uid = session(); if (App.uid && !App.db.get('users', App.uid)) App.uid = null;
+    App.uid = session(); if (App.uid && (!App.db.get('users', App.uid) || App.db.get('users', App.uid).closed_at)) App.uid = null;
     await this.tick(); save();
     try { chan = new BroadcastChannel('keypoint-hub'); chan.onmessage = async () => { const d = await read(); if (d) { App.db.load(d); onChange(); } }; } catch { /* sin canal entre pestañas */ }
   },

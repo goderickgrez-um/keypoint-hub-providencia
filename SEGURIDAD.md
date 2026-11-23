@@ -1,6 +1,6 @@
 # Revisión de seguridad · Keypoint Hub Providencia
 
-Versión 2.6.0 · noviembre de 2026 · equipo keypoint
+Versión 2.7.0 · noviembre de 2026 · equipo keypoint
 
 Este documento resume cómo se protege el sistema y qué quedó pendiente. Sigue como referencia el OWASP Top 10 (2021) y la Ley N.º 19.628, con la Ley N.º 21.719 en vista.
 
@@ -32,6 +32,7 @@ Este documento resume cómo se protege el sistema y qué quedó pendiente. Sigue
 | A05 Configuración | Cabeceras de seguridad: política de contenido (CSP) sin scripts en línea, `X-Frame-Options: DENY`, `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. La versión de GitHub Pages lleva la misma política en la página y solo permite conectarse al servidor indicado en `config.web.js`. |
 | A07 Autenticación | Tras 8 intentos fallidos sobre una misma cuenta desde una misma dirección, esa dirección queda bloqueada para la cuenta por 15 minutos; con 50 intentos fallidos en total (desde cualquier dirección) se bloquea la cuenta (también para códigos del correo y para la contraseña que confirma un borrado). Así un tercero no puede dejar bloqueada la cuenta de administración con pocos intentos (corrección 2.6.0). También hay límite de 30 intentos por dirección cuando se conoce la dirección real. Al cambiar la contraseña se cierran las sesiones abiertas en otros dispositivos; una cuenta borrada pierde su sesión de inmediato. «Mantener la sesión» guarda en el dispositivo una sesión sin vencimiento, registrada en la tabla `sessions`: cerrar sesión la revoca en el servidor, y desde el perfil se pueden cerrar las de los otros dispositivos. No se recomienda en equipos compartidos (la casilla lo advierte). |
 | A08 Integridad | Las bibliotecas van incluidas en el proyecto (no se cargan de servidores externos), salvo el botón opcional de Google. |
+| Cuentas eliminadas | Una cuenta eliminada por su dueña o dueño no puede ingresar por ningún medio (contraseña, código, Google) y sus sesiones dejan de valer. Para restablecerla se exige un código enviado al correo anterior, o la revisión del carnet en recepción; el registro solo muestra ese correo oculto y nunca el ID. Eliminar la cuenta pide la contraseña y cuenta para el bloqueo por intentos fallidos. |
 | A09 Registro | Las acciones del equipo quedan en la auditoría (Sistema › Auditoría). |
 | QR de los espacios | Cada QR lleva una clave aleatoria de 8 caracteres que solo ve el equipo. Confirmar la llegada exige además estar registrado dentro del Hub. Si un QR se copia, se renueva y el anterior deja de servir. |
 | Archivos subidos | Solo formatos de los laboratorios, tamaño máximo controlado mientras se recibe, 40 archivos por hora por persona, y solo los descargan el dueño, los encargados de ese laboratorio y administración. |

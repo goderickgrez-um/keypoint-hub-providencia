@@ -1,6 +1,6 @@
-# Informe de QA · Keypoint Hub Providencia 2.6.0
+# Informe de QA · Keypoint Hub Providencia 2.6.0 y 2.7.0
 
-Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués.
+Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués. La sección 8 agrega las pruebas de la versión 2.7.0.
 
 ## 1. Resumen
 
@@ -108,7 +108,32 @@ Estas pruebas necesitan equipos reales o el Hub. Quedan en la lista de la secci�
 - [ ] Probar en Safari (iPhone) y Firefox: ingreso, reserva, ayuda y diploma.
 - [ ] Recorrer Inicio con VoiceOver o TalkBack.
 - [ ] Descargar el diploma de una certificación aprobada y abrirlo en el teléfono.
+- [ ] 2.7.0: con una cuenta de prueba, «Eliminar mi cuenta», recibir el correo real, registrarse de nuevo con el mismo RUT y restablecerla con el código.
+- [ ] 2.7.0: «Pedir la eliminación de mis datos», ejecutarla en Usuarios y confirmar que llega el correo.
+- [ ] 2.7.0: definir el periodo de una certificación real con «Bloquear ese lugar» y revisar la agenda del laboratorio.
 
 ## 7. Cómo repetir las pruebas
 
 Los scripts están en `tools/qa/`, con instrucciones en `tools/qa/LEEME.md`. Las pruebas de seguridad y de carga deben ejecutarse contra una base de prueba, nunca contra la del Hub.
+
+## 8. Pruebas de la versión 2.7.0
+
+Funciones nuevas: eliminar y restablecer cuenta, pedir la eliminación de datos, periodo de certificaciones con lugar bloqueado y la corrección de las listas en ventanas.
+
+| Área | Pruebas | Resultado |
+|---|---|---|
+| Reglas del núcleo | Pasantía (cowork sin plazo hasta la salida), eliminar y restablecer cuenta, recepción restablece, eliminación de datos, permisos de penalización, periodo, lugar bloqueado, cupos llenos | Todas correctas |
+| Navegador (modo demostración) | 47 verificaciones con axe en las pantallas nuevas (`funciones-2.7.cjs`) | Todas correctas, sin errores de JavaScript |
+| Servidor real con PostgreSQL | 30 verificaciones: códigos por correo, sesiones invalidadas, correos automáticos, permisos, sesiones dentro del periodo (`cuentas.mjs`) | Todas correctas |
+| Migración | Base creada con la 2.6.0 y abierta con el servidor 2.7.0 | Columnas nuevas agregadas sin perder datos |
+| Regresión | Pruebas por versión (87), recorrido de 39 pantallas, servidor (sesiones 17, API 8, app publicada), seguridad (34), carga | Todas correctas |
+| Accesibilidad | 98 revisiones (49 pantallas, claro y oscuro) más las pantallas nuevas | Sin infracciones |
+| Tamaños de pantalla | 195 combinaciones y la app de usuarios en inglés y portugués | Sin desbordes |
+| Rendimiento | 50 sesiones simultáneas | 309 pedidos por segundo, p95 238 ms, 0 errores |
+
+**Defecto corregido (D7, media):** en las ventanas, al cambiar una lista se redibujaba la ventana y sus listas, campos y casillas volvían al valor con que se abrieron. En «Penalizar horas», el cuadro mostraba el primer laboratorio aunque se aplicaba el elegido. Reproducido en la 2.6.0 y verificado corregido en la 2.7.0.
+
+**Ajustes en las pruebas antiguas:** la ventana de borrado ahora tiene cuatro opciones (se agregó «datos personales»). Las pruebas de seguridad necesitan `ALLOWED_ORIGIN` con la dirección de GitHub Pages para verificar CORS, y el bloqueo por intentos fallidos se reinicia solo al reiniciar el servidor: conviene ejecutar `cuentas.mjs` con un servidor recién iniciado.
+
+**No verificado:** el correo real de cuenta eliminada y de datos eliminados (en las pruebas quedan en la bandeja de salida) y el uso en el Acer.
+

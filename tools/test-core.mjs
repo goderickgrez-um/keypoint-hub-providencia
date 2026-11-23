@@ -13,6 +13,7 @@ const db = new Store(await seed(now));
 const ctx = uid => ({ db, uid, now, demo: true });
 const U = e => db.find('users', u => u.email === e).id;
 const [cam, marta, tomas, admin, ign] = ['camila.rojas@ejemplo.cl', 'marta.pizarro@ejemplo.cl', 'tomas.fuentes@ejemplo.cl', 'roderick.grez@mayor.cl', 'ignacio.vera@ejemplo.cl'].map(U);
+const T = d => +new Date(d);
 const rejects = async (p, re) => { try { await p; } catch (e) { assert.match(e.message, re); return; } assert.fail('debió fallar: ' + re); };
 const sizes = Object.fromEntries(Object.entries(db.dump()).map(([k, v]) => [k, v.length]));
 console.log(sizes);
@@ -200,11 +201,100 @@ await rejects(call(ctx(cam), 'event.order', { ids: [] }), /./);
   assert.ok((await call(cx(pu.id, at(32, 10, 30)), 'space.checkin', { code: `${office.id}-${okey}` })).intern);
   assert.equal(db.find('visits', v => v.user_id === pu.id && !v.out_at).space_id, office.id);
   await call(cx(pu.id, at(32, 11)), 'intern.leave', {}); assert.notEqual(db.find('visits', v => v.user_id === pu.id && !v.out_at).space_id, office.id);
+  // 2.7 · Al salir de la oficina queda en el cowork, sin plazo, hasta marcar salida en recepción
+  { const v = db.find('visits', v => v.user_id === pu.id && !v.out_at); assert.equal(v.space_id, Q.defaultZone(db)?.id ?? null); assert.equal(v.cowork_until ?? null, null);
+    tick(cx(null, at(32, 13))); assert.ok(db.find('visits', x => x.id === v.id && !x.out_at), 'sigue en el cowork horas después');
+    assert.equal((await call(cx(marta, at(32, 14)), 'access.scan', { code: pu.id })).action, 'salida'); }
   await rejects(call(cx(pu.id, now), 'space.qr', { id: sala.id }), /./);
   // El QR de los espacios no sale en los datos de un usuario
   assert.ok(snapshot(cx(pu.id, now)).tables.spaces.every(s => !('qr_key' in s))); assert.ok(snapshot(cx(admin, now)).tables.spaces.some(s => s.qr_key));
   // Lista de eventos: los terminados siempre al final
   const ord = Q.sortEvents(db.all('events'), now).map(e => Q.eventState(e, now) === 'terminado'); assert.deepEqual(ord, [...ord].sort((a, b) => a - b));
+}
+
+// 2.7 · Eliminar mi cuenta, restablecerla con el mismo RUT, pedir eliminación de datos, periodo de certificaciones, permisos
+{
+  const mk = async (doc, email) => { const r = await call(ctx(null), 'auth.register', { name: 'Cuenta ' + doc, doc_number: doc, email, phone: '+56911112222', comuna: 'Ñuñoa', activity: 'Trabajo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1995-05-05', consent_data: true, consent_image: true, consent_belongings: true, password: 'clave-segura-1' });
+    await call(ctx(null), 'auth.verify', { id: r.id, code: r.demo_code }); return db.get('users', r.id); };
+  const doc = '17.777.777-' + R.dv('17777777'), u = await mk(doc, 'cierre@ejemplo.cl');
+  const lab = db.find('spaces', s => s.kind === 'lab' && s.monthly_hours > 0);
+  db.insert('user_certs', { user_id: u.id, certification_id: db.find('certifications', c => c.space_id === lab.id).id, granted_at: now.toISOString() });
+  const fut = db.insert('reservations', { user_id: u.id, space_id: lab.id, start_at: R.atMin(R.addDays(now, 3), 600).toISOString(), end_at: R.atMin(R.addDays(now, 3), 660).toISOString(), status: 'confirmada', charged_min: 60, created_at: now.toISOString() });
+  await rejects(call(ctx(u.id), 'me.closeAccount', { password: 'mala' }), /no es correcta/);
+  await rejects(call(ctx(tomas), 'me.closeAccount', { password: 'demo1234' }), /credenciales/);
+  assert.equal((await call(ctx(u.id), 'me.closeAccount', { password: 'clave-segura-1' })).cancelled, 1);
+  assert.equal(db.get('reservations', fut.id).status, 'cancelada'); assert.ok(db.get('users', u.id).closed_at);
+  assert.ok(db.find('outbox', o => o.to_email === 'cierre@ejemplo.cl' && /fue eliminada/.test(o.subject)));
+  await rejects(call(ctx(null), 'auth.login', { ident: doc, password: 'clave-segura-1' }), /fue eliminada/);
+  await rejects(call(ctx(u.id), 'me.update', { comuna: 'X' }), /Inicia sesión/);
+  assert.equal((await call(ctx(marta), 'access.scan', { code: u.id })).action, 'cerrada');
+  await rejects(call(ctx(admin), 'cert.grant', { certification_id: db.find('certifications', c => c.space_id === lab.id).id, user: u.id }), /No encontramos a esa persona/);
+  // Alguien se registra con el mismo RUT: se ofrece restablecer con un código al correo anterior
+  const again = { name: 'Cuenta Restablecida', doc_number: doc, email: 'nuevo-correo@ejemplo.cl', phone: '+56933334444', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1995-05-05', consent_data: true, consent_image: true, consent_belongings: true, password: 'otra-clave-22' };
+  const off = await call(ctx(null), 'auth.register', again); assert.equal(off.closed, true); assert.equal(off.hint, 'c•••@ejemplo.cl'); assert.equal(off.id, undefined);
+  const code = await call(ctx(null), 'auth.reopenCode', { doc_number: doc }); assert.ok(code.demo_code);
+  await rejects(call(ctx(null), 'auth.reopen', { ...again, code: '000000' }), /no es correcto/);
+  const back = await call(ctx(null), 'auth.reopen', { ...again, code: code.demo_code });
+  assert.equal(back.id, u.id); assert.equal(back.status, 'pendiente_correo'); // correo nuevo: se confirma con otro código
+  await call(ctx(null), 'auth.verify', { id: u.id, code: back.demo_code });
+  const ru = db.get('users', u.id); assert.equal(ru.closed_at, null); assert.equal(ru.name, 'Cuenta Restablecida'); assert.equal(ru.email, 'nuevo-correo@ejemplo.cl'); assert.equal(ru.status, 'activo');
+  assert.ok(db.find('user_certs', c => c.user_id === u.id), 'conserva sus certificaciones');
+  assert.equal((await call(ctx(null), 'auth.login', { ident: doc, password: 'otra-clave-22' })).session, u.id);
+  // Recepción restablece después de revisar el carnet
+  await call(ctx(u.id), 'me.closeAccount', { password: 'otra-clave-22' });
+  const asis = await call(ctx(marta), 'auth.register', { ...again, assisted: true }); assert.equal(asis.id, u.id); assert.equal(asis.closed, true);
+  await rejects(call(ctx(cam), 'user.reopen', { id: u.id }), /credencial/);
+  assert.equal((await call(ctx(marta), 'user.reopen', { id: u.id })).status, 'activo'); assert.equal(db.get('users', u.id).closed_at, null);
+
+  // Pedir eliminación de mis datos: queda pendiente y administración la ejecuta
+  db.insert('visits', { user_id: u.id, in_at: R.addDays(now, -2).toISOString(), out_at: R.addDays(now, -2).toISOString(), source: 'qr' });
+  db.insert('hour_adjustments', { user_id: u.id, space_id: lab.id, period: R.period(now), minutes: -60, kind: 'penalizacion', created_at: now.toISOString() });
+  const keepRes = db.insert('reservations', { user_id: u.id, space_id: lab.id, start_at: R.atMin(R.addDays(now, 4), 600).toISOString(), end_at: R.atMin(R.addDays(now, 4), 660).toISOString(), status: 'confirmada', charged_min: 60, created_at: now.toISOString() });
+  assert.ok((await call(ctx(u.id), 'me.dataRequest', { kind: 'eliminación' })).pending);
+  await rejects(call(ctx(u.id), 'me.dataRequest', { kind: 'eliminación' }), /Ya pediste/);
+  assert.ok(db.find('notifications', n => n.user_id === admin && /eliminación de datos/.test(n.title)));
+  await rejects(call(ctx(marta), 'user.erase', { id: u.id, scope: 'personal', password: 'demo1234' }), /credencial/);
+  await call(ctx(admin), 'user.erase', { id: u.id, scope: 'personal', password: 'demo1234' });
+  const pu2 = db.get('users', u.id);
+  assert.ok(pu2 && !pu2.erase_req_at && !pu2.comuna && !pu2.phone && !pu2.occupation && pu2.name === 'Cuenta Restablecida' && pu2.doc_number === R.normDoc(doc));
+  assert.ok(!db.find('visits', v => v.user_id === u.id && v.out_at), 'borra las visitas');
+  assert.ok(db.find('user_certs', c => c.user_id === u.id) && db.get('reservations', keepRes.id) && db.find('hour_adjustments', a => a.user_id === u.id && a.kind === 'penalizacion'), 'conserva certificaciones, reservas y penalizaciones');
+  assert.ok(db.find('outbox', o => o.to_email === 'nuevo-correo@ejemplo.cl' && /datos personales fueron eliminados/.test(o.subject)), 'correo automático');
+  // Descartar una solicitud
+  await call(ctx(u.id), 'me.dataRequest', { kind: 'eliminación' }); await call(ctx(admin), 'user.eraseDismiss', { id: u.id }); assert.equal(db.get('users', u.id).erase_req_at, null);
+
+  // Penalizar horas y restringir: administración en cualquier lab; el encargado solo en el suyo y sin restringir
+  const own = db.find('spaces', s => s.monthly_hours > 0 && db.find('space_managers', m => m.space_id === s.id && m.user_id === tomas));
+  const other = db.find('spaces', s => s.monthly_hours > 0 && !db.find('space_managers', m => m.space_id === s.id && m.user_id === tomas));
+  await call(ctx(tomas), 'hours.adjust', { user_id: u.id, space_id: own.id, hours: 1, kind: 'penalizacion' });
+  await rejects(call(ctx(tomas), 'hours.adjust', { user_id: u.id, space_id: other.id, hours: 1, kind: 'penalizacion' }), /encargado de este espacio/);
+  await call(ctx(admin), 'hours.adjust', { user_id: u.id, space_id: other.id, hours: 1, kind: 'penalizacion' });
+  await rejects(call(ctx(tomas), 'ban.set', { user_id: u.id, amount: 1, unit: 'dias' }), /credencial/);
+
+  // Certificación con periodo: solo crea sesiones entre las fechas y bloquea el lugar elegido
+  const d0 = R.addDays(now, 7), d1 = R.addDays(now, 7 * 9), room = db.find('spaces', s => s.kind === 'sala' && s.active);
+  const victim = db.insert('reservations', { user_id: cam, space_id: room.id, start_at: R.atMin(R.addDays(now, 14 + ((3 - R.addDays(now, 14).getDay() + 7) % 7)), 900).toISOString(), end_at: R.atMin(R.addDays(now, 14 + ((3 - R.addDays(now, 14).getDay() + 7) % 7)), 960).toISOString(), status: 'confirmada', charged_min: 0, created_at: now.toISOString() });
+  await rejects(call(ctx(tomas), 'cert.save', { name: 'Periodo', space_id: own.id, weekday: 3, time_min: 900, duration_min: 60, seats: 2, place_id: room.id }), /encargado de este espacio/);
+  await rejects(call(ctx(admin), 'cert.save', { name: 'Periodo', space_id: own.id, weekday: 3, time_min: 900, starts_on: R.dayKey(d1), ends_on: R.dayKey(d0) }), /posterior/);
+  const cs = await call(ctx(admin), 'cert.save', { name: 'Periodo', space_id: own.id, weekday: 3, time_min: 900, duration_min: 60, seats: 2, starts_on: R.dayKey(d0), ends_on: R.dayKey(d1), place_id: room.id });
+  const ses = db.where('cert_sessions', x => x.certification_id === cs.id);
+  assert.ok(ses.length >= 8 && ses.length <= 9, 'una sesión por semana en el periodo: ' + ses.length);
+  assert.ok(ses.every(x => R.dayKey(x.start_at) >= R.dayKey(d0) && R.dayKey(x.start_at) <= R.dayKey(d1) && new Date(x.start_at).getDay() === 3));
+  assert.equal(cs.cancelled, 1); assert.equal(db.get('reservations', victim.id).status, 'cancelada');
+  assert.ok(db.find('notifications', n => n.user_id === cam && /por una certificación/.test(n.title)));
+  assert.match(Q.unavailable(db, room, null, new Date(ses[0].start_at), new Date(T(ses[0].start_at) + 30 * 60000)) || '', /certificación/);
+  assert.equal(Q.unavailable(db, own, null, new Date(ses[0].start_at), new Date(T(ses[0].start_at) + 30 * 60000)), null, 'el laboratorio queda libre si las sesiones son en otro lugar');
+  // Sin bloquear: el lugar queda libre. Al cambiar el día, las sesiones vacías se rehacen
+  await call(ctx(admin), 'cert.save', { id: cs.id, name: 'Periodo', space_id: own.id, weekday: 4, time_min: 900, duration_min: 60, seats: 2, starts_on: R.dayKey(d0), ends_on: R.dayKey(d1), place_id: room.id, block_place: false });
+  const ses2 = db.where('cert_sessions', x => x.certification_id === cs.id && T(x.start_at) > +now);
+  assert.ok(ses2.length && ses2.every(x => new Date(x.start_at).getDay() === 4));
+  assert.equal(Q.unavailable(db, room, null, new Date(ses2[0].start_at), new Date(T(ses2[0].start_at) + 30 * 60000)), null);
+  // Cupos llenos: no se puede inscribir
+  const s0 = ses2[0]; for (const x of [cam, tomas]) db.insert('cert_enrollments', { session_id: s0.id, user_id: x, status: 'inscrito' });
+  await rejects(call(ctx(u.id), 'cert.enroll', { session_id: s0.id }), /No quedan cupos/);
+  // Terminado el periodo no se crean más sesiones
+  const n0 = db.where('cert_sessions', x => x.certification_id === cs.id).length; tick({ db, uid: null, now: R.addDays(now, 80), demo: true });
+  assert.equal(db.where('cert_sessions', x => x.certification_id === cs.id).length, n0);
 }
 
 const st = Q.stats(db, R.addDays(now, -30), now, now), occ = Q.occupancy(db, now);

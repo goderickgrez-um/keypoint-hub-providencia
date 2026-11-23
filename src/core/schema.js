@@ -12,7 +12,8 @@ export const TABLES = {
       comuna: 'text?', activity: 'text?', occupation: 'text?', gender: 'text?', birth_date: 'date?',
       reduced_mobility: 'bool=false', photo: 'text?', password_hash: 'text?', email_verified: 'bool=false',
       status: 'text=activo', guardian_id: 'users?', guardian_ok: 'bool=false', consent_data: 'bool=false', consent_image: 'bool=false',
-      consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?', intern: 'bool=false' },
+      consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?', intern: 'bool=false',
+      closed_at: 'ts?', erase_req_at: 'ts?' }, // closed_at: la persona eliminó su cuenta (se puede restablecer); erase_req_at: pidió borrar sus datos
     unique: ['doc_number'], index: ['email'],
     check: ["status in ('pendiente_correo','pendiente_adulto','activo')"] },
 
@@ -42,9 +43,10 @@ export const TABLES = {
   certifications: { doc: 'Certificaciones por laboratorio, con niveles opcionales y vigencia.',
     cols: { id: 'int', space_id: 'spaces', name: 'text', level: 'int=1', validity_months: 'int?', weekday: 'int=2',
       time_min: 'int=720', duration_min: 'int=90', seats: 'int=6', cost: 'int=0', diploma_download: 'bool=true',
-      instructor_id: 'users?', active: 'bool=true' } },
+      instructor_id: 'users?', active: 'bool=true',
+      starts_on: 'date?', ends_on: 'date?', place_id: 'spaces?', block_place: 'bool=true' } }, // periodo en que se imparte y espacio que se bloquea en cada sesión
 
-  cert_sessions: { doc: 'Sesiones semanales de certificación. Bloquean el laboratorio mientras duran.',
+  cert_sessions: { doc: 'Sesiones semanales de certificación, solo dentro del periodo de la certificación. Bloquean su lugar mientras duran.',
     cols: { id: 'int', certification_id: 'certifications', start_at: 'ts', end_at: 'ts', seats: 'int=6', status: 'text=abierta' } },
 
   cert_enrollments: { doc: 'Inscripciones a una sesión y su resultado.',

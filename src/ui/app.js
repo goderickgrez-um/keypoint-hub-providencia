@@ -34,13 +34,18 @@ function morph(root, html) {
       if (n.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
       for (const { name } of [...o.attributes]) if (!n.hasAttribute(name) && !(name === 'open' && o.tagName === 'DETAILS')) o.removeAttribute(name);
       for (const { name, value } of [...n.attributes]) if (o.getAttribute(name) !== value) o.setAttribute(name, value);
+      // Lo escrito o elegido (S.f) manda sobre el HTML: las ventanas se dibujan una vez y, sin esto,
+      // cada redibujo devolvía sus campos y listas al valor con que se abrieron.
+      const k = o.dataset?.i, has = k != null && S.f[k] != null;
       if (o.tagName === 'INPUT' || o.tagName === 'TEXTAREA') {
-        if (o.type === 'checkbox' || o.type === 'radio') o.checked = n.hasAttribute('checked');
-        else if (o.type !== 'file' && o !== document.activeElement) o.value = n.tagName === 'TEXTAREA' ? n.value : (n.getAttribute('value') ?? '');
+        if (o.type === 'checkbox') o.checked = has ? !!S.f[k] : n.hasAttribute('checked');
+        else if (o.type === 'radio') o.checked = has ? String(S.f[k]) === o.value : n.hasAttribute('checked');
+        else if (o.type !== 'file' && o !== document.activeElement) o.value = has ? String(S.f[k]) : n.tagName === 'TEXTAREA' ? n.value : (n.getAttribute('value') ?? '');
         if (o.tagName === 'TEXTAREA') return;
       }
       patch(o, n);
-      if (o.tagName === 'SELECT') { const s = n.querySelector('option[selected]'); o.value = s ? s.value : o.options[0]?.value ?? ''; }
+      if (o.tagName === 'SELECT') { const s = n.querySelector('option[selected]'), want = has && [...o.options].some(x => x.value === String(S.f[k])) ? String(S.f[k]) : null;
+        o.value = want ?? (s ? s.value : o.options[0]?.value ?? ''); }
     });
     for (let i = a.length - 1; i >= b.length; i--) a[i].remove();
   };

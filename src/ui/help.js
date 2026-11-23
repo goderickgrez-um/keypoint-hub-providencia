@@ -45,7 +45,7 @@ export const GUIDES = {
     ['.file, input[type=file]', 'Sube el archivo de tu trabajo. El encargado lo revisa antes de confirmar.'],
     ['[data-a="bk-lab"]', 'Indica la duración, elige la hora y confirma. Se descuenta de tus horas del mes.']] },
   'u-cert': { title: 'Certificaciones', steps: [
-    [null, 'Cada laboratorio pide su certificación. Se imparte una vez por semana en el Hub.'],
+    [null, 'Cada laboratorio pide su certificación. Se imparte una vez por semana en el Hub, durante el periodo que indica cada una.'],
     ['[data-a="cert-enroll"]', 'Toca Inscribirme en una sesión con cupos. Las sesiones llenas no se pueden elegir.'],
     [null, 'Tu inscripción aparece en Mis reservas y en Tu próxima reserva.']] },
   'u-eventos': { title: 'Eventos', steps: [
@@ -67,6 +67,11 @@ export const GUIDES = {
   'u-notif': { title: 'Notificaciones', steps: [[null, 'Avisos de tus reservas, cancelaciones, archivos revisados y autorizaciones de menores.']] },
   'u-hist': { title: 'Historial', steps: [[null, 'Tus reservas y visitas anteriores.']] },
   'u-config': { title: 'Configuración', steps: [[null, 'Idioma, apariencia, contraseña y privacidad de tus datos.']] },
+  'u-priv': { title: 'Privacidad y mis datos', steps: [
+    [null, 'Puedes pedir una copia de tus datos o pedir que se eliminen. Si pides la eliminación, conservas tu cuenta, tus certificaciones, tus horas y tus reservas.'],
+    ['[data-a="close-ask"]', 'Eliminar mi cuenta la deja inactiva. Si vuelves a registrarte con tu mismo RUT, puedes restablecerla con un código que llega a tu correo anterior.']] },
+  'u-reopen': { title: 'Restablecer mi cuenta', steps: [
+    [null, 'Escribe el código que llegó al correo de tu cuenta anterior. Recuperarás tu ID, tu QR, tus certificaciones y tus horas, con los datos que escribiste en el registro.']] },
   // ---- Personal
   'a-panel': { title: 'Panel', steps: [
     ['.side', 'El menú muestra solo las secciones de tu credencial.'],

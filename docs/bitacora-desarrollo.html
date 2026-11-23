@@ -201,6 +201,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <td>2.6.0</td>
 <td>Ayudas en inglés y portugués, manual actualizado, informe de QA</td>
 </tr>
+<tr>
+<td>Cuentas, datos y certificaciones</td>
+<td>22 nov. 2026</td>
+<td>2.7.0</td>
+<td>Eliminar y restablecer cuenta, pedir eliminación de datos, periodo de certificaciones, arreglo de listas en ventanas</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -398,6 +404,20 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li class="done">Pruebas de QA: núcleo, funcionamiento por rol, servidor con PostgreSQL y migración desde 2.5.1, seguridad, accesibilidad, tamaños de pantalla, idiomas y carga. Resultado en <code>docs/informe-qa.pdf</code>; scripts en <code>tools/qa/</code>.</li>
 </ul>
 <p><strong>Defectos encontrados por QA y corregidos:</strong> contraste de la etiqueta DEMO, dos desbordes horizontales (gráficos de Datos y etiquetas en teléfonos de 320 px), bloqueo de cuentas que un tercero podía provocar con 8 intentos fallidos, textos sin traducir y un botón de la ayuda que se partía en inglés.</p>
+<h3>5.15 Cuentas, datos y certificaciones (versión 2.7.0, 22 de noviembre)</h3>
+<p><strong>Solicitud.</strong> Confirmar la lógica de pasantía y de penalizaciones, corregir la lista de laboratorios al penalizar, permitir que la persona elimine su cuenta y la restablezca con su RUT, cambiar «Pedir eliminación de mi cuenta» por «Pedir eliminación de mis datos», agregar el periodo de las certificaciones con bloqueo del laboratorio, y explicar cómo podría hacerse un formulario de registro configurable.</p>
+<p><strong>Decisiones del equipo:</strong> al restablecer se recupera todo con los datos nuevos; se verifica con un código al correo anterior o, sin acceso, en recepción con el carnet; la eliminación de datos la aprueba administración y borra historial y datos opcionales del perfil; los cupos siguen siendo por sesión; la certificación se ve apenas se guarda y el periodo limita las sesiones que se crean. El formulario configurable queda solo como propuesta.</p>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Confirmado: al salir de la oficina de pasantía se queda en el cowork hasta marcar salida en recepción.</li>
+<li class="done">Confirmado: administración penaliza en cualquier laboratorio y restringe; el encargado solo penaliza en los suyos.</li>
+<li class="done">Corregido: las listas, campos y casillas de las ventanas volvían a su valor inicial al redibujarse.</li>
+<li class="done">Eliminar mi cuenta y restablecerla con el mismo RUT (código al correo anterior o recepción).</li>
+<li class="done">Pedir la eliminación de mis datos, con aprobación de administración y correo automático.</li>
+<li class="done">Periodo de las certificaciones, lugar de las sesiones y bloqueo con cancelación avisada de reservas que chocan.</li>
+<li class="done">Ayudas, preguntas frecuentes, traducciones y manual.</li>
+<li class="done">Pruebas: núcleo, navegador (demostración), servidor con PostgreSQL y migración desde 2.6.0, seguridad, accesibilidad, tamaños de pantalla e idiomas.</li>
+</ul>
 <hr />
 <h2>6. Evolución técnica</h2>
 <table>
@@ -405,7 +425,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <th>Aspecto</th>
 <th>Primera entrega (1.0.0)</th>
-<th>Versión 2.6.0</th>
+<th>Versión 2.7.0</th>
 </tr>
 </thead>
 <tbody>
@@ -466,6 +486,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li><strong>Seguridad:</strong> inyección SQL sin efecto, archivos no permitidos rechazados, bloqueo tras intentos fallidos, sesiones revocadas.</li>
 <li><strong>Accesibilidad:</strong> axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.</li>
 <li><strong>QA de la versión 2.6.0:</strong> informe completo en <code>docs/informe-qa.pdf</code>, con los resultados por área, los defectos corregidos y lo que falta probar en el Hub.</li>
+<li><strong>Versión 2.7.0:</strong> pruebas del núcleo, 47 verificaciones en el navegador y 30 contra el servidor real para las funciones nuevas; repetidas las de versiones anteriores, seguridad (34), accesibilidad (98 revisiones), tamaños de pantalla e idiomas. Detalle en la sección 8 de <code>docs/informe-qa.pdf</code>.</li>
 <li><strong>Pendiente de verificación en terreno:</strong> la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.</li>
 </ul>
 <hr />
@@ -477,7 +498,8 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li>Respaldos cifrados fuera del equipo (la base y el archivo <code>.data-key</code> juntos).</li>
 <li>Prueba con personas que usan lectores de pantalla.</li>
 <li>Revisión de seguridad externa antes del uso definitivo.</li>
-<li>Etiquetar las versiones en Git (<code>git tag v2.6.0</code>) al subir cada entrega.</li>
+<li>Etiquetar las versiones en Git (<code>git tag v2.7.0</code>) al subir cada entrega.</li>
+<li>Formulario de registro configurable (propuesta de la versión 2.7.0): campos opcionales activables y editables, y luego un constructor de campos nuevos con análisis en Datos.</li>
 </ol>
 <hr />
 <h2>Anexo · Equivalencia de versiones</h2>
@@ -534,8 +556,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <td>2.5.1</td>
 </tr>
 <tr>
-<td>Esta entrega</td>
+<td>Idiomas, manual y QA</td>
 <td>2.6.0</td>
+</tr>
+<tr>
+<td>Esta entrega</td>
+<td>2.7.0</td>
 </tr>
 </tbody>
 </table></body></html>

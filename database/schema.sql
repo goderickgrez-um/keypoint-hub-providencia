@@ -38,6 +38,8 @@ create table if not exists users (
   deleted_at timestamptz,
   sessions_after timestamptz,
   intern boolean not null default false,
+  closed_at timestamptz,
+  erase_req_at timestamptz,
   unique (doc_number),
   check (status in ('pendiente_correo','pendiente_adulto','activo'))
 );
@@ -66,6 +68,8 @@ alter table users add column if not exists created_at timestamptz;
 alter table users add column if not exists deleted_at timestamptz;
 alter table users add column if not exists sessions_after timestamptz;
 alter table users add column if not exists intern boolean default false;
+alter table users add column if not exists closed_at timestamptz;
+alter table users add column if not exists erase_req_at timestamptz;
 create index if not exists users_email_idx on users (email);
 
 -- Códigos de un solo uso para confirmar el correo o entrar sin contraseña.
@@ -192,7 +196,11 @@ create table if not exists certifications (
   cost integer not null default 0,
   diploma_download boolean not null default true,
   instructor_id text references users(id) on delete set null,
-  active boolean not null default true
+  active boolean not null default true,
+  starts_on date,
+  ends_on date,
+  place_id integer references spaces(id) on delete set null,
+  block_place boolean not null default true
 );
 alter table certifications add column if not exists space_id integer references spaces(id) on delete cascade;
 alter table certifications add column if not exists name text;
@@ -206,8 +214,12 @@ alter table certifications add column if not exists cost integer default 0;
 alter table certifications add column if not exists diploma_download boolean default true;
 alter table certifications add column if not exists instructor_id text references users(id) on delete set null;
 alter table certifications add column if not exists active boolean default true;
+alter table certifications add column if not exists starts_on date;
+alter table certifications add column if not exists ends_on date;
+alter table certifications add column if not exists place_id integer references spaces(id) on delete set null;
+alter table certifications add column if not exists block_place boolean default true;
 
--- Sesiones semanales de certificación. Bloquean el laboratorio mientras duran.
+-- Sesiones semanales de certificación, solo dentro del periodo de la certificación. Bloquean su lugar mientras duran.
 create table if not exists cert_sessions (
   id integer primary key,
   certification_id integer not null references certifications(id) on delete cascade,

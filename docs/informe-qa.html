@@ -11,8 +11,8 @@ table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9p
 th, td { border: .25mm solid #000; padding: 1.6mm 2mm; text-align: left; vertical-align: top; } th { font-weight: 700; border-bottom: .6mm solid #000; }
 tr { break-inside: avoid; } code { font-family: 'DejaVu Sans Mono', Consolas, monospace; font-size: 8.8pt; }
 h1 + p { font-size: 10.5pt; }
-</style></head><body><h1>Informe de QA · Keypoint Hub Providencia 2.6.0</h1>
-<p>Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués.</p>
+</style></head><body><h1>Informe de QA · Keypoint Hub Providencia 2.6.0 y 2.7.0</h1>
+<p>Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués. La sección 8 agrega las pruebas de la versión 2.7.0.</p>
 <h2>1. Resumen</h2>
 <table>
 <thead>
@@ -218,6 +218,65 @@ h1 + p { font-size: 10.5pt; }
 <li class="todo">Probar en Safari (iPhone) y Firefox: ingreso, reserva, ayuda y diploma.</li>
 <li class="todo">Recorrer Inicio con VoiceOver o TalkBack.</li>
 <li class="todo">Descargar el diploma de una certificación aprobada y abrirlo en el teléfono.</li>
+<li class="todo">2.7.0: con una cuenta de prueba, «Eliminar mi cuenta», recibir el correo real, registrarse de nuevo con el mismo RUT y restablecerla con el código.</li>
+<li class="todo">2.7.0: «Pedir la eliminación de mis datos», ejecutarla en Usuarios y confirmar que llega el correo.</li>
+<li class="todo">2.7.0: definir el periodo de una certificación real con «Bloquear ese lugar» y revisar la agenda del laboratorio.</li>
 </ul>
 <h2>7. Cómo repetir las pruebas</h2>
-<p>Los scripts están en <code>tools/qa/</code>, con instrucciones en <code>tools/qa/LEEME.md</code>. Las pruebas de seguridad y de carga deben ejecutarse contra una base de prueba, nunca contra la del Hub.</p></body></html>
+<p>Los scripts están en <code>tools/qa/</code>, con instrucciones en <code>tools/qa/LEEME.md</code>. Las pruebas de seguridad y de carga deben ejecutarse contra una base de prueba, nunca contra la del Hub.</p>
+<h2>8. Pruebas de la versión 2.7.0</h2>
+<p>Funciones nuevas: eliminar y restablecer cuenta, pedir la eliminación de datos, periodo de certificaciones con lugar bloqueado y la corrección de las listas en ventanas.</p>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Pruebas</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reglas del núcleo</td>
+<td>Pasantía (cowork sin plazo hasta la salida), eliminar y restablecer cuenta, recepción restablece, eliminación de datos, permisos de penalización, periodo, lugar bloqueado, cupos llenos</td>
+<td>Todas correctas</td>
+</tr>
+<tr>
+<td>Navegador (modo demostración)</td>
+<td>47 verificaciones con axe en las pantallas nuevas (<code>funciones-2.7.cjs</code>)</td>
+<td>Todas correctas, sin errores de JavaScript</td>
+</tr>
+<tr>
+<td>Servidor real con PostgreSQL</td>
+<td>30 verificaciones: códigos por correo, sesiones invalidadas, correos automáticos, permisos, sesiones dentro del periodo (<code>cuentas.mjs</code>)</td>
+<td>Todas correctas</td>
+</tr>
+<tr>
+<td>Migración</td>
+<td>Base creada con la 2.6.0 y abierta con el servidor 2.7.0</td>
+<td>Columnas nuevas agregadas sin perder datos</td>
+</tr>
+<tr>
+<td>Regresión</td>
+<td>Pruebas por versión (87), recorrido de 39 pantallas, servidor (sesiones 17, API 8, app publicada), seguridad (34), carga</td>
+<td>Todas correctas</td>
+</tr>
+<tr>
+<td>Accesibilidad</td>
+<td>98 revisiones (49 pantallas, claro y oscuro) más las pantallas nuevas</td>
+<td>Sin infracciones</td>
+</tr>
+<tr>
+<td>Tamaños de pantalla</td>
+<td>195 combinaciones y la app de usuarios en inglés y portugués</td>
+<td>Sin desbordes</td>
+</tr>
+<tr>
+<td>Rendimiento</td>
+<td>50 sesiones simultáneas</td>
+<td>309 pedidos por segundo, p95 238 ms, 0 errores</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Defecto corregido (D7, media):</strong> en las ventanas, al cambiar una lista se redibujaba la ventana y sus listas, campos y casillas volvían al valor con que se abrieron. En «Penalizar horas», el cuadro mostraba el primer laboratorio aunque se aplicaba el elegido. Reproducido en la 2.6.0 y verificado corregido en la 2.7.0.</p>
+<p><strong>Ajustes en las pruebas antiguas:</strong> la ventana de borrado ahora tiene cuatro opciones (se agregó «datos personales»). Las pruebas de seguridad necesitan <code>ALLOWED_ORIGIN</code> con la dirección de GitHub Pages para verificar CORS, y el bloqueo por intentos fallidos se reinicia solo al reiniciar el servidor: conviene ejecutar <code>cuentas.mjs</code> con un servidor recién iniciado.</p>
+<p><strong>No verificado:</strong> el correo real de cuenta eliminada y de datos eliminados (en las pruebas quedan en la bandeja de salida) y el uso en el Acer.</p></body></html>

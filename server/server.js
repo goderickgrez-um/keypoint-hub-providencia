@@ -49,7 +49,7 @@ function tokenInfo(tok) {
   const p = JSON.parse(Buffer.from(body, 'base64url').toString()); const u = db.get('users', p.uid); // la sesión se cierra si la cuenta se borró o cambió su contraseña después de entrar
   const s = p.sid && db.get('sessions', p.sid);
   if (p.sid && (!s || s.revoked_at || s.user_id !== p.uid)) return null;
-  return (!p.exp || p.exp > Date.now()) && u && !u.deleted_at && !(u.sessions_after && +new Date(u.sessions_after) > (p.iat || 0) + 999) ? p : null;
+  return (!p.exp || p.exp > Date.now()) && u && !u.deleted_at && !u.closed_at && !(u.sessions_after && +new Date(u.sessions_after) > (p.iat || 0) + 999) ? p : null;
 }
 const bearer = req => (req.headers.authorization || '').replace(/^Bearer /, '');
 const uidOf = req => verify(bearer(req));
@@ -142,7 +142,7 @@ async function api(req, res, path) {
   if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, new URL(req.url, 'http://x').searchParams.get('since')));
   if (path === '/api/rpc' && req.method === 'POST') {
     let name, args; try { ({ name, args } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
-    const ip = ipOf(req), erase = name === 'user.erase', auth = String(name).startsWith('auth.') || erase, who = erase ? 'admin:' + uid : auth ? String(args?.ident || args?.id || '').toLowerCase().replace(/[.\s-]/g, '') : '';
+    const ip = ipOf(req), erase = name === 'user.erase' || name === 'me.closeAccount', auth = String(name).startsWith('auth.') || erase, who = erase ? 'pass:' + uid : auth ? String(args?.ident || args?.id || args?.doc_number || '').toLowerCase().replace(/[.\s-]/g, '') : '';
     if (name === 'auth.logout') { const p = tokenInfo(bearer(req)); if (p?.sid) await commit(() => db.update('sessions', p.sid, { revoked_at: new Date().toISOString() })); return json(res, 200, { result: { ok: true } }); }
     if (auth && blocked(ip, who)) return json(res, 429, { error: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
     try {

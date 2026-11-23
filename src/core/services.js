@@ -18,7 +18,10 @@ function dataUrl(v, max, pdf) {
 }
 export function fail(msg) { const e = new Error(msg); e.user = true; throw e; }
 
-const me = ctx => (ctx.uid && ctx.db.get('users', ctx.uid)) || fail('Inicia sesión para continuar');
+const me = ctx => { const u = ctx.uid && ctx.db.get('users', ctx.uid); return u && !u.closed_at ? u : fail('Inicia sesión para continuar'); };
+const CLOSED = 'Esta cuenta fue eliminada. Para volver a usarla, crea una cuenta con tu mismo RUT y elige restablecerla';
+/** Busca un perfil que pueda usarse (no eliminado ni cerrado por la persona). */
+const openUser = (db, code) => { const u = Q.findUser(db, code); return u && !u.closed_at ? u : null; };
 const roles = ctx => (ctx.uid ? Q.rolesOf(ctx.db, ctx.uid) : []);
 const has = (ctx, ...r) => { const rs = roles(ctx); return rs.includes('admin') || r.some(x => rs.includes(x)); };
 const need = (ctx, ...r) => has(ctx, ...r) || fail('Tu credencial no permite esta acción');
@@ -73,15 +76,22 @@ function useCode(ctx, u, code) {
   ctx.db.where('auth_codes', x => x.user_id === u.id && !x.used).forEach(x => ctx.db.update('auth_codes', x.id, { used: true }));
 }
 
-async function createUser(ctx, d, assisted) {
+/** Cuenta eliminada por la propia persona con el documento indicado (se puede restablecer). */
+const closedByDoc = (db, d) => { const num = R.normDoc(d?.doc_number); return num ? db.find('users', u => u.doc_number === num && u.closed_at && !u.deleted_at) : null; };
+/** Correo con la mayor parte oculta: c•••@gmail.com */
+const maskMail = e => (e ? e.replace(/^(.)[^@]*(@.*)$/, '$1•••$2') : null);
+
+async function createUser(ctx, d, assisted) { return ctx.db.insert('users', await userRow(ctx, d, assisted)); }
+/** Valida los datos del formulario de registro. self = cuenta que se restablece (puede conservar su RUT y su correo). */
+async function userRow(ctx, d, assisted, self = null) {
   const db = ctx.db, name = (d.name || '').trim();
   if (name.length < 3) fail('Escribe el nombre completo');
   const type = d.doc_type || 'rut', num = R.normDoc(d.doc_number);
   if (type !== 'pasaporte' ? !R.rutOk(num) : num.length < 5) fail(type === 'pasaporte' ? 'Escribe el número de pasaporte' : 'El RUT no es válido. Revisa el dígito verificador');
-  if (db.find('users', u => u.doc_number === num)) fail('Ese documento ya tiene un perfil');
+  if (db.find('users', u => u.doc_number === num && u.id !== self?.id)) fail('Ese documento ya tiene un perfil');
   const email = (d.email || '').trim().toLowerCase();
   if (email ? !R.emailOk(email) : !assisted) fail('Escribe un correo válido');
-  if (email && db.find('users', u => u.email === email)) fail('Ese correo ya tiene un perfil');
+  if (email && db.find('users', u => u.email === email && u.id !== self?.id)) fail('Ese correo ya tiene un perfil');
   for (const [k, label] of [['comuna', 'la comuna'], ['activity', 'tu actividad en Providencia'], ['occupation', 'a qué te dedicas'], ['gender', 'el género'], ['birth_date', 'la fecha de nacimiento']]) if (!d[k]) fail('Falta ' + label);
   if (!assisted && !d.phone) fail('Falta el celular');
   const years = R.age(d.birth_date, N(ctx));
@@ -89,14 +99,28 @@ async function createUser(ctx, d, assisted) {
   if (!d.consent_data || !d.consent_image || !d.consent_belongings) fail('Debes aceptar las tres declaraciones');
   if (d.password && d.password.length < 8) fail('La contraseña debe tener al menos 8 caracteres');
   if (!assisted && !d.password) fail('Crea una contraseña de al menos 8 caracteres');
-  const verified = !!assisted || !email;
-  return db.insert('users', {
+  // Al restablecer, el correo que ya estaba confirmado sigue confirmado; uno nuevo se confirma con un código
+  const verified = !!assisted || !email || (self && self.email_verified && self.email === email);
+  const keepGuardian = self && years < 18 && self.guardian_ok;
+  const row = {
     doc_type: type, doc_number: num, name, email: email || null, phone: d.phone || null, comuna: d.comuna, activity: d.activity,
     occupation: d.occupation, gender: d.gender, birth_date: d.birth_date, reduced_mobility: !!d.reduced_mobility,
-    password_hash: d.password ? await hashPass(d.password) : null, photo: dataUrl(d.photo, 600e3), email_verified: verified,
-    status: !verified ? 'pendiente_correo' : years < 18 ? 'pendiente_adulto' : 'activo', guardian_ok: false,
-    consent_data: true, consent_image: true, consent_belongings: true, lang: d.lang || 'es', created_at: iso(N(ctx)),
-  });
+    password_hash: d.password ? await hashPass(d.password) : self?.password_hash ?? null, photo: d.photo ? dataUrl(d.photo, 600e3) : self?.photo ?? null, email_verified: !!verified,
+    status: !verified ? 'pendiente_correo' : years < 18 && !keepGuardian ? 'pendiente_adulto' : 'activo', guardian_ok: !!keepGuardian,
+    consent_data: true, consent_image: true, consent_belongings: true, lang: d.lang || 'es',
+  };
+  if (!self) row.created_at = iso(N(ctx));
+  return row;
+}
+/** Restablece una cuenta eliminada por su dueña o dueño, con los datos nuevos (si vienen). Conserva su ID, QR e historial. */
+async function reopen(ctx, u, d, assisted) {
+  const db = ctx.db, patch = d ? await userRow(ctx, { ...d, doc_type: d.doc_type || u.doc_type, doc_number: u.doc_number }, assisted, u) : {};
+  if (!d) patch.status = u.email_verified || !u.email ? (minorAt(ctx, u) && !u.guardian_ok ? 'pendiente_adulto' : 'activo') : 'pendiente_correo';
+  db.update('users', u.id, { ...patch, closed_at: null, sessions_after: iso(N(ctx)) });
+  const v = db.get('users', u.id);
+  notify(ctx, v.id, 'Tu cuenta fue restablecida', 'Recuperaste tu ID, tu código QR, tus certificaciones, tus horas y tu historial en el Hub.');
+  audit(ctx, 'restablece cuenta', 'users', v.id, assisted ? 'en recepción' : 'con código al correo');
+  return v;
 }
 
 /** Un número de cupos, aforo o cantidad: entero y nunca negativo. */
@@ -108,7 +132,7 @@ function checkAge(ctx, birth) {
   if (y < lo || y > hi) fail(`La edad debe estar entre ${lo} y ${hi} años`);
 }
 function askGuardian(ctx, minor, code) {
-  const db = ctx.db, adult = Q.findUser(db, code);
+  const db = ctx.db, adult = openUser(db, code);
   if (!adult || adult.id === minor.id) fail('No encontramos a ese adulto. Debe tener un perfil en el Hub');
   if (adult.status !== 'activo' || minorAt(ctx, adult) || Q.activeBan(db, adult.id, N(ctx))) fail('Esa persona no puede autorizar perfiles');
   db.update('users', minor.id, { guardian_id: adult.id, guardian_ok: false });
@@ -179,6 +203,7 @@ function scan(ctx, { code, at, source = 'qr', dry }) {
       .map(r => ({ id: r.id, space: db.get('spaces', r.space_id)?.name, resource: db.get('resources', r.resource_id)?.name || null, start_at: r.start_at, end_at: r.end_at, status: r.status })),
   };
   if (dry) return base;
+  if (u.closed_at) return { ...base, action: 'cerrada' };
   if (ban) return { ...base, action: 'restringido' };
   if (u.status !== 'activo') return { ...base, action: 'pendiente' };
   const open = db.find('visits', v => v.user_id === u.id && !v.out_at);
@@ -201,12 +226,14 @@ function scan(ctx, { code, at, source = 'qr', dry }) {
   return { ...base, inside: true, action: 'entrada', attended, zone: zone?.name || null, zoneByReservation: !!r0, next: next ? { id: next.id, space: db.get('spaces', next.space_id)?.name, start_at: next.start_at } : null };
 }
 
-export const PUBLIC = ['auth.register', 'auth.verify', 'auth.login', 'auth.code', 'auth.codeLogin', 'auth.google', 'auth.guardian', 'system.tick'];
+export const PUBLIC = ['auth.register', 'auth.reopenCode', 'auth.reopen', 'auth.verify', 'auth.login', 'auth.code', 'auth.codeLogin', 'auth.google', 'auth.guardian', 'system.tick'];
 
 export const SERVICES = {
   // ---------------------------------------------------------------- Acceso
   async 'auth.register'(ctx, d) {
-    const assisted = !!d.assisted && has(ctx, 'recepcion');
+    const assisted = !!d.assisted && has(ctx, 'recepcion'), old = closedByDoc(ctx.db, d);
+    // RUT de una cuenta que la persona eliminó: se ofrece restablecerla en vez de crear otra
+    if (old) return assisted ? { closed: true, id: old.id, name: old.name } : { closed: true, hint: maskMail(old.email) };
     const u = await createUser(ctx, d, assisted);
     if (assisted) audit(ctx, 'registro asistido', 'users', u.id);
     const out = { id: u.id, status: u.status };
@@ -215,8 +242,25 @@ export const SERVICES = {
     if (u.status !== 'pendiente_correo' && !assisted) out.session = u.id;
     return out;
   },
+  /** Envía el código para restablecer una cuenta eliminada al correo que tenía esa cuenta. */
+  'auth.reopenCode'(ctx, d) {
+    const u = closedByDoc(ctx.db, d) || fail('No hay una cuenta eliminada con ese documento');
+    if (!u.email) fail('Esa cuenta no tiene correo. Acércate a recepción con tu carnet para restablecerla');
+    return { hint: maskMail(u.email), ...sendCode(ctx, u, 'restablecer') };
+  },
+  /** Restablece la cuenta con el código del correo anterior y los datos nuevos del formulario. */
+  async 'auth.reopen'(ctx, d) {
+    const u = closedByDoc(ctx.db, d) || fail('No hay una cuenta eliminada con ese documento');
+    useCode(ctx, u, d.code);
+    const v = await reopen(ctx, u, d, false), out = { id: v.id, status: v.status };
+    if (v.status === 'pendiente_correo') Object.assign(out, sendCode(ctx, v, 'correo'));
+    if (d.guardian && v.status === 'pendiente_adulto') out.guardian = askGuardian(ctx, v, d.guardian).adult;
+    if (v.status !== 'pendiente_correo') out.session = v.id;
+    return out;
+  },
   'auth.verify'(ctx, { id, ident, code }) {
     const u = (id && ctx.db.get('users', id)) || Q.findUser(ctx.db, ident) || fail('No encontramos ese perfil');
+    if (u.closed_at) fail(CLOSED);
     useCode(ctx, u, code);
     ctx.db.update('users', u.id, { email_verified: true }); settle(ctx, u);
     return { session: u.id };
@@ -224,15 +268,17 @@ export const SERVICES = {
   async 'auth.login'(ctx, { ident, password }) {
     const u = Q.findUser(ctx.db, ident);
     if (!u || !(await checkPass(password, u.password_hash))) fail('RUT, correo o contraseña incorrectos');
+    if (u.closed_at) fail(CLOSED);
     if (u.status === 'pendiente_correo') return { need: 'correo', id: u.id, ...sendCode(ctx, u, 'correo') };
     return { session: u.id };
   },
   'auth.code'(ctx, { ident, id }) {
     const u = (id && ctx.db.get('users', id)) || Q.findUser(ctx.db, ident);
-    return { sent: true, minutes: +ctx.db.cfg('code_minutes') || 15, ...(u?.email ? sendCode(ctx, u, u.email_verified ? 'ingreso' : 'correo') : {}) };
+    return { sent: true, minutes: +ctx.db.cfg('code_minutes') || 15, ...(u?.email && !u.closed_at ? sendCode(ctx, u, u.email_verified ? 'ingreso' : 'correo') : {}) };
   },
   'auth.codeLogin'(ctx, { ident, code }) {
     const u = Q.findUser(ctx.db, ident) || fail('El código no es correcto o ya venció');
+    if (u.closed_at) fail(CLOSED);
     useCode(ctx, u, code);
     if (!u.email_verified) { ctx.db.update('users', u.id, { email_verified: true }); settle(ctx, u); }
     return { session: u.id };
@@ -241,11 +287,13 @@ export const SERVICES = {
     const email = ctx.verifyGoogle ? await ctx.verifyGoogle(credential) : JSON.parse(atob(String(credential).split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).email;
     const u = email && ctx.db.find('users', x => x.email === String(email).toLowerCase());
     if (!u) fail('No hay un perfil con ese correo. Crea tu cuenta primero');
+    if (u.closed_at) fail(CLOSED);
     if (!u.email_verified) { ctx.db.update('users', u.id, { email_verified: true }); settle(ctx, u); }
     return { session: u.id };
   },
   'auth.guardian'(ctx, { id, code }) {
     const u = ctx.db.get('users', id || ctx.uid) || fail('No encontramos ese perfil');
+    if (u.closed_at) fail(CLOSED);
     if (u.status !== 'pendiente_adulto') fail('Este perfil no necesita autorización');
     return askGuardian(ctx, u, code);
   },
@@ -269,15 +317,37 @@ export const SERVICES = {
   'me.readAll'(ctx) { const t = iso(N(ctx)); ctx.db.where('notifications', n => n.user_id === me(ctx).id && !n.read_at && n.kind !== 'tutor').forEach(n => ctx.db.update('notifications', n.id, { read_at: t })); },
   'me.deleteObs'(ctx, { id }) { const o = ctx.db.get('observations', id); if (!o || o.user_id !== me(ctx).id) fail('No encontramos esa observación'); ctx.db.remove('observations', id); },
   'me.dataRequest'(ctx, { kind }) {
-    const u = me(ctx);
-    ctx.db.where('staff_roles', r => r.role === 'admin').forEach(r => notify(ctx, r.user_id, `Solicitud de ${kind} de datos`, `${u.name} (${u.id}) pidió ${kind} de sus datos personales.`));
+    const u = me(ctx), db = ctx.db;
+    if (kind === 'eliminación') { // queda pendiente en Usuarios hasta que administración la ejecute o la descarte
+      if (u.erase_req_at) fail('Ya pediste la eliminación de tus datos. Administración la está revisando');
+      db.update('users', u.id, { erase_req_at: iso(N(ctx)) });
+      db.where('staff_roles', r => r.role === 'admin').forEach(r => notify(ctx, r.user_id, 'Solicitud de eliminación de datos', `${u.name} (${u.id}) pidió eliminar sus datos personales. Revísala en Usuarios.`));
+      audit(ctx, 'pide eliminar sus datos', 'users', u.id); return { pending: true };
+    }
+    db.where('staff_roles', r => r.role === 'admin').forEach(r => notify(ctx, r.user_id, `Solicitud de ${kind} de datos`, `${u.name} (${u.id}) pidió ${kind} de sus datos personales.`));
+  },
+  /** La persona elimina su cuenta: queda inactiva (no puede entrar) y se puede restablecer registrándose con el mismo RUT. */
+  async 'me.closeAccount'(ctx, { password }) {
+    const db = ctx.db, u = me(ctx), now = N(ctx);
+    if (Q.rolesOf(db, u.id).length) fail('Tienes credenciales del equipo del Hub. Pide a administración que las quite antes de eliminar tu cuenta');
+    if (u.password_hash && !(await checkPass(password, u.password_hash))) fail('La contraseña no es correcta');
+    let n = 0;
+    db.where('reservations', r => r.user_id === u.id && ['confirmada', 'en_revision'].includes(r.status) && T(r.start_at) > T(now)).forEach(r => { db.update('reservations', r.id, { status: 'cancelada', charged_min: 0, cancelled_at: iso(now) }); n++; });
+    db.where('reservation_guests', g => g.user_id === u.id && ACTIVE.includes(db.get('reservations', g.reservation_id)?.status) && T(db.get('reservations', g.reservation_id).start_at) > T(now)).forEach(g => db.remove('reservation_guests', g.id));
+    db.where('cert_enrollments', e => e.user_id === u.id && e.status === 'inscrito' && T(db.get('cert_sessions', e.session_id)?.start_at) > T(now)).forEach(e => db.remove('cert_enrollments', e.id));
+    db.where('event_attendance', a => a.user_id === u.id && a.status === 'inscrito' && T(db.get('events', a.event_id)?.start_at || 0) > T(now)).forEach(a => db.remove('event_attendance', a.id));
+    const v = openVisit(db, u.id); if (v) db.update('visits', v.id, { out_at: iso(now), out_source: 'cuenta', cowork_until: null });
+    db.update('users', u.id, { closed_at: iso(now), sessions_after: iso(now), erase_req_at: null });
+    mail(ctx, u, 'Tu cuenta del Hub fue eliminada', `Hola ${u.name.split(' ')[0]}:\n\nEliminaste tu cuenta de Hub Providencia${n ? ` y se cancelaron ${n} reservas futuras` : ''}. Ya no puedes entrar con ella.\n\nSi más adelante quieres volver, crea una cuenta con tu mismo RUT y elige restablecerla: recuperarás tus certificaciones, tus horas y tu historial.\n\nSi no fuiste tú, responde este correo o acércate a recepción.`);
+    audit(ctx, 'elimina su cuenta', 'users', u.id, n ? n + ' reservas canceladas' : null);
+    return { closed: true, cancelled: n };
   },
 
   // ---------------------------------------------------------------- Reservas
   'res.create'(ctx, a) {
     const db = ctx.db, actor = me(ctx), now = N(ctx);
     let user = actor;
-    if (a.for_user) { need(ctx, 'recepcion'); user = Q.findUser(db, a.for_user) || fail('No encontramos a esa persona'); }
+    if (a.for_user) { need(ctx, 'recepcion'); user = openUser(db, a.for_user) || fail('No encontramos a esa persona'); }
     usable(ctx, user);
     const sp = db.get('spaces', a.space_id);
     if (!sp || !sp.active || sp.mode !== 'reserva') fail('Ese espacio no admite reservas');
@@ -295,7 +365,7 @@ export const SERVICES = {
     if (sp.requires_cert && Q.certLevel(db, user.id, sp.id, start) < (sp.min_level || 1)) fail('Necesitas la certificación de este laboratorio');
     const why = Q.unavailable(db, sp, res, start, end); if (why) fail(why);
     if (sp.monthly_hours > 0 && min > Q.balance(db, user.id, sp.id, start).left) fail('No te alcanza el saldo de horas de este mes');
-    const guests = [...new Set((a.guests || []).map(g => (Q.findUser(db, g) || fail(`No encontramos el perfil "${g}". Todos los asistentes deben estar registrados`)).id))].filter(id => id !== user.id);
+    const guests = [...new Set((a.guests || []).map(g => (openUser(db, g) || fail(`No encontramos el perfil "${g}". Todos los asistentes deben estar registrados`)).id))].filter(id => id !== user.id);
     const cap = res ? res.capacity : sp.capacity;
     if (guests.length + 1 > cap) fail(`El espacio admite hasta ${cap} personas`);
     let file = null;
@@ -468,13 +538,24 @@ export const SERVICES = {
   'cert.save'(ctx, c) {
     const db = ctx.db; needSpace(ctx, c.space_id);
     if (!(c.name || '').trim()) fail('Escribe el nombre de la certificación');
-    const row = { space_id: c.space_id, name: c.name.trim(), level: +c.level || 1, validity_months: c.validity_months ? +c.validity_months : null, weekday: +c.weekday, time_min: +c.time_min, duration_min: +c.duration_min || 90, seats: count(c.seats, 'Los cupos', 1) ?? 6, cost: count(c.cost, 'El costo') ?? 0, diploma_download: !!c.diploma_download, instructor_id: c.instructor_id ? (Q.findUser(db, c.instructor_id) || fail('El instructor debe tener un perfil en el Hub')).id : null, active: c.active !== false };
-    const r = c.id ? db.update('certifications', c.id, row) : db.insert('certifications', row);
-    audit(ctx, 'guarda certificación', 'certifications', r.id, row.name);
-    // las sesiones futuras toman los cupos nuevos, sin quedar por debajo de los ya inscritos
-    db.where('cert_sessions', s => s.certification_id === r.id && T(s.start_at) > T(N(ctx))).forEach(s => { const n = Math.max(row.seats, db.where('cert_enrollments', e => e.session_id === s.id).length); if (s.seats !== n) db.update('cert_sessions', s.id, { seats: n }); });
-    ensureSessions(ctx);
-    return { id: r.id };
+    const row = { space_id: c.space_id, name: c.name.trim(), level: +c.level || 1, validity_months: c.validity_months ? +c.validity_months : null, weekday: +c.weekday, time_min: +c.time_min, duration_min: +c.duration_min || 90, seats: count(c.seats, 'Los cupos', 1) ?? 6, cost: count(c.cost, 'El costo') ?? 0, diploma_download: !!c.diploma_download, instructor_id: c.instructor_id ? (Q.findUser(db, c.instructor_id) || fail('El instructor debe tener un perfil en el Hub')).id : null, active: c.active !== false,
+      starts_on: dayOnly(c.starts_on), ends_on: dayOnly(c.ends_on), place_id: c.place_id && +c.place_id !== +c.space_id ? +c.place_id : null, block_place: c.block_place !== false };
+    if (row.starts_on && row.ends_on && row.ends_on < row.starts_on) fail('La fecha de término debe ser igual o posterior a la de inicio');
+    if (row.place_id) { const p = db.get('spaces', row.place_id); if (!p || !p.active) fail('Elige un lugar activo para las sesiones'); needSpace(ctx, p.id); }
+    const r = c.id ? db.update('certifications', c.id, row) : db.insert('certifications', row), now = N(ctx);
+    audit(ctx, 'guarda certificación', 'certifications', r.id, row.name + (row.starts_on || row.ends_on ? ` · ${row.starts_on || '…'} a ${row.ends_on || '…'}` : ''));
+    // Sesiones futuras: las que ya no calzan con el día, la hora o el periodo se quitan si nadie se inscribió;
+    // las demás toman la duración y los cupos nuevos (sin quedar por debajo de los ya inscritos)
+    const fits = s => row.active && new Date(s.start_at).getDay() === row.weekday && R.minsOf(s.start_at) === row.time_min && (!row.starts_on || R.dayKey(s.start_at) >= row.starts_on) && (!row.ends_on || R.dayKey(s.start_at) <= row.ends_on);
+    let kept = 0;
+    db.where('cert_sessions', s => s.certification_id === r.id && T(s.start_at) > T(now)).forEach(s => {
+      const n = db.where('cert_enrollments', e => e.session_id === s.id).length;
+      if (!fits(s)) { if (!n) return db.remove('cert_sessions', s.id); kept++; }
+      const patch = { seats: Math.max(row.seats, n), end_at: iso(T(s.start_at) + row.duration_min * 60000) };
+      if (s.seats !== patch.seats || T(s.end_at) !== T(patch.end_at)) db.update('cert_sessions', s.id, patch);
+    });
+    const cancelled = ensureSessions(ctx);
+    return { id: r.id, cancelled, kept };
   },
   'cert.grade'(ctx, { session_id, results }) {
     const db = ctx.db, s = db.get('cert_sessions', session_id), c = db.get('certifications', s.certification_id), now = N(ctx);
@@ -494,7 +575,7 @@ export const SERVICES = {
   'cert.grant'(ctx, { certification_id, user }) {
     const db = ctx.db, c = db.get('certifications', certification_id) || fail('No encontramos esa certificación'), now = N(ctx);
     needSpace(ctx, c.space_id);
-    const u = Q.findUser(db, user) || fail('No encontramos a esa persona');
+    const u = openUser(db, user) || fail('No encontramos a esa persona');
     if (db.find('user_certs', x => x.user_id === u.id && x.certification_id === c.id && (!x.expires_at || T(x.expires_at) > T(now)))) fail('Esa persona ya tiene esta certificación');
     const exp = c.validity_months ? new Date(now) : null; if (exp) exp.setMonth(exp.getMonth() + c.validity_months);
     db.insert('user_certs', { user_id: u.id, certification_id: c.id, granted_at: iso(now), expires_at: exp ? iso(exp) : null, granted_by: ctx.uid });
@@ -610,15 +691,33 @@ export const SERVICES = {
     audit(ctx, 'guarda agenda', 'blocks', null, `${added} bloqueos, ${freed} liberados`);
     return { added, freed };
   },
+  /** Recepción restablece una cuenta eliminada después de revisar el carnet (con datos nuevos o sin cambios). */
+  async 'user.reopen'(ctx, { id, data }) {
+    need(ctx, 'recepcion'); const u = ctx.db.get('users', id) || fail('No encontramos ese perfil');
+    if (!u.closed_at || u.deleted_at) fail('Esa cuenta no está eliminada');
+    const v = await reopen(ctx, u, data || null, true); return { id: v.id, status: v.status };
+  },
+  /** Administración descarta una solicitud de eliminación de datos (por ejemplo, si la persona se arrepintió). */
+  'user.eraseDismiss'(ctx, { id }) { need(ctx); const u = ctx.db.get('users', id) || fail('No encontramos ese perfil'); ctx.db.update('users', u.id, { erase_req_at: null }); audit(ctx, 'descarta solicitud de eliminación', 'users', u.id); },
   /** Borra el historial de una persona, su perfil o ambos. Exige la contraseña de quien lo hace (administración). */
   async 'user.erase'(ctx, { id, scope, password }) {
     need(ctx); const db = ctx.db, admin = me(ctx), u = db.get('users', id) || fail('No encontramos a esa persona');
-    if (!['datos', 'perfil', 'ambos'].includes(scope)) fail('Elige qué borrar');
+    if (!['personal', 'datos', 'perfil', 'ambos'].includes(scope)) fail('Elige qué borrar');
     if (!admin.password_hash) fail('Crea una contraseña en Configuración para confirmar esta acción');
     if (!(await checkPass(password, admin.password_hash))) fail('La contraseña de administración no es correcta');
     if (u.id === admin.id) fail('No puedes borrar tu propia cuenta');
     if (Q.rolesOf(db, u.id).length && scope !== 'datos') fail('Primero quita sus credenciales en Empleados');
     const storage = [];
+    if (scope === 'personal') { // lo que pide la persona: conserva certificaciones, horas, reservas y penalizaciones
+      const live = new Set(db.where('reservations', r => r.user_id === u.id && ACTIVE.includes(r.status)).map(r => r.id));
+      db.where('files', f => f.user_id === u.id && !live.has(f.reservation_id)).forEach(f => { if (f.storage) storage.push(f.storage); db.remove('files', f.id); });
+      db.where('visits', v => v.user_id === u.id && v.out_at).forEach(v => db.remove('visits', v.id));
+      for (const t of ['observations', 'notifications']) db.where(t, r => r.user_id === u.id).forEach(r => db.remove(t, r.id));
+      db.update('users', u.id, { comuna: null, activity: null, occupation: null, gender: null, reduced_mobility: false, phone: null, photo: null, erase_req_at: null });
+      notify(ctx, u.id, 'Tus datos personales fueron eliminados', `Hola ${u.name.split(' ')[0]}: como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones.`);
+      audit(ctx, 'borra datos personales', 'users', u.id, 'a pedido de la persona');
+      return { storage };
+    }
     if (scope !== 'perfil') { // historial
       const res = db.where('reservations', r => r.user_id === u.id).map(r => r.id);
       db.where('reservation_guests', g => res.includes(g.reservation_id) || g.user_id === u.id).forEach(g => db.remove('reservation_guests', g.id));
@@ -668,7 +767,7 @@ export const SERVICES = {
   },
   'event.remove'(ctx, { id }) { need(ctx); ctx.db.where('event_attendance', a => a.event_id === id).forEach(a => ctx.db.remove('event_attendance', a.id)); ctx.db.remove('events', id); audit(ctx, 'borra evento', 'events', id); },
   'staff.save'(ctx, { user, position, roles: rs, labs }) {
-    need(ctx); const db = ctx.db, u = Q.findUser(db, user) || fail('Esa persona debe crear primero su perfil de usuario');
+    need(ctx); const db = ctx.db, u = openUser(db, user) || fail('Esa persona debe crear primero su perfil de usuario');
     const valid = (rs || []).filter(r => ['admin', 'encargado', 'recepcion', 'analista'].includes(r));
     if (u.id === ctx.uid && !valid.includes('admin')) fail('No puedes quitarte la credencial de administración');
     const s = db.find('staff', x => x.user_id === u.id);
@@ -759,15 +858,35 @@ function deactivate(ctx, sp) {
   });
 }
 /** Mantiene sesiones de certificación para las próximas cuatro semanas. */
+/** Crea las sesiones semanales. Con fecha de término, todas las del periodo (hasta un año); sin ella, las de las
+ *  próximas 4 semanas. Nunca antes de la fecha de inicio. Devuelve cuántas reservas se cancelaron por chocar con una sesión. */
 function ensureSessions(ctx) {
-  const db = ctx.db, now = N(ctx);
-  for (const c of db.where('certifications', c => c.active)) for (let i = 0; i < 28; i++) {
-    const d = R.addDays(now, i); if (d.getDay() !== c.weekday) continue;
-    const start = R.atMin(d, c.time_min); if (T(start) < T(now)) continue;
-    if (!db.find('cert_sessions', s => s.certification_id === c.id && R.dayKey(s.start_at) === R.dayKey(start)))
-      db.insert('cert_sessions', { certification_id: c.id, start_at: iso(start), end_at: iso(T(start) + c.duration_min * 60000), seats: c.seats });
+  const db = ctx.db, now = N(ctx); let cancelled = 0;
+  for (const c of db.where('certifications', c => c.active)) {
+    const from = c.starts_on || '0000-00-00', to = c.ends_on || '9999-99-99';
+    if (to < R.dayKey(now)) continue;
+    const days = c.ends_on ? Math.min(366, Math.ceil((T(c.ends_on + 'T23:59:59') - T(now)) / 864e5) + 1) : 28;
+    const have = new Set(db.where('cert_sessions', s => s.certification_id === c.id).map(s => R.dayKey(s.start_at)));
+    for (let i = 0; i < days; i++) {
+      const d = R.addDays(now, i); if (d.getDay() !== c.weekday) continue;
+      const start = R.atMin(d, c.time_min), k = R.dayKey(start);
+      if (T(start) < T(now) || k < from || k > to || have.has(k)) continue;
+      const s = db.insert('cert_sessions', { certification_id: c.id, start_at: iso(start), end_at: iso(T(start) + c.duration_min * 60000), seats: c.seats });
+      have.add(k); cancelled += holdPlace(ctx, c, s);
+    }
   }
+  return cancelled;
 }
+/** El lugar de la sesión queda bloqueado: las reservas que ya chocaban se cancelan, se devuelven las horas y se avisa. */
+function holdPlace(ctx, c, s) {
+  const db = ctx.db, pid = Q.certPlace(c); if (!pid) return 0;
+  const hit = db.where('reservations', r => r.space_id === pid && ['confirmada', 'en_revision'].includes(r.status) && R.overlaps(s.start_at, s.end_at, r.start_at, r.end_at));
+  hit.forEach(r => { db.update('reservations', r.id, { status: 'cancelada', charged_min: 0, cancelled_at: iso(N(ctx)) });
+    notify(ctx, r.user_id, 'Tu reserva fue cancelada por una certificación', `${db.get('spaces', r.space_id)?.name}, ${new Date(r.start_at).toLocaleString('es-CL')}: ese horario quedó para «${c.name}». Las horas se devolvieron.`); });
+  return hit.length;
+}
+/** Fecha sin hora (AAAA-MM-DD) o vacío. */
+const dayOnly = v => (v ? (/^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : fail('Revisa las fechas del periodo')) : null);
 
 /** Tareas que corren solas cada minuto: asistencia, inasistencias, cierres, limpieza. */
 export function tick(ctx) {

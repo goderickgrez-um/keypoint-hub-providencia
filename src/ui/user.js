@@ -87,15 +87,38 @@ actions['file:reg-photo'] = async f => { S.regPhoto = await readImage(f, 320); g
 actions['scan-into'] = k => openCamera(code => { S.f[k] = code; go(S.k); });
 actions.register = async assisted => {
   if (assisted !== '1' && val('r_pass') !== val('r_pass2')) return toast(t('Las contraseñas no coinciden'));
-  const r = await run('auth.register', { remember: keepLogin(), assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), gender: val('r_gender'), reduced_mobility: val('r_mob'),
+  const data = { remember: keepLogin(), assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), gender: val('r_gender'), reduced_mobility: val('r_mob'),
     email: val('r_email'), phone: val('r_phone'), comuna: val('r_comuna'), activity: val('r_activity'), occupation: val('r_occ'), password: val('r_pass'), photo: S.regPhoto || null, guardian: val('r_guardian') || null,
-    consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), lang: getLang() });
+    consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), lang: getLang() };
+  const r = await run('auth.register', data);
   if (!r) return;
-  S.f = {}; S.regPhoto = null;
-  if (assisted === '1') { S.newUser = r.id; return go('a-reg'); }
-  if (r.status === 'pendiente_correo') { S.verify = r.id; S.demoCode = r.demo_code; S.codeMin = r.minutes; return go('u-verif'); }
-  enter(r);
+  if (r.closed) return reopenAsk(r, data); // ese RUT tenía una cuenta que la persona eliminó
+  registered(r, assisted === '1');
 };
+const registered = (r, assisted) => { S.f = {}; S.regPhoto = null; S.reopen = null;
+  if (assisted) { S.newUser = r.id; return go('a-reg'); }
+  if (r.status === 'pendiente_correo') { S.verify = r.id; S.demoCode = r.demo_code; S.codeMin = r.minutes; return go('u-verif'); }
+  enter(r); };
+/** Ofrece restablecer la cuenta eliminada de ese RUT con los datos recién escritos. */
+function reopenAsk(r, data) {
+  S.reopen = data;
+  if (data.assisted) return confirmBox({ title: 'Este RUT tiene una cuenta eliminada', ok: 'Restablecer la cuenta',
+    text: `<p><b>${esc(r.name)}</b> · ${r.id}</p><p>La persona eliminó su cuenta. Revisa su carnet y, si coincide, restablécela con los datos que escribiste: recupera su ID, su QR, sus certificaciones, sus horas y su historial.</p>`,
+    fn: async () => { const x = await run('user.reopen', { id: r.id, data }); if (x) { toast('Cuenta restablecida'); registered(x, true); } } });
+  if (!r.hint) return confirmBox({ title: 'Ya existe una cuenta eliminada con este RUT', ok: 'Entendido',
+    text: `<p>${t('Esa cuenta no tiene correo. Acércate a recepción con tu carnet para restablecerla.')}</p>`, fn: () => {} });
+  confirmBox({ title: 'Ya existe una cuenta eliminada con este RUT', ok: 'Restablecer mi cuenta',
+    text: `<p>${t('¿Quieres restablecerla? Recuperarás tus certificaciones, tus horas y tu historial, con los datos que acabas de escribir.')}</p><p>${t('Te enviaremos un código al correo que tenía esa cuenta: {0}.', `<b>${esc(r.hint)}</b>`)}</p><p class="mu">${t('Si ya no tienes acceso a ese correo, acércate a recepción con tu carnet.')}</p>`,
+    fn: actions['reopen-send'] });
+}
+actions['reopen-send'] = async () => { const r = await run('auth.reopenCode', { doc_type: S.reopen?.doc_type, doc_number: S.reopen?.doc_number });
+  if (r) { S.reopenHint = r.hint; S.demoCode = r.demo_code; S.codeMin = r.minutes; S.f.ro_code = ''; go('u-reopen'); } };
+screens['u-reopen'] = { open: true, render: () => S.reopen ? `<div class="login stack">${back('u-reg')}<h1>${t('Restablecer mi cuenta')}</h1><p class="mu">${t('Escribe el código de 6 dígitos que enviamos a {0}.', `<b>${esc(S.reopenHint || '')}</b>`)}</p>
+  <div class="card stack">${demoCode()}${field('ro_code', 'Código de 6 dígitos', { attrs: 'inputmode="numeric" autocomplete="one-time-code" maxlength="7" data-enter="reopen-ok"' })}
+    <p class="sm mu">${t('El código vence en {0} minutos. Si no llega, revisa la carpeta de spam.', S.codeMin || db().cfg('code_minutes') || 15)}</p>
+    ${btn('Restablecer mi cuenta', 'reopen-ok', { cls: 'block' })}${btn('Reenviar código', 'reopen-send', { cls: 'block plain' })}</div></div>` : `${back('u-login')}${empty('No hay una cuenta por restablecer.')}` };
+actions['reopen-ok'] = async () => { const r = await run('auth.reopen', { ...S.reopen, code: val('ro_code') });
+  if (r) { toast(t('Cuenta restablecida')); registered(r, false); } };
 screens['u-verif'] = { open: true, render: () => `<div class="login stack">${back('u-login')}<h1>${t('Confirma tu correo')}</h1><p class="mu">${t('Te enviamos un código de 6 dígitos. Escríbelo para activar tu cuenta.')}</p>
   <div class="card stack">${demoCode()}${S.verify ? '' : field('v_ident', 'RUT o correo')}${field('v_code', 'Código de 6 dígitos', { attrs: 'inputmode="numeric" autocomplete="one-time-code" maxlength="7" data-enter="verify"' })}
     <p class="sm mu">${t('El código vence en {0} minutos. Si no llega, revisa la carpeta de spam.', S.codeMin || db().cfg('code_minutes') || 15)}</p>
@@ -306,11 +329,16 @@ screens['u-cert'] = { tab: 'u-reservar', render() {
   const u = me(), now = Date.now();
   return `${back('u-reservar')}<h1>${t('Certificaciones')}</h1><p class="mu">${t('Cada laboratorio pide su certificación. Se imparten en el Hub, una vez por semana.')}</p>
     ${db().where('certifications', c => c.active).map(c => { const sp = db().get('spaces', c.space_id), mine = db().find('user_certs', x => x.user_id === u.id && x.certification_id === c.id && (!x.expires_at || T(x.expires_at) > now));
-      const ses = db().where('cert_sessions', s => s.certification_id === c.id && T(s.start_at) > now && s.status === 'abierta').sort((a, b) => T(a.start_at) - T(b.start_at)).slice(0, 3);
-      return `<div class="card stack"><div class="row between w"><div><h3>${esc(c.name)}</h3><span class="sm mu">${esc(sp?.name)} · ${t(WEEKDAYS[c.weekday])} ${R.hm(c.time_min)} · ${R.dur(c.duration_min)}${c.cost ? ` · $${fmtN(c.cost)} (${t('se paga en recepción')})` : ` · ${t('Sin costo')}`}</span></div>
-        ${mine ? pill(mine.expires_at ? t('Vigente hasta {0}', fDate(mine.expires_at)) : t('Certificado'), 'ok') : pill(t('Sin certificación'))}</div>
+      const today = R.dayKey(new Date()), over = c.ends_on && c.ends_on < today; if (over && !mine) return ''; // terminó su periodo
+      const seatsLeft = s => Math.max(0, s.seats - db().where('cert_enrollments', e => e.session_id === s.id).length), isMine = s => db().find('cert_enrollments', e => e.session_id === s.id && e.user_id === u.id);
+      const all = db().where('cert_sessions', s => s.certification_id === c.id && T(s.start_at) > now && s.status === 'abierta').sort((a, b) => T(a.start_at) - T(b.start_at));
+      const free = all.filter(s => seatsLeft(s) > 0), full = all.length > 0 && !free.length && !all.some(isMine);
+      const ses = all.filter(s => isMine(s) || free.slice(0, 3).includes(s));
+      const period = c.starts_on && c.starts_on > today ? ' · ' + t('Empieza el {0}', fDate(c.starts_on + 'T12:00:00')) + (c.ends_on ? ' · ' + t('hasta el {0}', fDate(c.ends_on + 'T12:00:00')) : '') : c.ends_on ? ' · ' + t('Hasta el {0}', fDate(c.ends_on + 'T12:00:00')) : '';
+      return `<div class="card stack"><div class="row between w"><div><h3>${esc(c.name)}</h3><span class="sm mu">${esc(sp?.name)} · ${t(WEEKDAYS[c.weekday])} ${R.hm(c.time_min)} · ${R.dur(c.duration_min)}${c.cost ? ` · $${fmtN(c.cost)} (${t('se paga en recepción')})` : ` · ${t('Sin costo')}`}${period}</span></div>
+        ${mine ? pill(mine.expires_at ? t('Vigente hasta {0}', fDate(mine.expires_at)) : t('Certificado'), 'ok') : full ? pill(t('Sin cupos'), 'bad') : pill(t('Sin certificación'))}</div>
         ${mine && c.diploma_download ? btn('Descargar diploma', 'diploma', { v: mine.id, cls: 's sec', icon: 'down' }) : ''}
-        ${mine ? '' : `<div class="list">${ses.map(s => { const en = db().find('cert_enrollments', e => e.session_id === s.id && e.user_id === u.id), left = Math.max(0, s.seats - db().where('cert_enrollments', e => e.session_id === s.id).length);
+        ${mine ? '' : full ? `<p class="sm mu" style="margin:0">${t('Todas las sesiones de este periodo están llenas. Consulta en recepción si se abren más cupos.')}</p>` : `<div class="list">${ses.map(s => { const en = isMine(s), left = seatsLeft(s);
           const other = !en && db().find('cert_enrollments', e => e.user_id === u.id && e.status === 'inscrito' && ses.concat(db().where('cert_sessions', x => x.certification_id === c.id)).some(x => x.id === e.session_id));
           return `<div class="li${left <= 0 && !en ? ' off' : ''}"><span class="sp"><b>${fDT(s.start_at)}</b><span>${left <= 0 ? t('Sin cupos') : t('{0} cupos disponibles', left)}</span></span>${en ? pill(t('Inscrito'), 'ok') + btn('Cancelar inscripción', 'cert-enroll', { v: s.id + ':0', cls: 's plain' }) : left <= 0 ? pill(t('Llena'), 'bad') : btn('Inscribirme', 'cert-enroll', { v: s.id + ':1', cls: 's', off: !!other })}</div>`; }).join('') || `<div class="li mu">${t('No hay sesiones abiertas por ahora.')}</div>`}</div>`}</div>`; }).join('')}`;
 } };
@@ -427,5 +455,19 @@ screens['u-notif'] = { tab: 'u-perfil', render() {
 screens['u-priv'] = { tab: 'u-perfil', render: () => `${back('u-config')}<h1>${t('Privacidad y mis datos')}</h1>
   <div class="card stack"><p>${t('Hub Providencia es responsable de tus datos personales. Los usamos para registrar tus entradas y salidas, gestionar tus reservas y elaborar estadísticas del Hub. No se comparten con terceros.')}</p>
   <p class="sm mu">${t('Para las estadísticas se usan solo comuna, actividad en Providencia, ocupación, género, edad y movilidad reducida, sin tu nombre ni tu RUT.')}</p>
-  ${btn('Pedir una copia de mis datos', 'data-req', { v: 'copia', cls: 'plain block' })}${btn('Pedir la eliminación de mi cuenta', 'data-req', { v: 'eliminación', cls: 'plain block' })}</div>` };
+  ${btn('Pedir una copia de mis datos', 'data-req', { v: 'copia', cls: 'plain block' })}
+  ${me().erase_req_at ? notice(`${icon('clock')} ${t('Pediste la eliminación de tus datos el {0}. Administración la está revisando y te avisará por correo.', fDate(me().erase_req_at))}`, 'warn') : btn('Pedir la eliminación de mis datos', 'erase-req-ask', { cls: 'plain block' })}</div>
+  <div class="card stack"><h3>${t('Eliminar mi cuenta')}</h3><p class="sm">${t('Tu cuenta queda inactiva y ya no podrás entrar con ella. Se cancelan tus reservas e inscripciones futuras.')}</p>
+  <p class="sm mu">${t('Si más adelante te registras con tu mismo RUT, podrás restablecerla y recuperar tus certificaciones, tus horas y tu historial.')}</p>
+  ${btn('Eliminar mi cuenta', 'close-ask', { cls: 'danger block', icon: 'trash' })}</div>` };
 actions['data-req'] = k => run('me.dataRequest', { kind: k }, 'Solicitud enviada a la administración');
+actions['erase-req-ask'] = () => confirmBox({ title: '¿Pedir la eliminación de tus datos?', ok: 'Enviar solicitud',
+  text: `<p>${t('Se borrarán tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto.')}</p><p>${t('Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te avisaremos por correo cuando se haya hecho.')}</p>`,
+  fn: () => run('me.dataRequest', { kind: 'eliminación' }, 'Solicitud enviada a la administración') });
+actions['close-ask'] = () => { fill({ cl_pass: '' }); const pass = !!me().password_hash, n = db().where('reservations', r => r.user_id === App.uid && ['confirmada', 'en_revision'].includes(r.status) && T(r.start_at) > Date.now()).length;
+  modal({ html: `<h2 id="dlg-t" style="margin:0">${t('¿Eliminar tu cuenta?')}</h2><div class="stack sm"><p>${t('Ya no podrás entrar con ella ni usar tu código QR.')}${n ? ' ' + t('Se cancelarán tus {0} reservas futuras y se devolverán sus horas.', n) : ''}</p><p class="mu">${t('Si más adelante te registras con tu mismo RUT, podrás restablecerla.')}</p></div>
+    ${pass ? `<div class="form">${field('cl_pass', 'Tu contraseña', { type: 'password', cls: 'full', attrs: 'autocomplete="current-password" data-enter="close-ok"' })}</div>` : ''}
+    <div class="row">${btn('Eliminar mi cuenta', 'close-ok', { cls: 'danger sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` }); };
+actions['close-ok'] = async () => { if (me().password_hash && !val('cl_pass')) return toast(t('Escribe tu contraseña'));
+  const pass = val('cl_pass'); S.f.cl_pass = ''; const r = await run('me.closeAccount', { password: pass });
+  if (r) { S.modal = null; await App.data.logout(); S.staff = false; S.f = {}; toast(t('Tu cuenta fue eliminada. Te enviamos un correo con los detalles')); go('u-login'); } };

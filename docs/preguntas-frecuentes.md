@@ -69,6 +69,9 @@ En tu reserva toca «Reportar una falla». El aviso llega al encargado del labor
 **¿Cómo descargo mi diploma?**  
 En Perfil, en Certificaciones, toca «Descargar diploma» junto a la certificación. Se descarga en PDF.
 
+**Una certificación dice «Sin cupos»**  
+Todas sus sesiones del periodo están llenas. Cada certificación se imparte solo entre las fechas que indica. Consulta en recepción si se abren más cupos.
+
 ### Eventos
 
 **¿Cómo me inscribo en un evento?**  
@@ -83,10 +86,16 @@ Pasan cada 5 segundos. Si deslizas uno o usas las flechas, se detienen. Con el b
 No. Al ingresar deja marcado «Mantener la sesión iniciada en este dispositivo». La sesión queda abierta en ese teléfono o computador hasta que toques «Cerrar sesión» o cambies tu contraseña. En Perfil ves si tu sesión está guardada y puedes cerrarla en tus otros dispositivos.
 
 **¿Qué hace el Hub con mis datos?**  
-Los usa para registrar entradas y salidas, gestionar reservas y hacer estadísticas sin tu nombre ni tu RUT. No se comparten con terceros. En Perfil › Configuración › Privacidad y mis datos puedes pedir una copia o la eliminación de tu cuenta.
+Los usa para registrar entradas y salidas, gestionar reservas y hacer estadísticas sin tu nombre ni tu RUT. No se comparten con terceros. En Perfil › Configuración › Privacidad y mis datos puedes pedir una copia o la eliminación de tus datos, o eliminar tu cuenta.
 
 **Mi acceso dice «restringido»**  
 Tienes una penalización vigente. En Inicio ves hasta cuándo y el motivo. Si crees que es un error, habla con recepción.
+
+**¿Qué pasa si pido la eliminación de mis datos?**  
+Administración revisa la solicitud y borra tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te llega un correo cuando se hace.
+
+**Eliminé mi cuenta y quiero volver**  
+Crea una cuenta con tu mismo RUT. El sistema te ofrecerá restablecerla y te enviará un código al correo que tenía. Recuperas tu ID, tu QR, tus certificaciones y tus horas. Si ya no tienes ese correo, acércate a recepción con tu carnet.
 
 ### Pasantía
 
@@ -126,6 +135,9 @@ En Certificaciones elige la sesión y marca a cada inscrito como aprobado, repro
 **Una máquina quedó fuera de servicio** _(Encargados)_  
 En Espacios › equipos desactívala, y en Agenda bloquea las horas si hace falta. Las reservas afectadas se cancelan con aviso.
 
+**¿Cómo defino el periodo de una certificación?** _(Encargados)_  
+En Certificaciones, en Configuración, indica «Desde» y «Hasta»: las sesiones semanales se crean solo entre esas fechas. Elige el lugar de las sesiones y deja marcado «Bloquear ese lugar» para que nadie lo reserve a esa hora; las reservas que ya chocaban se cancelan y se avisa a cada persona.
+
 ### Agenda
 
 **¿Cómo bloqueo horas por feriado o mantención?** _(Administración, Encargados)_  
@@ -140,6 +152,12 @@ En Eventos y banners crea el evento o aviso, sube la imagen (1200 × 400 px) y m
 Ya terminó y no se muestra a los usuarios. Los eventos en curso siguen apareciendo hasta su término (o hasta el final del día si no tienen término).
 
 ### Personas
+
+**Una persona pidió eliminar sus datos** _(Administración)_  
+En Usuarios, sin escribir nada en la búsqueda, ves las solicitudes pendientes. Abre la ficha y toca «Eliminar sus datos»: se borran sus visitas, archivos, observaciones, avisos y los datos opcionales del perfil, y conserva certificaciones, horas, reservas y penalizaciones. Le llega un correo automático. Si se arrepintió, toca «Descartar solicitud».
+
+**Restablecer una cuenta eliminada** _(Recepción)_  
+Si la persona eliminó su cuenta y quiere volver sin acceso a su correo anterior, revisa su carnet. Al registrarla con su RUT, el sistema ofrece restablecer la cuenta con los datos nuevos; o en Usuarios abre su ficha y toca «Restablecer cuenta».
 
 **¿Cómo borro los datos de alguien?** _(Administración)_  
 En Usuarios abre su ficha y toca «Borrar datos o perfil». Elige historial, perfil o ambos, escribe tu contraseña de administración y confirma. No se puede deshacer.

@@ -69,6 +69,9 @@ In your booking, tap “Report a fault”. The notice goes to the lab manager.
 **How do I download my certificate?**  
 In Profile, under Certifications, tap “Download certificate” next to the certification. It downloads as a PDF.
 
+**A certification says “No seats left”**  
+All its sessions in the period are full. Each certification is taught only between the dates it shows. Ask at reception whether more seats will open.
+
 ### Events
 
 **How do I sign up for an event?**  
@@ -83,10 +86,16 @@ They change every 5 seconds. If you swipe one or use the arrows, they stop. The 
 No. When signing in, keep “Keep me signed in on this device” ticked. The session stays open on that phone or computer until you tap “Sign out” or change your password. Profile shows whether your session is saved and lets you sign out on your other devices.
 
 **What does the Hub do with my data?**  
-It uses them to record entries and exits, manage bookings and produce statistics without your name or RUT. They are not shared with third parties. In Profile › Settings › Privacy and my data you can ask for a copy or for your account to be deleted.
+It uses them to record entries and exits, manage bookings and produce statistics without your name or RUT. They are not shared with third parties. In Profile › Settings › Privacy and my data you can ask for a copy of your data, ask for it to be deleted, or delete your account.
 
 **My access says “restricted”**  
 You have an active penalty. Home shows until when and why. If you think it’s a mistake, talk to reception.
+
+**What happens if I ask for my data to be deleted?**  
+The administration reviews the request and deletes your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone and photo. You keep your account, your certifications, your hours, your bookings and your penalties. You get an email when it’s done.
+
+**I deleted my account and want to come back**  
+Sign up with the same RUT. The system will offer to restore it and send a code to the email it had. You get back your ID, your QR code, your certifications and your hours. If you no longer have that email, go to reception with your ID card.
 
 ### Internship
 
