@@ -40,6 +40,7 @@ create table if not exists users (
   intern boolean not null default false,
   closed_at timestamptz,
   erase_req_at timestamptz,
+  extra text,
   unique (doc_number),
   check (status in ('pendiente_correo','pendiente_adulto','activo'))
 );
@@ -70,6 +71,7 @@ alter table users add column if not exists sessions_after timestamptz;
 alter table users add column if not exists intern boolean default false;
 alter table users add column if not exists closed_at timestamptz;
 alter table users add column if not exists erase_req_at timestamptz;
+alter table users add column if not exists extra text;
 create index if not exists users_email_idx on users (email);
 
 -- Códigos de un solo uso para confirmar el correo o entrar sin contraseña.

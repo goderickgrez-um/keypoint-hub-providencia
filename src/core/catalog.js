@@ -56,4 +56,8 @@ export const DEFAULTS = {
   mail: { host: 'smtp.gmail.com', port: 465, user: '', from: '' },
   google_client_id: '', microsoft_client_id: '',
   theme: THEME,
+  // Formulario de registro (Reglas › Formulario de registro): campos del perfil y campos agregados por administración
+  reg_form: { base: { phone: { show: true, required: true }, comuna: { show: true, required: true },
+    activity: { show: true, required: true, options: ACTIVITIES.map(label => ({ label })) }, occupation: { show: true, required: true, options: OCCUPATIONS.map(label => ({ label })) },
+    gender: { show: true, required: true, options: GENDERS.map(label => ({ label })) }, reduced_mobility: { show: true } }, extra: [] },
 };

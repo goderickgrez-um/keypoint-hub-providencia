@@ -14,6 +14,9 @@ Scripts usados para el informe de QA (`docs/informe-qa.pdf`). Requieren Node 20+
 | `seguridad.mjs` | Permisos por credencial, datos filtrados, tokens alterados, CORS, rutas, subidas, CSP, intentos fallidos, inyección SQL | servidor con base de prueba en `HUB_API` (por defecto `http://localhost:8080`) |
 | `funciones-2.7.cjs` | Listas dentro de ventanas, eliminar y restablecer cuenta, pedir eliminación de datos, periodo de certificaciones (navegador, con axe) | demo en `HUB_URL` |
 | `cuentas.mjs` | Lo mismo contra el servidor real: sesiones, códigos por correo, correos automáticos, permisos de penalización y sesiones dentro del periodo | servidor con base de prueba **recién creada** en `HUB_API`; lee los códigos con `psql` usando `DATABASE_URL` |
+| `node tools/test-form.mjs` | Formulario de registro configurable: campos del perfil (etapa 1) y preguntas agregadas con su análisis (etapa 2) | sin servidor |
+| `formulario.cjs` | Lo mismo en el navegador: pantalla de administración, registro, completar perfil, idiomas, Datos, descargas, axe y tamaños. `ETAPA=1` o `ETAPA=2` corre solo una etapa | demo en `HUB_URL` |
+| `formulario.mjs` | Lo mismo contra el servidor real: migración, permisos, respuestas cifradas en PostgreSQL, lo que recibe cada credencial y persistencia al reiniciar | inicia el servidor por su cuenta (puerto 8080) con `DATABASE_URL` y `DATA_KEY` de una base de prueba |
 | `carga.mjs` | 50 sesiones simultáneas pidiendo datos, escaneos de recepción y datos de administración | servidor con base de prueba en `HUB_API` |
 
 Para servir la demo: copia `web/` a una carpeta de pruebas, cambia su `config.js` por `window.HUB_CONFIG = null;` y ejecuta `python -m http.server 8765` dentro de ella.

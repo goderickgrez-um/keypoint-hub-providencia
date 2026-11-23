@@ -92,10 +92,13 @@ Usa-os para registrar entradas e saídas, gerir reservas e fazer estatísticas s
 Você tem uma penalidade vigente. O Início mostra até quando e o motivo. Se achar que é um erro, fale com a recepção.
 
 **O que acontece se eu pedir a exclusão dos meus dados?**  
-A administração revisa o pedido e exclui seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular e foto. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades. Você recebe um e-mail quando for feito.
+A administração revisa o pedido e exclui seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular, foto e respostas às perguntas adicionadas ao formulário. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades. Você recebe um e-mail quando for feito.
 
 **Excluí minha conta e quero voltar**  
 Cadastre-se com o mesmo RUT. O sistema vai oferecer restaurá-la e enviar um código ao e-mail que ela tinha. Você recupera seu ID, seu QR, suas certificações e suas horas. Se não tiver mais esse e-mail, vá à recepção com seu documento.
+
+**Por que o app pede para completar meu perfil?**  
+O Hub adicionou perguntas obrigatórias ao formulário de cadastro. Responda-as e toque em «Salvar». Se tocar em «Agora não», será perguntado de novo na próxima vez que entrar. Você também pode mudar suas respostas em Perfil › Editar meus dados.
 
 ### Estágio
 

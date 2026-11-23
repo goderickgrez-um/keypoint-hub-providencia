@@ -24,7 +24,9 @@ const typeOf = (t, c) => COLS[t].find(x => x.name === c)?.type;
 // ---- Cifrado de columnas con datos personales (AES-256-GCM). La clave vive fuera de la base:
 // en DATA_KEY (.env) o, si no está, en el archivo .data-key que se crea solo. Sin la clave los datos no se pueden leer:
 // respáldala junto con la base.
-export const ENCRYPTED = { users: ['doc_number', 'email', 'phone'], outbox: ['to_email', 'body'] };
+export const ENCRYPTED = { users: ['doc_number', 'email', 'phone', 'extra'], outbox: ['to_email', 'body'] };
+// Columnas cifradas que guardan un objeto (se cifra su JSON)
+const JSON_ENC = { users: ['extra'] };
 const keyFile = ROOT + '.data-key';
 let KEY = process.env.DATA_KEY;
 if (!KEY && existsSync(keyFile)) KEY = readFileSync(keyFile, 'utf8').trim();
@@ -41,7 +43,7 @@ export function decrypt(v) {
   const [, , iv, tag, ct] = v.split(':'), d = createDecipheriv('aes-256-gcm', K, Buffer.from(iv, 'base64'));
   d.setAuthTag(Buffer.from(tag, 'base64')); return Buffer.concat([d.update(Buffer.from(ct, 'base64')), d.final()]).toString('utf8');
 }
-const enc = (t, c, v) => (v != null && typeOf(t, c) === 'jsonb' ? JSON.stringify(v) : ENCRYPTED[t]?.includes(c) ? encrypt(v) : v);
+const enc = (t, c, v) => (v != null && typeOf(t, c) === 'jsonb' ? JSON.stringify(v) : ENCRYPTED[t]?.includes(c) ? encrypt(v != null && JSON_ENC[t]?.includes(c) ? JSON.stringify(v) : v) : v);
 
 export async function createSchema() { await pool.query(toSQL()); }
 export async function loadAll() {
@@ -49,7 +51,7 @@ export async function loadAll() {
   let plain = 0;
   for (const t of ORDER) {
     out[t] = (await pool.query(`select * from ${t} order by ${pkOf(t)}`)).rows;
-    for (const c of ENCRYPTED[t] || []) for (const r of out[t]) { if (r[c] != null && !isEnc(r[c])) plain++; try { r[c] = decrypt(r[c]); } catch { throw new Error('No se pueden leer los datos cifrados: la clave de cifrado (.data-key o DATA_KEY en .env) no corresponde a esta base de datos. Restaura el archivo .data-key respaldado y vuelve a iniciar.'); } }
+    for (const c of ENCRYPTED[t] || []) for (const r of out[t]) { if (r[c] != null && !isEnc(r[c])) plain++; try { r[c] = decrypt(r[c]); if (r[c] != null && JSON_ENC[t]?.includes(c)) r[c] = JSON.parse(r[c]); } catch { throw new Error('No se pueden leer los datos cifrados: la clave de cifrado (.data-key o DATA_KEY en .env) no corresponde a esta base de datos. Restaura el archivo .data-key respaldado y vuelve a iniciar.'); } }
   }
   if (plain) { // datos de versiones anteriores sin cifrar: se cifran ahora
     const log = []; for (const t in ENCRYPTED) for (const r of out[t]) { const patch = {}; for (const c of ENCRYPTED[t]) if (r[c] != null) patch[c] = r[c]; log.push({ op: 'update', t, id: r[pkOf(t)], patch }); }

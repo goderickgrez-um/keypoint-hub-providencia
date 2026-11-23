@@ -92,10 +92,13 @@ It uses them to record entries and exits, manage bookings and produce statistics
 You have an active penalty. Home shows until when and why. If you think it’s a mistake, talk to reception.
 
 **What happens if I ask for my data to be deleted?**  
-The administration reviews the request and deletes your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone and photo. You keep your account, your certifications, your hours, your bookings and your penalties. You get an email when it’s done.
+The administration reviews the request and deletes your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone, photo and answers to the questions added to the form. You keep your account, your certifications, your hours, your bookings and your penalties. You get an email when it’s done.
 
 **I deleted my account and want to come back**  
 Sign up with the same RUT. The system will offer to restore it and send a code to the email it had. You get back your ID, your QR code, your certifications and your hours. If you no longer have that email, go to reception with your ID card.
+
+**Why is the app asking me to complete my profile?**  
+The Hub added required questions to the sign-up form. Answer them and tap “Save”. If you tap “Not now”, you’ll be asked again the next time you sign in. You can also change your answers in Profile › Edit my details.
 
 ### Internship
 

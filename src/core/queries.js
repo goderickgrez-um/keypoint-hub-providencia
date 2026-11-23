@@ -1,6 +1,7 @@
 // Consultas de solo lectura sobre el almacén: saldo, disponibilidad, ocupación y estadísticas.
 import * as R from './rules.js';
 import { ACTIVE } from './catalog.js';
+import * as FORM from './form.js';
 
 const T = d => +new Date(d);
 
@@ -123,8 +124,10 @@ export function stats(db, from, to, now = new Date()) {
   const ages = users.map(u => R.age(u.birth_date, now)).filter(a => a != null);
   const hours = {};
   for (const r of res) hours[name(r.space_id)] = (hours[name(r.space_id)] || 0) + (r.real_min ?? r.est_min) / 60;
-  const fails = db.where('failure_reports', f => inR(f.created_at));
+  const fails = db.where('failure_reports', f => inR(f.created_at)), F = FORM.regForm(db);
   return {
+    shown: Object.fromEntries(Object.entries(F.base).map(([k, b]) => [k, b.show])), // campos del perfil en uso (los ocultos no se grafican)
+    extra: FORM.extraStats(F, users),
     visits: visits.length, uniqueVisitors: new Set(visits.map(v => v.user_id)).size, bySpace,
     perDay: Object.keys(perDay).sort().map(k => ({ label: k.slice(8) + '/' + k.slice(5, 7), value: perDay[k].size })),
     hours: Object.entries(hours).map(([label, value]) => ({ label, value: Math.round(value * 10) / 10 })).sort((a, b) => b.value - a.value),

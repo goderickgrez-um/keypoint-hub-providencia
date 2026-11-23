@@ -6,6 +6,8 @@ import { applyTheme, themeOf, themeMode } from './theme.js';
 import { heatPlan, floorSeg } from './plan.js';
 import { uname, sname, rangeOf, rangeBar, anon } from './staff.js';
 import { logoSrc } from './user.js';
+import * as FORM from '../core/form.js';
+import { regForm as formCfg, baseInputs, baseInput, extraInputs, statVars } from './formui.js';
 import { fileInput, confirmBox, memo, qrSvg, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
 
 const T = d => +new Date(d), cfg = k => db().cfg(k);
@@ -278,21 +280,104 @@ screens['a-datos'] = { roles: ['admin', 'analista'], render() {
   const [from, to] = rangeOf(), st = memo('stats' + from + to, () => Q.stats(db(), from, to)), floor = S.planFloor || 1, max = Math.max(1, ...st.bySpace.map(b => b.value));
   const byId = Object.fromEntries(db().all('spaces').map(s => { const v = st.bySpace.find(b => b.label === s.name)?.value || 0; return [s.id, { v: v / max, text: fmtN(v) + ' usos' }]; }));
   return `<div class="head"><h1>Datos</h1>${myRoles().includes('analista') ? btn('Descargar datos', 'data-export', { cls: 's', icon: 'down' }) : ''}</div>${rangeBar()}
-    <p class="sm mu">${fDate(from)} – ${fDate(to)}. Para el análisis se usan solo comuna, actividad, ocupación, género, edad y movilidad reducida, sin nombres ni RUT.</p>
-    <div class="kpis">${stat('Visitas en el periodo', fmtN(st.visits), `${fmtN(st.uniqueVisitors)} personas distintas`)}${stat('Usuarios registrados', fmtN(st.users), `${st.minors} menores de edad`)}${stat('Edad promedio', st.avgAge ?? '—', 'años')}${stat('Movilidad reducida', fmtN(st.mobility), `${Math.round(st.mobility / Math.max(1, st.users) * 100)} % de los usuarios`)}${stat('Inasistencias', fmtN(st.noShows), 'reservas sin llegar')}</div>
+    <p class="sm mu">${fDate(from)} – ${fDate(to)}. Para el análisis se usan solo ${esc(statVars(true))}, sin nombres ni RUT.</p>
+    <div class="kpis">${stat('Visitas en el periodo', fmtN(st.visits), `${fmtN(st.uniqueVisitors)} personas distintas`)}${stat('Usuarios registrados', fmtN(st.users), `${st.minors} menores de edad`)}${stat('Edad promedio', st.avgAge ?? '—', 'años')}${st.shown.reduced_mobility ? stat('Movilidad reducida', fmtN(st.mobility), `${Math.round(st.mobility / Math.max(1, st.users) * 100)} % de los usuarios`) : ''}${stat('Inasistencias', fmtN(st.noShows), 'reservas sin llegar')}</div>
     <div class="grid"><div class="card stack"><h3>Visitas por espacio</h3>${barsH(st.bySpace, { id: 'bySpace' })}</div><div class="card stack"><h3>Horas de uso por laboratorio y sala</h3>${barsH(st.hours, { id: 'hours', unit: ' h' })}</div></div>
     <div class="card stack"><h3>Personas distintas por día</h3>${colChart(st.perDay, { label: 'Personas distintas por día', x: 'Día', y: 'Personas' })}</div>
     <div class="grid"><div class="card stack"><h3>Ocupación promedio por día y hora</h3>${heatGrid(st.heat)}</div>
       <div class="card stack"><div class="row between"><h3>Uso por zona del plano</h3>${floorSeg('plan-floor', floor)}</div>${heatPlan(floor, byId)}</div></div>
-    <h2>Quiénes usan el Hub</h2><div class="grid"><div class="card stack"><h3>Actividad en Providencia</h3>${barsH(st.byActivity, { id: 'byActivity' })}</div><div class="card stack"><h3>Género</h3>${barsH(st.byGender, { id: 'byGender' })}</div>
-      <div class="card stack"><h3>A qué se dedican</h3>${barsH(st.byOccupation, { id: 'byOccupation' })}</div><div class="card stack"><h3>Comuna</h3>${barsH(st.byComuna, { id: 'byComuna' })}</div></div>
+    <h2>Quiénes usan el Hub</h2><div class="grid">${[['activity', 'Actividad en Providencia', 'byActivity'], ['gender', 'Género', 'byGender'], ['occupation', 'A qué se dedican', 'byOccupation'], ['comuna', 'Comuna', 'byComuna']].filter(([k]) => st.shown[k]).map(([, h, id]) => `<div class="card stack"><h3>${h}</h3>${barsH(st[id], { id })}</div>`).join('')}</div>
+    ${st.extra.length ? `<h2>Preguntas agregadas al formulario</h2><p class="sm mu">Respuestas de las personas registradas. Las preguntas de texto libre, teléfono o correo no se grafican.</p><div class="grid">${st.extra.map(extraCard).join('')}</div>` : ''}
     <h2>Fallas de máquinas</h2><div class="grid"><div class="card stack"><h3>Por máquina</h3>${barsH(st.failByResource, { id: 'failByResource' })}</div><div class="card stack"><h3>Por tipo</h3>${barsH(st.failByCategory, { id: 'failByCategory' })}</div></div>`;
 } };
-actions['data-export'] = () => { const [from, to] = rangeOf(), inR = d => T(d) >= +from && T(d) < +to + 864e5, now = new Date();
-  download('hub-usuarios.csv', csv(['id', 'comuna', 'actividad', 'ocupacion', 'genero', 'edad', 'movilidad_reducida', 'registrado'], db().all('users').map(u => [u.id, u.comuna, u.activity, u.occupation, u.gender, R.age(u.birth_date, now), u.reduced_mobility ? 'si' : 'no', R.dayKey(u.created_at)])));
+/** Tarjeta de Datos para una pregunta agregada al formulario. */
+function extraCard(x) {
+  const pct = Math.round(x.answered / Math.max(1, x.total) * 100), sub = `${fmtN(x.answered)} de ${fmtN(x.total)} personas respondieron (${pct} %)`;
+  const num = x.type === 'number' && x.answered ? `<p class="sm">Promedio <b>${fmtN(x.avg)}</b> · mínimo ${fmtN(x.min)} · máximo ${fmtN(x.max)}</p>` : '';
+  return `<div class="card stack"><h3>${esc(x.label)}</h3><p class="sm mu" style="margin:0">${sub}${x.note ? '. ' + x.note : ''}</p>${num}${barsH(x.items, { id: 'x:' + x.id })}</div>`;
+}
+const csvExtra = (F, u, all) => FORM.liveFields(F).filter(f => all || !FORM.isPrivate(f)).map(f => FORM.answerText(f, u.extra?.[f.id]));
+actions['data-export'] = () => { const [from, to] = rangeOf(), inR = d => T(d) >= +from && T(d) < +to + 864e5, now = new Date(), F = formCfg(), xs = FORM.liveFields(F).filter(f => !FORM.isPrivate(f));
+  download('hub-usuarios.csv', csv(['id', 'comuna', 'actividad', 'ocupacion', 'genero', 'edad', 'movilidad_reducida', 'registrado', ...xs.map(f => f.label)], db().all('users').map(u => [u.id, u.comuna, u.activity, u.occupation, u.gender, R.age(u.birth_date, now), u.reduced_mobility ? 'si' : 'no', R.dayKey(u.created_at), ...csvExtra(F, u, false)])));
   download('hub-visitas.csv', csv(['usuario', 'entrada', 'salida', 'registro'], db().where('visits', v => inR(v.in_at)).map(v => [v.user_id, v.in_at, v.out_at, v.source])));
   download('hub-reservas.csv', csv(['usuario', 'espacio', 'equipo', 'inicio', 'termino', 'estado', 'min_estimados', 'min_reales', 'min_descontados'], db().where('reservations', r => inR(r.start_at)).map(r => [r.user_id, sname(r.space_id), db().get('resources', r.resource_id)?.name, r.start_at, r.end_at, r.status, r.est_min, r.real_min, r.charged_min])));
   download('hub-fallas.csv', csv(['fecha', 'espacio', 'equipo', 'tipo', 'descripcion', 'estado'], db().where('failure_reports', f => inR(f.created_at)).map(f => [f.created_at, sname(f.space_id), db().get('resources', f.resource_id)?.name, f.category, f.description, f.status]))); };
+
+// ============================================================ Formulario de registro
+// Etapa 1: campos del perfil (mostrar, obligatorio, opciones). Etapa 2: preguntas agregadas, con su análisis en Datos.
+const FT = FORM.TYPES;
+screens['a-form'] = { roles: ['admin'], render() {
+  const F = formCfg(), users = db().where('users', u => !u.deleted_at), live = FORM.liveFields(F), arch = F.extra.filter(f => f.archived);
+  if (!S.fmLoaded || S.f.fm_s_phone === undefined) { for (const k of Object.keys(FORM.BASE)) { S.f['fm_s_' + k] = F.base[k].show; S.f['fm_r_' + k] = !!F.base[k].required; }
+    S.fmOpts = Object.fromEntries(Object.entries(F.base).filter(([k]) => FORM.BASE[k].choice).map(([k, b]) => [k, b.options.map(o => ({ ...o, was: o.label }))])); S.fmLoaded = true; }
+  const answered = id => users.filter(u => !FORM.isEmpty(u.extra?.[id])).length;
+  const baseRow = ([k, def]) => `<div class="li" style="flex-wrap:wrap"><span class="sp"><b>${def.name}</b><span>${def.check ? 'Casilla' : def.choice ? `${S.fmOpts[k].length} opciones` : 'Texto'}${def.stat ? ' · se usa en Datos' : ' · dato de contacto, no se grafica'}</span></span>
+    ${check('fm_s_' + k, 'Mostrar', { live: true })}${def.check ? '' : check('fm_r_' + k, 'Obligatorio', { attrs: val('fm_s_' + k) ? '' : 'disabled' })}${def.choice ? btn('Opciones', 'fm-opts', { v: k, cls: 's plain', icon: 'edit' }) : ''}</div>`;
+  const fieldRow = (f, i) => { const n = answered(f.id);
+    return `<div class="li" style="flex-wrap:wrap"><span class="sp"><b>${esc(f.label)}</b><span>${FT[f.type]}${f.options?.length ? ` · ${FORM.liveOptions(f).length} opciones` : ''} · ${n} ${n === 1 ? 'respuesta' : 'respuestas'}</span></span>
+      ${f.required ? pill('Obligatoria', 'warn') : pill('Opcional')}${FORM.isPrivate(f) ? pill('No se grafica', '') : pill('En Datos', 'ok')}
+      <span class="ops row">${btn('', 'fm-move', { v: f.id + ':up', cls: 's plain', icon: 'up', off: i === 0, attrs: `aria-label="Subir ${esc(f.label)}"`, raw: true })}${btn('', 'fm-move', { v: f.id + ':down', cls: 's plain', icon: 'dn', off: i === live.length - 1, attrs: `aria-label="Bajar ${esc(f.label)}"`, raw: true })}${btn('Editar', 'fm-edit', { v: f.id, cls: 's plain', icon: 'edit' })}${btn('Quitar', 'fm-del', { v: f.id, cls: 's danger', icon: 'trash' })}</span></div>`; };
+  return `<h1>Formulario de registro</h1><p class="mu">Define qué datos se piden al crear una cuenta. Documento, nombre, correo, fecha de nacimiento, contraseña y declaraciones son fijos: de ellos dependen el ingreso, el código QR, la regla de edad y los menores de edad.</p>
+    <div class="grid"><div class="card stack"><h3>Campos del perfil</h3><p class="sm mu">Un campo oculto deja de pedirse y de graficarse; lo que ya respondieron las personas se conserva. Si cambias el nombre de una opción, se actualiza en los perfiles que la tenían.</p>
+      <div class="list fx">${Object.entries(FORM.BASE).map(baseRow).join('')}</div>${btn('Guardar campos del perfil', 'fm-base-save', { cls: 'block' })}</div>
+    <div class="card stack"><div class="row between"><h3>Preguntas agregadas</h3>${btn('Agregar pregunta', 'fm-edit', { v: '', cls: 's', icon: 'plus' })}</div>
+      <p class="sm mu">Aparecen en el registro bajo «Más información», en el perfil y en «Actualizar datos». Las de una opción, varias opciones, sí o no, número y fecha se analizan en Datos; las de texto, teléfono y correo solo las ve el equipo en la ficha. Si una pregunta nueva es obligatoria, a quienes ya están registrados se les pide al entrar.</p>
+      ${live.length ? `<div class="list fx">${live.map(fieldRow).join('')}</div>` : empty('Aún no hay preguntas agregadas.')}
+      ${arch.length ? `<details><summary class="sm">Archivadas (${arch.length}): conservan sus respuestas</summary><div class="list">${arch.map(f => `<div class="li"><span class="sp"><b>${esc(f.label)}</b><span>${FT[f.type]} · ${answered(f.id)} respuestas</span></span>${btn('Restaurar', 'fm-restore', { v: f.id, cls: 's plain' })}</div>`).join('')}</div></details>` : ''}
+      ${btn('Descargar respuestas (CSV)', 'fm-export', { cls: 's plain', icon: 'down' })}</div></div>
+    <h2>Vista previa</h2><p class="sm mu">Así ven estos campos las personas al registrarse (sin guardar los cambios pendientes de «Campos del perfil»).</p>
+    <div class="card stack"><div class="form">${baseInputs('pv_', ['gender', 'phone', 'comuna', 'activity', 'occupation'])}${extraInputs('pv_')}</div>${baseInput('pv_', 'reduced_mobility')}</div>`;
+} };
+actions['fm-base-save'] = async () => {
+  const base = Object.fromEntries(Object.keys(FORM.BASE).map(k => [k, { show: !!val('fm_s_' + k), required: !!val('fm_r_' + k), ...(S.fmOpts[k] ? { options: S.fmOpts[k] } : {}) }]));
+  const r = await run('form.base', { base }); if (r) { S.fmLoaded = false; toast('Campos del perfil guardados' + (r.moved ? `. Se actualizó la opción en ${r.moved} perfiles` : '')); } };
+// Opciones de un campo del perfil (Actividad, Ocupación, Género): se editan en una ventana y se guardan con «Guardar campos del perfil»
+const syncOpts = () => { const k = S.fmKey; S.fmOpts[k] = S.fmOpts[k].map((o, i) => ({ ...o, label: val(`fo_${i}_l`), en: val(`fo_${i}_en`), pt: val(`fo_${i}_pt`) })); };
+const loadOpts = () => S.fmOpts[S.fmKey].forEach((o, i) => { S.f[`fo_${i}_l`] = o.label; S.f[`fo_${i}_en`] = o.en || ''; S.f[`fo_${i}_pt`] = o.pt || ''; });
+const optEditor = (list, pre, act, title, sub) => `<h2 id="dlg-t" style="margin:0">${title}</h2><p class="sm mu">${sub}</p>
+  <div class="stack">${list.map((o, i) => `<div class="card flat optrow">${field(`${pre}_${i}_l`, `Opción ${i + 1}`, { attrs: `aria-label="Opción ${i + 1}"` })}
+    <span class="row">${btn('', act + '-mv', { v: i + ':up', cls: 's plain', icon: 'up', off: i === 0, attrs: `aria-label="Subir opción ${i + 1}"`, raw: true })}${btn('', act + '-mv', { v: i + ':down', cls: 's plain', icon: 'dn', off: i === list.length - 1, attrs: `aria-label="Bajar opción ${i + 1}"`, raw: true })}${btn('', act + '-del', { v: i, cls: 's danger', icon: 'trash', attrs: `aria-label="Quitar opción ${i + 1}"`, raw: true })}</span>
+    <div class="tr">${field(`${pre}_${i}_en`, 'En inglés (opcional)')}${field(`${pre}_${i}_pt`, 'En portugués (opcional)')}</div></div>`).join('')}</div>
+  ${btn('Agregar opción', act + '-add', { cls: 's plain', icon: 'plus' })}`;
+actions['fm-opts'] = k => { S.fmKey = k; loadOpts();
+  modal({ render: () => `${optEditor(S.fmOpts[S.fmKey], 'fo', 'fo', 'Opciones de «' + FORM.BASE[S.fmKey].name + '»', 'Sin traducción, la opción se muestra en español en la app en inglés o portugués (las opciones originales ya están traducidas).')}<div class="row">${btn('Listo', 'fo-done', { cls: 'sp' })}</div>` }); };
+actions['fo-add'] = () => { syncOpts(); S.fmOpts[S.fmKey].push({ label: '' }); loadOpts(); UI_render(); };
+actions['fo-del'] = i => { syncOpts(); S.fmOpts[S.fmKey].splice(+i, 1); loadOpts(); UI_render(); };
+actions['fo-mv'] = v => { syncOpts(); const [i, d] = v.split(':'), a = S.fmOpts[S.fmKey], j = +i + (d === 'up' ? -1 : 1); [a[+i], a[j]] = [a[j], a[+i]]; loadOpts(); UI_render(); };
+actions['fo-done'] = () => { syncOpts(); closeQuiet(); toast('Opciones listas: recuerda «Guardar campos del perfil»'); };
+const UI_render = () => go(S.k);
+
+// Preguntas agregadas
+const feSync = () => { S.fe.options = S.fe.options.map((o, i) => ({ ...o, label: val(`fe_${i}_l`), en: val(`fe_${i}_en`), pt: val(`fe_${i}_pt`) })); };
+const feLoad = () => S.fe.options.forEach((o, i) => { S.f[`fe_${i}_l`] = o.label; S.f[`fe_${i}_en`] = o.en || ''; S.f[`fe_${i}_pt`] = o.pt || ''; });
+actions['fm-edit'] = id => { const f = formCfg().extra.find(x => x.id === id);
+  S.fe = { id: f?.id || null, options: f ? FORM.liveOptions(f).map(o => ({ ...o })) : [{ label: '' }, { label: '' }] };
+  fill({ fe_type: f?.type || 'choice', fe_label: f?.label || '', fe_label_en: f?.label_en || '', fe_label_pt: f?.label_pt || '', fe_help: f?.help || '', fe_help_en: f?.help_en || '', fe_help_pt: f?.help_pt || '', fe_req: !!f?.required, fe_min: f?.min ?? '', fe_max: f?.max ?? '' }); feLoad();
+  modal({ render: () => { const ty = val('fe_type'), opts = ty === 'choice' || ty === 'multi', has = S.fe.id && db().all('users').some(u => !FORM.isEmpty(u.extra?.[S.fe.id]));
+    return `<h2 id="dlg-t" style="margin:0">${S.fe.id ? 'Editar pregunta' : 'Agregar pregunta'}</h2>
+      <div class="form">${field('fe_label', 'Pregunta (como la verá la persona)', { cls: 'full', attrs: 'maxlength="120"' })}
+      ${select('fe_type', 'Tipo de respuesta', Object.entries(FT), { raw: true, live: true, attrs: has ? 'disabled' : '', hint: has ? 'El tipo no se puede cambiar porque ya hay respuestas.' : FORM.isPrivate({ type: ty }) ? 'Este tipo no se grafica en Datos: solo lo ve el equipo en la ficha de cada persona.' : 'Las respuestas se analizan en Datos.' })}
+      ${field('fe_help', 'Ayuda bajo la pregunta (opcional)', { attrs: 'maxlength="240"' })}
+      ${ty === 'number' ? field('fe_min', 'Mínimo (opcional)', { type: 'number', attrs: 'step="any"' }) + field('fe_max', 'Máximo (opcional)', { type: 'number', attrs: 'step="any"' }) : ''}</div>
+      ${check('fe_req', 'Obligatoria (a quienes ya están registrados se les pedirá al entrar)')}
+      <details><summary class="sm">Traducciones (opcional)</summary><div class="form">${field('fe_label_en', 'Pregunta en inglés')}${field('fe_label_pt', 'Pregunta en portugués')}${field('fe_help_en', 'Ayuda en inglés')}${field('fe_help_pt', 'Ayuda en portugués')}</div></details>
+      ${opts ? `<h3 style="margin:4px 0 0">Opciones</h3>${optEditor(S.fe.options, 'fe', 'fe', '', 'Si quitas una opción que alguien ya eligió, se archiva: deja de ofrecerse pero se sigue contando en Datos.').replace('<h2 id="dlg-t" style="margin:0"></h2>', '')}` : ''}
+      <div class="row">${btn('Guardar pregunta', 'fe-save', { cls: 'sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>`; } }); };
+actions['fe-add'] = () => { feSync(); S.fe.options.push({ label: '' }); feLoad(); UI_render(); };
+actions['fe-del'] = i => { feSync(); S.fe.options.splice(+i, 1); feLoad(); UI_render(); };
+actions['fe-mv'] = v => { feSync(); const [i, d] = v.split(':'), a = S.fe.options, j = +i + (d === 'up' ? -1 : 1); [a[+i], a[j]] = [a[j], a[+i]]; feLoad(); UI_render(); };
+actions['fe-save'] = async () => { feSync(); const ty = val('fe_type');
+  const field_ = { id: S.fe.id, type: ty, label: val('fe_label'), label_en: val('fe_label_en'), label_pt: val('fe_label_pt'), help: val('fe_help'), help_en: val('fe_help_en'), help_pt: val('fe_help_pt'), required: !!val('fe_req'), min: val('fe_min'), max: val('fe_max'),
+    options: ty === 'choice' || ty === 'multi' ? S.fe.options : [] };
+  const r = await run('form.field', { field: field_ }); if (r) { closeQuiet(); toast(S.fe.id ? 'Pregunta guardada' : 'Pregunta agregada al formulario'); } };
+actions['fm-move'] = v => { const [id, dir] = v.split(':'); run('form.move', { id, dir }); };
+actions['fm-del'] = id => { const f = formCfg().extra.find(x => x.id === id), n = db().all('users').filter(u => !FORM.isEmpty(u.extra?.[id])).length;
+  confirmBox({ title: '¿Quitar la pregunta?', ok: 'Quitar', text: `<p><b>${esc(f.label)}</b></p><p>${n ? `${n} personas ya la respondieron: se archivará y se conservan sus respuestas. Puedes restaurarla después.` : 'Nadie la ha respondido: se borrará.'}</p>`,
+    fn: async () => { const r = await run('form.remove', { id }); if (r) toast(r.archived ? 'Pregunta archivada' : 'Pregunta borrada'); } }); };
+actions['fm-restore'] = id => run('form.restore', { id }, 'Pregunta restaurada');
+actions['fm-export'] = () => { const F = formCfg(), xs = FORM.liveFields(F), now = new Date();
+  download('hub-formulario.csv', csv(['id', 'nombre', 'correo', ...Object.values(FORM.BASE).map(b => b.name), 'edad', ...xs.map(f => f.label)],
+    db().where('users', u => !u.deleted_at).map(u => [u.id, u.name, u.email, ...Object.keys(FORM.BASE).map(k => (k === 'reduced_mobility' ? (u[k] ? 'Sí' : 'No') : u[k])), R.age(u.birth_date, now), ...csvExtra(F, u, true)]))); };
 
 // ============================================================ Importar históricos
 screens['a-imp'] = { roles: ['admin', 'analista'], render() {

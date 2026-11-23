@@ -273,7 +273,7 @@ const L = [
   ['Si más adelante te registras con tu mismo RUT, podrás restablecerla y recuperar tus certificaciones, tus horas y tu historial.', 'If you sign up again later with the same RUT, you can restore it and get back your certifications, your hours and your history.', 'Se mais tarde você se cadastrar com o mesmo RUT, poderá restaurá-la e recuperar suas certificações, suas horas e seu histórico.'],
   ['¿Pedir la eliminación de tus datos?', 'Ask for your data to be deleted?', 'Pedir a exclusão dos seus dados?'],
   ['Enviar solicitud', 'Send request', 'Enviar pedido'],
-  ['Se borrarán tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto.', 'Your visit history, your files, notes and notifications will be deleted, along with your district, activity, occupation, gender, reduced mobility, phone and photo.', 'Serão excluídos seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular e foto.'],
+  ['Se borrarán tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario.', 'Your visit history, your files, notes and notifications will be deleted, along with your district, activity, occupation, gender, reduced mobility, phone, photo and answers to the questions added to the form.', 'Serão excluídos seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular, foto e respostas às perguntas adicionadas ao formulário.'],
   ['Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te avisaremos por correo cuando se haya hecho.', 'You keep your account, your certifications, your hours, your bookings and your penalties. We’ll email you once it’s done.', 'Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades. Avisaremos por e-mail quando estiver feito.'],
   ['¿Eliminar tu cuenta?', 'Delete your account?', 'Excluir sua conta?'],
   ['Ya no podrás entrar con ella ni usar tu código QR.', 'You won’t be able to sign in with it or use your QR code.', 'Você não poderá mais entrar com ela nem usar seu código QR.'],
@@ -306,14 +306,41 @@ const L = [
   ['Recuperaste tu ID, tu código QR, tus certificaciones, tus horas y tu historial en el Hub.', 'You got back your ID, your QR code, your certifications, your hours and your history at the Hub.', 'Você recuperou seu ID, seu código QR, suas certificações, suas horas e seu histórico no Hub.'],
   ['Tus datos personales fueron eliminados', 'Your personal data was deleted', 'Seus dados pessoais foram excluídos'],
   ['Tu reserva fue cancelada por una certificación', 'Your booking was cancelled because of a certification', 'Sua reserva foi cancelada por causa de uma certificação'],
+  ['opcional', 'optional', 'opcional'],
+  ['Más información', 'More information', 'Mais informações'],
+  ['Guardar', 'Save', 'Salvar'],
+  ['Ahora no', 'Not now', 'Agora não'],
+  ['Ir al inicio', 'Go to home', 'Ir para o início'],
+  ['Completa «{0}»', 'Fill in “{0}”', 'Preencha «{0}»'],
+  ['Completa tu perfil', 'Complete your profile', 'Complete seu perfil'],
+  ['Tu perfil está completo', 'Your profile is complete', 'Seu perfil está completo'],
+  ['El Hub agregó preguntas al formulario de registro. Respóndelas para seguir usando la app.', 'The Hub added questions to the sign-up form. Answer them to keep using the app.', 'O Hub adicionou perguntas ao formulário de cadastro. Responda-as para continuar usando o app.'],
+  ['Para las estadísticas se usan solo {0}, sin tu nombre ni tu RUT.', 'Statistics use only {0}, without your name or RUT.', 'As estatísticas usam apenas {0}, sem seu nome nem seu RUT.'],
+  ['comuna', 'district', 'comuna'],
+  ['actividad en Providencia', 'activity in Providencia', 'atividade em Providencia'],
+  ['ocupación', 'occupation', 'ocupação'],
+  ['género', 'gender', 'gênero'],
+  ['movilidad reducida', 'reduced mobility', 'mobilidade reduzida'],
+  ['edad', 'age', 'idade'],
+  [', y tus respuestas a ', ', and your answers to ', ', e suas respostas a '],
 ];
 export const EN = Object.fromEntries(L.map(([es, en]) => [es, en]));
 export const PT = Object.fromEntries(L.map(([es, , pt]) => [es, pt]));
 
 /** Mensajes con datos variables (errores del servidor): [patrón, inglés, portugués]; $1, $2 = datos. */
 export const PATTERNS = [
+  // Formulario de registro: preguntas agregadas (el nombre de la pregunta queda como lo escribió administración)
+  [/^Falta «(.+)»$/, 'Missing “$1”', 'Falta «$1»'],
+  [/^«(.+)» debe ser un número$/, '“$1” must be a number', '«$1» deve ser um número'],
+  [/^«(.+)» debe estar entre (\S+) y (\S+)$/, '“$1” must be between $2 and $3', '«$1» deve estar entre $2 e $3'],
+  [/^Revisa el teléfono en «(.+)»$/, 'Check the phone number in “$1”', 'Confira o telefone em «$1»'],
+  [/^Revisa el correo en «(.+)»$/, 'Check the email in “$1”', 'Confira o e-mail em «$1»'],
+  [/^Revisa la fecha en «(.+)»$/, 'Check the date in “$1”', 'Confira a data em «$1»'],
+  [/^Responde sí o no en «(.+)»$/, 'Answer yes or no in “$1”', 'Responda sim ou não em «$1»'],
+  [/^Elige una opción válida en «(.+)»$/, 'Choose a valid option in “$1”', 'Escolha uma opção válida em «$1»'],
+  [/^Elige opciones válidas en «(.+)»$/, 'Choose valid options in “$1”', 'Escolha opções válidas em «$1»'],
   // Notificaciones generadas por el servidor (se guardan en español y se traducen al mostrarlas)
-  [/^Hola (.+): como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto\. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones\.$/, 'Hi $1: as you asked, we deleted your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone and photo. You keep your account, your certifications, your hours, your bookings and your penalties.', 'Olá $1: como você pediu, excluímos seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular e foto. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades.'],
+  [/^Hola (.+): como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario\. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones\.$/, 'Hi $1: as you asked, we deleted your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone, photo and answers to the questions added to the form. You keep your account, your certifications, your hours, your bookings and your penalties.', 'Olá $1: como você pediu, excluímos seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular, foto e respostas às perguntas adicionadas ao formulário. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades.'],
   [/^(.+), (.+): ese horario quedó para «(.+)»\. Las horas se devolvieron\.$/, '$1, $2: that time is now for “$3”. Your hours were returned.', '$1, $2: esse horário ficou para «$3». As horas foram devolvidas.'],
   [/^(.+) pide tu autorización$/, '$1 is asking for your authorisation', '$1 pede sua autorização'],
   [/^(.+) quedó como adulto responsable\.$/, '$1 is now your responsible adult.', '$1 ficou como adulto responsável.'],

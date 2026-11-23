@@ -1,7 +1,9 @@
 // Pantallas del equipo del Hub: operación diaria, recepción, laboratorios y usuarios.
 import * as R from '../core/rules.js';
 import * as Q from '../core/queries.js';
-import { ACTIVE, WEEKDAYS, DOC_TYPES, ACTIVITIES, OCCUPATIONS, GENDERS } from '../core/catalog.js';
+import { ACTIVE, WEEKDAYS, DOC_TYPES } from '../core/catalog.js';
+import * as FORM from '../core/form.js';
+import { baseInputs, baseInput, extraInputs, readBase, readExtra, fillBase, fillExtra, extraRows, regForm as formCfg } from './formui.js';
 import { t } from './i18n.js';
 import { openCamera } from './camera.js';
 import { regForm, occupancyCard } from './user.js';
@@ -25,7 +27,7 @@ export const NAV = [
   ['Hub', [['a-esp', 'Espacios', 'map'], ['a-agenda', 'Agenda y bloqueos', 'lock']]],
   ['Datos', [['a-datos', 'Datos', 'chart'], ['a-imp', 'Importar históricos', 'down']]],
   ['Mi cuenta', [['a-perfil', 'Mi perfil', 'user'], ['a-ayuda', 'Ayuda y preguntas', 'help']]],
-  ['Sistema', [['a-emp', 'Empleados', 'users'], ['a-reglas', 'Reglas', 'gear'], ['a-apar', 'Apariencia', 'paint'], ['a-audit', 'Auditoría', 'shield']]],
+  ['Sistema', [['a-emp', 'Empleados', 'users'], ['a-reglas', 'Reglas', 'gear'], ['a-form', 'Formulario de registro', 'file'], ['a-apar', 'Apariencia', 'paint'], ['a-audit', 'Auditoría', 'shield']]],
 ];
 const ALL = ['admin', 'encargado', 'recepcion', 'analista'];
 
@@ -288,6 +290,8 @@ function userDetail(u) {
   const visits = db().where('visits', v => v.user_id === u.id), bans = db().where('bans', b => b.user_id === u.id).sort((a, b) => T(b.from_at) - T(a.from_at));
   return `<div class="card stack"><div class="row">${avatar(u)}<div class="sp"><h2 style="margin:0">${esc(u.name)}</h2><span class="mu sm">${u.id} · ${esc(R.fmtDoc(u.doc_number, u.doc_type))} · ${R.age(u.birth_date) ?? '—'} años</span></div>${pill({ activo: 'Activo', pendiente_adulto: 'Espera a un adulto', pendiente_correo: 'Correo sin confirmar' }[u.status], u.status === 'activo' ? 'ok' : 'warn')}</div>
       <p class="sm">${icon('mail')} ${esc(u.email || 'Sin correo')} · ${esc(u.phone || 'Sin teléfono')} · ${esc(u.comuna || '')}${g ? ` · Adulto responsable: ${esc(g.name)}` : ''}</p>
+      ${(() => { const rows = extraRows(u, true), miss = FORM.missingFor(formCfg(), u); return (rows.length ? `<details><summary class="sm">Respuestas del formulario de registro (${rows.length})</summary><div class="list">${rows.map(([a, b]) => `<div class="li"><span class="mu" style="flex:0 0 40%">${esc(a)}</span><span class="sp">${b}</span></div>`).join('')}</div></details>` : '')
+        + (miss.length ? `<p class="sm mu">${icon("alert")} Perfil incompleto: falta ${esc(miss.map(m => m.base ? FORM.BASE[m.key].name : m.field.label).join(', '))}. Se le pedirá al entrar; también puedes completarlo con «Actualizar datos».</p>` : ''); })()}
       ${u.closed_at ? `<div class="card bad stack"><span>${icon('lock')} <b>Cuenta eliminada por la persona</b> el ${fDate(u.closed_at)}. No puede entrar ni reservar.</span>${can('recepcion') ? `<span class="sm">Si quiere volver, revisa su carnet y restablécela. Para cambiar sus datos, usa después «Actualizar datos».</span><div class="row">${btn('Restablecer cuenta', 'reopen-ask', { v: u.id, cls: 's', icon: 'check' })}</div>` : ''}</div>` : ''}
       ${u.erase_req_at && can() ? `<div class="card warn stack"><span>${icon('alert')} <b>Pidió eliminar sus datos</b> el ${fDate(u.erase_req_at)}.</span><span class="sm">${ERASE.personal[1]}</span><div class="row w">${btn('Eliminar sus datos', 'erase-ask', { v: u.id + ':personal', cls: 's danger', icon: 'trash' })}${btn('Descartar solicitud', 'erase-dismiss', { v: u.id, cls: 's plain' })}</div></div>` : ''}
       ${ban ? `<div class="card bad row"><span class="sp">${icon('lock')} Acceso restringido ${ban.until_at ? 'hasta el ' + fDT(ban.until_at) : 'de forma permanente'}${ban.reason ? ' · ' + esc(ban.reason) : ''}</span>${can() ? btn('Levantar', 'ban-lift', { v: ban.id, cls: 's plain' }) : ''}</div>` : ''}
@@ -309,7 +313,7 @@ actions['intern-set'] = v => { const [id, on] = v.split(':'), u = db().get('user
 actions['usr-open'] = id => { S.usr = id; go('a-husr'); };
 // Borrar historial, perfil o ambos: elige, escribe la contraseña de administración y confirma
 const ERASE = {
-  personal: ['Borrar los datos personales (lo que pide la persona)', 'Se borran sus visitas, archivos, observaciones y avisos, y su comuna, actividad, ocupación, género, movilidad reducida, celular y foto. Conserva su cuenta, nombre, RUT, correo, fecha de nacimiento, certificaciones, horas, reservas y penalizaciones. Le llega un correo automático.'],
+  personal: ['Borrar los datos personales (lo que pide la persona)', 'Se borran sus visitas, archivos, observaciones y avisos, y su comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario. Conserva su cuenta, nombre, RUT, correo, fecha de nacimiento, certificaciones, horas, reservas y penalizaciones. Le llega un correo automático.'],
   datos: ['Borrar solo el historial', 'Se borran visitas, reservas, archivos subidos, observaciones, avisos y ajustes de horas. La cuenta sigue activa con su ID y su QR.'],
   perfil: ['Borrar solo el perfil', 'Se borra la cuenta: nombre, RUT, correo, teléfono, foto y contraseña. Sus visitas y reservas pasadas quedan como “Usuario eliminado” para las estadísticas. Sus reservas futuras se cancelan.'],
   ambos: ['Borrar historial y perfil', 'Se borra todo lo relacionado con la persona. No quedará en las estadísticas del Hub.'] };
@@ -338,9 +342,9 @@ actions['ban-ask'] = () => { fill({ bn_amount: 3, bn_unit: 'dias', bn_reason: ''
     <div class="row">${btn('Restringir acceso', 'ban-ok', { cls: 'danger sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` }); };
 actions['ban-ok'] = async () => { const r = await run('ban.set', { user_id: S.usr, amount: val('bn_amount'), unit: val('bn_unit'), reason: val('bn_reason') }); if (r) { closeQuiet(); toast('Acceso restringido'); } };
 actions['ban-lift'] = id => run('ban.lift', { id: +id }, 'Restricción levantada');
-actions['usr-edit'] = id => { const u = db().get('users', id); S.usr = id; fill({ ue_type: u.doc_type, ue_doc: R.fmtDoc(u.doc_number, u.doc_type), ue_name: u.name, ue_email: u.email || '', ue_phone: u.phone || '', ue_comuna: u.comuna || '', ue_activity: u.activity || '', ue_occ: u.occupation || '', ue_gender: u.gender || '', ue_birth: u.birth_date || '', ue_mob: u.reduced_mobility });
+actions['usr-edit'] = id => { const u = db().get('users', id); S.usr = id; fill({ ue_type: u.doc_type, ue_doc: R.fmtDoc(u.doc_number, u.doc_type), ue_name: u.name, ue_email: u.email || '', ue_birth: u.birth_date || '' }); fillBase('ue_', u); fillExtra('ue_', u.extra);
   modal({ html: `<h2 style="margin:0">Actualizar datos</h2><p class="sm mu">${u.id}. Úsalo también para reemplazar un RUT provisorio o pasaporte por el RUT definitivo.</p>
-    <div class="form">${select('ue_type', 'Documento', Object.entries(DOC_TYPES), { raw: true })}${field('ue_doc', 'Número')}${field('ue_name', 'Nombre completo', { cls: 'full' })}${field('ue_email', 'Correo', { type: 'email' })}${field('ue_phone', 'Celular', { type: 'tel' })}${field('ue_comuna', 'Comuna')}${field('ue_birth', 'Fecha de nacimiento', { type: 'date' })}
-      ${select('ue_activity', 'Actividad en Providencia', ACTIVITIES, { raw: true })}${select('ue_gender', 'Género', GENDERS, { raw: true })}${select('ue_occ', 'Ocupación', OCCUPATIONS, { cls: 'full', raw: true })}</div>${check('ue_mob', 'Persona con movilidad reducida')}
+    <div class="form">${select('ue_type', 'Documento', Object.entries(DOC_TYPES), { raw: true })}${field('ue_doc', 'Número')}${field('ue_name', 'Nombre completo', { cls: 'full' })}${field('ue_email', 'Correo', { type: 'email' })}${baseInputs('ue_', ['phone', 'comuna'], { staff: true })}${field('ue_birth', 'Fecha de nacimiento', { type: 'date' })}
+      ${baseInputs('ue_', ['activity', 'gender', 'occupation'], { staff: true })}${extraInputs('ue_', { staff: true })}</div>${baseInput('ue_', 'reduced_mobility', { staff: true })}
     <div class="row">${btn('Guardar cambios', 'usr-save', { cls: 'sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` }); };
-actions['usr-save'] = async () => { const r = await run('user.update', { id: S.usr, patch: { doc_type: val('ue_type'), doc_number: val('ue_doc'), name: val('ue_name'), email: val('ue_email'), phone: val('ue_phone'), comuna: val('ue_comuna'), birth_date: val('ue_birth'), activity: val('ue_activity'), gender: val('ue_gender'), occupation: val('ue_occ'), reduced_mobility: val('ue_mob') } }); if (r) { closeQuiet(); toast('Datos actualizados'); } };
+actions['usr-save'] = async () => { const r = await run('user.update', { id: S.usr, patch: { doc_type: val('ue_type'), doc_number: val('ue_doc'), name: val('ue_name'), email: val('ue_email'), birth_date: val('ue_birth'), ...readBase('ue_'), extra: readExtra('ue_') } }); if (r) { closeQuiet(); toast('Datos actualizados'); } };

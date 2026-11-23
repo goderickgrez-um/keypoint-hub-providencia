@@ -72,6 +72,7 @@ Cada versión siguió el mismo ciclo:
 | Término con recepción | 20 nov. 2026 | 2.5.1 | Ajuste de «Terminar», versión única, trípticos B/N |
 | Video comercial | 21 nov. 2026 | — | Tomas reales de la app, gráficos y maqueta de 56 s |
 | Idiomas, manual y QA | 22 nov. 2026 | 2.6.0 | Ayudas en inglés y portugués, manual actualizado, informe de QA |
+| Formulario de registro configurable | 23 nov. 2026 | 2.8.0 | Campos del perfil configurables (etapa 1) y preguntas agregadas con su análisis en Datos (etapa 2) |
 | Cuentas, datos y certificaciones | 22 nov. 2026 | 2.7.0 | Eliminar y restablecer cuenta, pedir eliminación de datos, periodo de certificaciones, arreglo de listas en ventanas |
 
 ---
@@ -298,15 +299,34 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 - [x] Ayudas, preguntas frecuentes, traducciones y manual.
 - [x] Pruebas: núcleo, navegador (demostración), servidor con PostgreSQL y migración desde 2.6.0, seguridad, accesibilidad, tamaños de pantalla e idiomas.
 
+### 5.16 Formulario de registro configurable (versión 2.8.0, 23 de noviembre)
+
+**Solicitud.** «Pasemos a la versión completa del sistema de alteración de campos: desarrolla la etapa 1 y confirma su funcionamiento, y haz también el desarrollo de la etapa dos de los nuevos campos con sus análisis. Asegúrate de hacer las pruebas correspondientes en ambos casos.»
+
+**Diseño.** No se creó una base de datos aparte. La definición del formulario vive en la configuración (`reg_form`) y las respuestas en una columna nueva del perfil (`users.extra`), cifrada en PostgreSQL como el RUT y el correo. Un módulo común (`src/core/form.js`) valida las respuestas, calcula los campos que faltan y arma el análisis; lo usan igual el navegador y el servidor. Documento, nombre, correo, fecha de nacimiento, contraseña y declaraciones quedaron fijos porque de ellos dependen el ingreso, el QR, la regla de edad y los menores.
+
+**Tareas incluidas:**
+
+- [x] Etapa 1: mostrar u ocultar celular, comuna, actividad, ocupación, género y movilidad reducida; marcarlos obligatorios; editar, ordenar y traducir las opciones; el cambio de nombre de una opción se aplica a los perfiles que la tenían.
+- [x] Etapa 2: preguntas de una opción, varias opciones, sí o no, número, fecha, texto, teléfono y correo, con ayuda, traducción, orden y obligatoriedad; archivar y restaurar sin perder respuestas.
+- [x] Análisis en Datos por pregunta (conteos, rangos con promedio, meses), descarga para la analista sin datos privados y descarga completa para administración.
+- [x] «Completa tu perfil» al entrar cuando falta un dato obligatorio; aviso «Perfil incompleto» en la ficha.
+- [x] La analista no recibe texto libre, teléfonos ni correos agregados; el borrado de datos personales incluye las respuestas.
+- [x] Ayudas, preguntas frecuentes y traducciones; manual con un apartado nuevo.
+- [x] Pruebas por etapa: núcleo (`tools/test-form.mjs`), navegador (`tools/qa/formulario.cjs`) y servidor con PostgreSQL y migración desde 2.7.0 (`tools/qa/formulario.mjs`), más la repetición de todas las pruebas anteriores.
+
+**Corrección encontrada en el camino:** dentro de las ventanas, las secciones desplegables («Traducciones») no se abrían porque el clic quedaba tomado por la ventana.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.7.0 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.8.0 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |
-| Datos personales | Texto plano | RUT, correo y teléfono cifrados (AES-256-GCM) |
+| Datos personales | Texto plano | RUT, correo, teléfono y respuestas del formulario cifrados (AES-256-GCM) |
+| Registro | Formulario fijo | Campos configurables y preguntas agregadas con su análisis en Datos |
 | Sesiones | 12 horas, sin cierre remoto | Por dispositivo, revocables; cierre de otros dispositivos; se invalidan al cambiar la contraseña |
 | Encargados | Un encargado por espacio | Varios laboratorios por encargado; cada uno ve solo los suyos |
 | Asistencia | Al entrar al Hub | En dos pasos: entrada en recepción y QR del espacio; término confirmado por recepción |
@@ -339,8 +359,8 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 4. Respaldos cifrados fuera del equipo (la base y el archivo `.data-key` juntos).
 5. Prueba con personas que usan lectores de pantalla.
 6. Revisión de seguridad externa antes del uso definitivo.
-7. Etiquetar las versiones en Git (`git tag v2.7.0`) al subir cada entrega.
-8. Formulario de registro configurable (propuesta de la versión 2.7.0): campos opcionales activables y editables, y luego un constructor de campos nuevos con análisis en Datos.
+7. Etiquetar las versiones en Git (`git tag v2.8.0`) al subir cada entrega.
+8. Revisar con el Hub qué preguntas agregar al formulario antes de abrir el registro masivo: cada pregunta obligatoria nueva se pide a todas las personas ya registradas.
 
 ---
 
@@ -360,4 +380,5 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 | «v1.4» | 2.5.0 |
 | Término con recepción, bitácora y trípticos | 2.5.1 |
 | Idiomas, manual y QA | 2.6.0 |
-| Esta entrega | 2.7.0 |
+| Cuentas, datos y certificaciones | 2.7.0 |
+| Esta entrega | 2.8.0 |

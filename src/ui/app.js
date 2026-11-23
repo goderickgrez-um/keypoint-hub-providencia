@@ -2,6 +2,7 @@
 import { App, S, UI, db, me, myRoles, screens, actions, go, toast, closeModal, esc, icon, val } from './kit.js';
 import { t, setLang, getLang } from './i18n.js';
 import { applyTheme } from './theme.js';
+import * as FORM from '../core/form.js';
 import { local } from '../data/local.js';
 import { remote } from '../data/remote.js';
 import { logoSrc, pendingScreen, stopBanners } from './user.js';
@@ -58,6 +59,8 @@ function render() {
   if (!screens[k]) k = 'u-login';
   if (!App.uid && !screens[k].open) k = 'u-login';
   if (App.uid && ['u-login', 'u-reg', 'u-verif'].includes(k)) k = S.staff ? 'a-panel' : 'u-inicio';
+  // El formulario de registro pidió datos nuevos: se piden al entrar a la app de usuarios (se puede postergar en la sesión)
+  if (App.uid && !k.startsWith('a-') && !['u-completar', 'u-config', 'u-priv', 'u-ayuda', 'u-notif'].includes(k) && !S.completeLater && me()?.status === 'activo' && FORM.missingFor(FORM.regForm(db()), me()).length) k = 'u-completar';
   const scr = screens[k], staffScreen = k.startsWith('a-'), u = me();
   if (staffScreen && !myRoles().length) k = 'u-inicio';
   S.k = k;
@@ -75,7 +78,8 @@ function render() {
   else html = `<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
       <main class="wrap">${body}</main><nav class="tabs">${TABS.map(([key, ic, label]) => `<button class="${(scr.tab || k) === key ? 'on' : ''}" data-a="go" data-v="${key}">${icon(ic)}${t(label)}</button>`).join('')}</nav>`;
   const root = document.getElementById('app');
-  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true" tabindex="-1"${/id="dlg-t"/.test(S.modal.html) ? ' aria-labelledby="dlg-t"' : ''}><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${S.modal.html}</div></div>` : '') + tourCard() + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
+  const mh = S.modal ? (S.modal.render ? S.modal.render() : S.modal.html) : ''; // una ventana con render() se vuelve a dibujar con cada cambio
+  morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true" tabindex="-1"${/id="dlg-t"/.test(mh) ? ' aria-labelledby="dlg-t"' : ''}><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${mh}</div></div>` : '') + tourCard() + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
   if (!S.modal && history.state?.hubModal) { skipPop = true; history.back(); } // la ventana se cerró con un botón: quita su paso del historial
   // Accesibilidad: al abrir una ventana el foco entra en ella; al cerrarla vuelve a donde estaba
   if (S.modal && S.modal !== lastModal) { lastModal = S.modal; opener ||= document.activeElement; const d = root.querySelector('[role=dialog]'); (d.querySelector('input,select,textarea,button:not(.mx)') || d).focus(); return bindPlan(); }
@@ -106,7 +110,7 @@ actions['modal-bg'] = (v, el, e) => { if (e.target === el) closeModal(); };
 const root = document.getElementById('app');
 root.addEventListener('click', e => {
   const el = e.target.closest('[data-a]'); if (!el || (el.tagName === 'INPUT' && el.type !== 'checkbox')) return;
-  const ctl = e.target.closest('input, select, textarea, label'); if (ctl && ctl !== el && el.contains(ctl)) return;
+  const ctl = e.target.closest('input, select, textarea, label, summary'); if (ctl && ctl !== el && el.contains(ctl)) return; // dentro de una ventana: controles y «Ver más» funcionan solos
   if (el.classList.contains('scrim') && e.target !== el) return;
   const fn = actions[el.dataset.a]; if (fn) { if (el.tagName !== 'INPUT') e.preventDefault(); fn(el.dataset.v, el, e); }
 });

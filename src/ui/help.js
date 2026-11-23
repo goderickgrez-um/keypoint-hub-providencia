@@ -72,6 +72,8 @@ export const GUIDES = {
     ['[data-a="close-ask"]', 'Eliminar mi cuenta la deja inactiva. Si vuelves a registrarte con tu mismo RUT, puedes restablecerla con un código que llega a tu correo anterior.']] },
   'u-reopen': { title: 'Restablecer mi cuenta', steps: [
     [null, 'Escribe el código que llegó al correo de tu cuenta anterior. Recuperarás tu ID, tu QR, tus certificaciones y tus horas, con los datos que escribiste en el registro.']] },
+  'u-completar': { title: 'Completa tu perfil', steps: [
+    [null, 'El Hub agregó preguntas al formulario de registro. Respóndelas y toca «Guardar». Con «Ahora no» sigues usando la app y se te volverá a pedir la próxima vez que entres.']] },
   // ---- Personal
   'a-panel': { title: 'Panel', steps: [
     ['.side', 'El menú muestra solo las secciones de tu credencial.'],
@@ -114,6 +116,11 @@ export const GUIDES = {
   'a-datos': { title: 'Datos', steps: [[null, 'Visitas, reservas y perfiles por periodo. Descarga los datos en CSV.'], ['.bartog', 'Toca una variable para ocultarla y comparar mejor las demás: la escala se ajusta sola.']] },
   'a-emp': { title: 'Empleados', steps: [[null, 'Asigna credenciales (administración, encargado, recepción, analista) y los laboratorios de cada encargado.']] },
   'a-reglas': { title: 'Reglas', steps: [[null, 'Horarios, bloques, tolerancia, saldo, aforo por piso, edades permitidas y correo.']] },
+  'a-form': { title: 'Formulario de registro', steps: [
+    [null, 'Qué datos se piden al crear una cuenta. Documento, nombre, correo, fecha de nacimiento, contraseña y declaraciones son fijos.'],
+    ['[data-a="fm-base-save"]', 'Campos del perfil: muestra u oculta cada campo, márcalo obligatorio y edita sus opciones. Un cambio de nombre de una opción se aplica a quienes ya la tenían.'],
+    ['[data-a="fm-edit"][data-v=""]', 'Agrega preguntas nuevas: una opción, varias opciones, sí o no, número, fecha, texto, teléfono o correo. Las cuatro primeras y la fecha se analizan en Datos; texto, teléfono y correo solo los ve el equipo.'],
+    [null, 'Si una pregunta obligatoria es nueva, a quienes ya están registrados se les pide al entrar. Quitar una pregunta con respuestas la archiva: se conservan y se puede restaurar.']] },
 };
 // Las pantallas del personal quedan en español, como el resto de su app; las de usuarios siguen el idioma elegido.
 const staffK = k => String(k || '').startsWith('a-');

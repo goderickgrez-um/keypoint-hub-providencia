@@ -84,6 +84,9 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 input[type="file"] { padding: 8px; font-size: .85rem; } input[type="color"] { padding: 3px; }
 label.ck { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: .9rem; color: var(--tx); }
 .form { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); } .form .full { grid-column: 1 / -1; }
+fieldset.mf { display: flex; flex-direction: column; gap: 0; min-width: 0; margin: 0; padding: 0; border: 0; } fieldset.mf legend { padding: 0 0 2px; font-size: .8rem; color: var(--mu); }
+.fx { display: grid; gap: 6px; } .fx .li { flex-wrap: wrap; } .fx .ops { display: flex; flex-wrap: wrap; gap: 6px; }
+.optrow { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) auto; align-items: end; } .optrow .tr { grid-column: 1 / -1; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
 .seg { display: inline-flex; max-width: 100%; overflow-x: auto; padding: 3px; gap: 2px; border-radius: 11px; background: var(--fill); }
 .seg button { min-height: 34px; padding: 0 13px; border: 0; border-radius: 8px; background: none; font-size: .86rem; white-space: nowrap; }
 .seg button.on { background: var(--sf); box-shadow: 0 1px 3px rgba(0, 0, 0, .14); font-weight: 650; }

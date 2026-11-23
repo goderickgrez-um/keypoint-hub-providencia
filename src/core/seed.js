@@ -209,6 +209,21 @@ export async function seed(nowArg = new Date()) {
   // Reservas que van ahora: con la confirmación en dos pasos ya se iniciaron (escanearon el QR del espacio)
   db.where('reservations', r => r.status === 'confirmada' && +new Date(r.start_at) <= +now && +now < +new Date(r.end_at)).forEach(r => { const v = db.find('visits', x => x.user_id === r.user_id && !x.out_at);
     if (v) { db.update('reservations', r.id, { status: 'en_curso', attended_at: iso(+new Date(r.start_at) + 3 * 60000) }); db.update('visits', v.id, { space_id: r.space_id }); } });
+  // Demo del formulario configurable: tres preguntas agregadas (opcionales) con respuestas de ejemplo
+  const op = (id, label, en, pt) => ({ id, label, en, pt });
+  const extra = [
+    { id: 'cedu01', type: 'choice', label: 'Nivel educacional', label_en: 'Education level', label_pt: 'Nível de escolaridade', required: false,
+      options: [op('oe1', 'Básica', 'Primary', 'Fundamental'), op('oe2', 'Media', 'Secondary', 'Médio'), op('oe3', 'Técnica', 'Technical', 'Técnico'), op('oe4', 'Universitaria', 'University', 'Superior'), op('oe5', 'Posgrado', 'Postgraduate', 'Pós-graduação')] },
+    { id: 'cvia01', type: 'multi', label: '¿Cómo conociste el Hub?', label_en: 'How did you hear about the Hub?', label_pt: 'Como você conheceu o Hub?', help: 'Puedes marcar más de una.', help_en: 'You can choose more than one.', help_pt: 'Você pode marcar mais de uma.', required: false,
+      options: [op('ov1', 'Redes sociales', 'Social media', 'Redes sociais'), op('ov2', 'Municipalidad', 'Municipality', 'Prefeitura'), op('ov3', 'Recomendación', 'Word of mouth', 'Indicação'), op('ov4', 'Pasaba por aquí', 'Walking by', 'Passando por aqui')] },
+    { id: 'cpri01', type: 'yesno', label: '¿Es tu primera vez en un cowork?', label_en: 'Is this your first time in a coworking space?', label_pt: 'É sua primeira vez em um coworking?', required: false },
+  ];
+  db.setCfg('reg_form', { ...DEFAULTS.reg_form, extra });
+  const weights = (opts, w) => { let r = rnd() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < opts.length; i++) { r -= w[i]; if (r <= 0) return opts[i]; } return opts[0]; };
+  db.where('users', u => !u.deleted_at && rnd() < .72).forEach(u => {
+    const via = ['ov1', 'ov2', 'ov3', 'ov4'].filter((_, i) => rnd() < [.5, .35, .3, .15][i]);
+    db.update('users', u.id, { extra: { cedu01: weights(['oe1', 'oe2', 'oe3', 'oe4', 'oe5'], [1, 6, 5, 9, 3]), ...(via.length ? { cvia01: via } : {}), ...(rnd() < .9 ? { cpri01: rnd() < .55 } : {}) } });
+  });
   tick(ctx);
   db.take();
   return db.dump();

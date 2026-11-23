@@ -13,7 +13,8 @@ export const TABLES = {
       reduced_mobility: 'bool=false', photo: 'text?', password_hash: 'text?', email_verified: 'bool=false',
       status: 'text=activo', guardian_id: 'users?', guardian_ok: 'bool=false', consent_data: 'bool=false', consent_image: 'bool=false',
       consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?', intern: 'bool=false',
-      closed_at: 'ts?', erase_req_at: 'ts?' }, // closed_at: la persona eliminó su cuenta (se puede restablecer); erase_req_at: pidió borrar sus datos
+      closed_at: 'ts?', erase_req_at: 'ts?', // closed_at: la persona eliminó su cuenta (se puede restablecer); erase_req_at: pidió borrar sus datos
+      extra: 'text?' }, // respuestas a los campos agregados al formulario de registro ({ id del campo: valor }); en el servidor se guarda cifrado
     unique: ['doc_number'], index: ['email'],
     check: ["status in ('pendiente_correo','pendiente_adulto','activo')"] },
 

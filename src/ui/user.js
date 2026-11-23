@@ -1,7 +1,9 @@
 // Pantallas de la app de usuarios.
 import * as R from '../core/rules.js';
 import * as Q from '../core/queries.js';
-import { ACTIVITIES, OCCUPATIONS, GENDERS, DOC_TYPES, FAILURES, ACTIVE, WEEKDAYS } from '../core/catalog.js';
+import { DOC_TYPES, FAILURES, ACTIVE, WEEKDAYS } from '../core/catalog.js';
+import * as FORM from '../core/form.js';
+import { regForm as formCfg, baseInput, baseInputs, extraInputs, readExtra, readBase, fillBase, fillExtra, firstMissing, extraRows, statVars, baseText, shown } from './formui.js';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../core/seed.js';
 import { t, LANGS, getLang, setLang } from './i18n.js';
 import { themePref, setThemePref, a11y, setA11y } from './theme.js';
@@ -45,7 +47,7 @@ actions['login-mode'] = () => { S.loginMode = S.loginMode === 'code' ? 'pass' : 
 export const keepLogin = () => val('l_keep', true) !== false;
 actions['demo-login'] = v => { fill({ l_ident: v, l_pass: DEMO_PASSWORD }); S.loginMode = 'pass'; actions.login(); };
 actions['demo-reset'] = () => App.data.reset();
-const enter = r => { if (!r?.session) return; S.demoCode = null; S.codeSent = false; S.f = {}; S.staff = myRoles().length > 0; go(S.staff ? 'a-panel' : 'u-inicio'); };
+const enter = r => { if (!r?.session) return; S.demoCode = null; S.codeSent = false; S.f = {}; S.completeLater = false; S.cpLoaded = false; S.staff = myRoles().length > 0; go(S.staff ? 'a-panel' : 'u-inicio'); };
 actions.login = async () => {
   const ident = val('l_ident').trim(); if (!ident) return toast(t('Escribe tu RUT o correo'));
   if (S.loginMode === 'code') {
@@ -56,7 +58,7 @@ actions.login = async () => {
   if (r?.need === 'correo') { S.verify = r.id; S.demoCode = r.demo_code; S.codeMin = r.minutes; return go('u-verif'); }
   enter(r);
 };
-actions.logout = async () => { await App.data.logout(); S.staff = false; S.assist = null; S.f = {}; go('u-login'); };
+actions.logout = async () => { await App.data.logout(); S.staff = false; S.assist = null; S.f = {}; S.completeLater = false; S.cpLoaded = false; go('u-login'); };
 
 const CONSENTS = [['c_data', 'Declaro haber leído y aceptado el tratamiento de mis datos personales conforme a la Ley N.º 19.628.'],
   ['c_image', 'Autorizo el uso de mi imagen o voz para fines institucionales de la Municipalidad de Providencia, sin fines de lucro.'],
@@ -67,16 +69,15 @@ export function regForm(assisted) {
   return `<div class="card stack"><h3>${t('Identificación')}</h3><div class="form">
       ${select('r_type', 'Documento', Object.entries(DOC_TYPES), { live: true })}${field('r_doc', type === 'pasaporte' ? 'Número de pasaporte' : 'RUT', { ph: type === 'pasaporte' ? '' : '12.345.678-5', hint: type === 'pasaporte' ? 'Tal como aparece en el pasaporte, con letras y números.' : 'Con o sin puntos y con guion antes del dígito verificador: 12.345.678-5 o 12345678-5. Si termina en K, escribe K.', live: true, attrs: 'autocomplete="off" autocapitalize="characters" spellcheck="false"' })}
       ${field('r_name', 'Nombre completo', { cls: 'full', attrs: 'autocomplete="name"' })}
-      ${field('r_birth', 'Fecha de nacimiento', { type: 'date', live: true, hint: t('Edad permitida: de {0} a {1} años.', db().cfg('min_age') || 4, db().cfg('max_age') || 95), attrs: `min="${R.dayKey(new Date(new Date().getFullYear() - (db().cfg('max_age') || 95) - 1, new Date().getMonth(), new Date().getDate() + 1))}" max="${R.dayKey(new Date(new Date().getFullYear() - (db().cfg('min_age') || 4), new Date().getMonth(), new Date().getDate()))}"` })}${select('r_gender', 'Género', GENDERS, { blank: 'Elige una opción' })}</div>
+      ${field('r_birth', 'Fecha de nacimiento', { type: 'date', live: true, hint: t('Edad permitida: de {0} a {1} años.', db().cfg('min_age') || 4, db().cfg('max_age') || 95), attrs: `min="${R.dayKey(new Date(new Date().getFullYear() - (db().cfg('max_age') || 95) - 1, new Date().getMonth(), new Date().getDate() + 1))}" max="${R.dayKey(new Date(new Date().getFullYear() - (db().cfg('min_age') || 4), new Date().getMonth(), new Date().getDate()))}"` })}${baseInput('r_', 'gender', { assisted })}</div>
       ${val('r_doc') && type !== 'pasaporte' && !R.rutOk(val('r_doc')) ? `<p class="sm" role="alert" style="color:var(--bad)">${t('El dígito verificador no coincide con el RUT.')}</p>` : ''}
       ${years != null && (years < (db().cfg('min_age') || 4) || years > (db().cfg('max_age') || 95)) ? `<p class="sm" role="alert" style="color:var(--bad)">${t('La edad debe estar entre {0} y {1} años', db().cfg('min_age') || 4, db().cfg('max_age') || 95)}</p>` : ''}
-      ${check('r_mob', 'Tengo movilidad reducida')}</div>
+      ${baseInput('r_', 'reduced_mobility')}</div>
     <div class="card stack"><h3>${t('Contacto')}</h3><div class="form">
-      ${field('r_email', assisted ? 'Correo (opcional)' : 'Correo', { type: 'email', attrs: 'autocomplete="email"' })}${field('r_phone', assisted ? 'Celular (opcional)' : 'Celular', { type: 'tel', ph: '+56 9 1234 5678' })}
-      ${field('r_comuna', 'Comuna')}${select('r_activity', '¿Qué actividad realizas en Providencia?', ACTIVITIES, { blank: 'Elige una opción' })}
-      ${select('r_occ', '¿A qué te dedicas?', OCCUPATIONS, { blank: 'Elige una opción', cls: 'full' })}
+      ${field('r_email', assisted ? 'Correo (opcional)' : 'Correo', { type: 'email', attrs: 'autocomplete="email"' })}${baseInputs('r_', ['phone', 'comuna', 'activity', 'occupation'], { assisted })}
       ${assisted ? '' : field('r_pass', 'Crea una contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' }) + field('r_pass2', 'Confirmar contraseña', { type: 'password', attrs: 'autocomplete="new-password"' })}</div>
       <label class="f">${t('Foto de perfil (opcional)')}${fileInput('reg-photo', 'image/*')}</label>${S.regPhoto ? `<img class="av" src="${S.regPhoto}" alt="">` : ''}</div>
+    ${FORM.liveFields(formCfg()).length ? `<div class="card stack"><h3>${t('Más información')}</h3><div class="form">${extraInputs('r_', { assisted })}</div></div>` : ''}
     ${minor ? `<div class="card warn stack"><h3>${t('Autorización de un adulto')}</h3><p class="sm">${t('Las personas menores de 18 años necesitan que un adulto con perfil en el Hub autorice su registro. Escanea el QR de su credencial o escribe su ID.')}</p>
       <div class="row">${field('r_guardian', 'ID o RUT del adulto', { cls: 'sp' })}<button class="icb" style="margin-top:18px" data-a="scan-into" data-v="r_guardian" aria-label="${t('Escanear QR')}">${icon('cam')}</button></div></div>` : ''}
     <div class="card stack"><h3>${t('Declaraciones')}</h3><p class="sm mu">${t('Aceptarlas es requisito para participar en actividades y usar las dependencias municipales.')}</p>${CONSENTS.map(([k, x]) => check(k, x)).join('')}</div>
@@ -87,8 +88,9 @@ actions['file:reg-photo'] = async f => { S.regPhoto = await readImage(f, 320); g
 actions['scan-into'] = k => openCamera(code => { S.f[k] = code; go(S.k); });
 actions.register = async assisted => {
   if (assisted !== '1' && val('r_pass') !== val('r_pass2')) return toast(t('Las contraseñas no coinciden'));
-  const data = { remember: keepLogin(), assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), gender: val('r_gender'), reduced_mobility: val('r_mob'),
-    email: val('r_email'), phone: val('r_phone'), comuna: val('r_comuna'), activity: val('r_activity'), occupation: val('r_occ'), password: val('r_pass'), photo: S.regPhoto || null, guardian: val('r_guardian') || null,
+  const miss = firstMissing('r_', { assisted: assisted === '1', extraOnly: true }); if (miss) return toast(miss); // los campos agregados se revisan aquí, con su nombre en el idioma elegido
+  const data = { remember: keepLogin(), assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), ...readBase('r_'), extra: readExtra('r_'),
+    email: val('r_email'), password: val('r_pass'), photo: S.regPhoto || null, guardian: val('r_guardian') || null,
     consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), lang: getLang() };
   const r = await run('auth.register', data);
   if (!r) return;
@@ -415,8 +417,8 @@ screens['u-perfil'] = { tab: 'u-perfil', render() {
     ${sessionCard()}
     ${ban ? notice(`${icon('lock')} <b>${t('Tu acceso al Hub está restringido')}</b> ${ban.until_at ? t('hasta el {0}.', fDT(ban.until_at)) : t('de forma permanente.')} ${ban.reason ? esc(ban.reason) : ''}`, 'bad') : ''}
     ${pens.length ? notice(`${icon('alert')} ${t('Tienes penalizaciones de horas este mes. Se reinician el día 1.')} ${pens.map(a => `<br>${esc(db().get('spaces', a.space_id)?.name)}: ${R.dur(a.minutes)}${a.reason ? ' · ' + esc(a.reason) : ''}`).join('')}`, 'warn') : ''}
-    <h2>${t('Mis datos')}</h2><div class="list">${row('Correo', esc(u.email))}${row('Celular', esc(u.phone))}${row('Comuna', esc(u.comuna))}${row('Actividad en Providencia', esc(t(u.activity || '')))}${row('Ocupación', esc(t(u.occupation || '')))}${row('Género', esc(t(u.gender || '')))}
-      ${row('Fecha de nacimiento', u.birth_date ? `${fDate(u.birth_date + 'T12:00:00')} · ${R.age(u.birth_date)} ${t('años')}` : '')}${row('Movilidad reducida', t(u.reduced_mobility ? 'Sí' : 'No'))}${g ? row('Adulto responsable', esc(g.name)) : ''}</div>
+    <h2>${t('Mis datos')}</h2><div class="list">${row('Correo', esc(u.email))}${shown('phone') ? row('Celular', esc(u.phone)) : ''}${shown('comuna') ? row('Comuna', esc(u.comuna)) : ''}${['activity', 'occupation', 'gender'].filter(shown).map(k => row(FORM.BASE[k].name, esc(baseText(k, u[k])))).join('')}
+      ${row('Fecha de nacimiento', u.birth_date ? `${fDate(u.birth_date + 'T12:00:00')} · ${R.age(u.birth_date)} ${t('años')}` : '')}${shown('reduced_mobility') ? row('Movilidad reducida', t(u.reduced_mobility ? 'Sí' : 'No')) : ''}${extraRows(u).map(([a, b]) => row(a, b)).join('')}${g ? row('Adulto responsable', esc(g.name)) : ''}</div>
     ${btn('Editar mis datos y contacto', 'profile-edit', { cls: 'block sec', icon: 'edit' })}
     <h2>${t('Certificaciones')}</h2>${certs.length ? `<div class="list">${certs.map(c => { const ce = db().get('certifications', c.certification_id), sp = ce && db().get('spaces', ce.space_id), vig = !c.expires_at || T(c.expires_at) > Date.now();
       return `<div class="li">${icon('award')}<span class="sp"><b>${esc(ce?.name || '')}</b><span>${esc(sp?.name || '')} · ${t('desde')} ${fDate(c.granted_at)}${c.expires_at ? ` · ${t(vig ? 'vigente hasta' : 'venció el')} ${fDate(c.expires_at)}` : ''}</span></span>${ce?.diploma_download !== false ? btn('Descargar diploma', 'diploma', { v: c.id, cls: 's sec', icon: 'down' }) : ''}</div>`; }).join('')}</div>` : `<p class="mu sm">${t('Aún no tienes certificaciones.')}</p>`}
@@ -428,11 +430,25 @@ screens['u-perfil'] = { tab: 'u-perfil', render() {
 } };
 actions['file:my-photo'] = async f => run('me.update', { photo: await readImage(f, 320) }, 'Foto actualizada');
 actions['obs-del'] = id => run('me.deleteObs', { id: +id }, 'Observación borrada');
-actions['profile-edit'] = () => { const u = me(); fill({ p_name: u.name, p_email: u.email || '', p_phone: u.phone || '', p_comuna: u.comuna || '', p_activity: u.activity || '', p_occ: u.occupation || '', p_gender: u.gender || '', p_mob: u.reduced_mobility });
-  modal({ html: `<h2 style="margin:0">${t('Editar mis datos')}</h2><div class="form">${field('p_name', 'Nombre completo', { cls: 'full' })}${field('p_email', 'Correo', { type: 'email' })}${field('p_phone', 'Celular', { type: 'tel' })}${field('p_comuna', 'Comuna')}
-    ${select('p_activity', '¿Qué actividad realizas en Providencia?', ACTIVITIES)}${select('p_occ', '¿A qué te dedicas?', OCCUPATIONS, { cls: 'full' })}${select('p_gender', 'Género', GENDERS)}</div>${check('p_mob', 'Tengo movilidad reducida')}
+actions['profile-edit'] = () => { const u = me(); fill({ p_name: u.name, p_email: u.email || '' }); fillBase('p_', u); fillExtra('p_', u.extra);
+  modal({ html: `<h2 style="margin:0">${t('Editar mis datos')}</h2><div class="form">${field('p_name', 'Nombre completo', { cls: 'full' })}${field('p_email', 'Correo', { type: 'email' })}${baseInputs('p_', ['phone', 'comuna', 'activity', 'occupation', 'gender'])}${extraInputs('p_')}</div>${baseInput('p_', 'reduced_mobility')}
     <div class="row">${btn('Guardar cambios', 'profile-save', { cls: 'sp' })}${btn('Cancelar', 'modal-close', { cls: 'plain' })}</div>` }); };
-actions['profile-save'] = async () => { const r = await run('me.update', { name: val('p_name'), email: val('p_email'), phone: val('p_phone'), comuna: val('p_comuna'), activity: val('p_activity'), occupation: val('p_occ'), gender: val('p_gender'), reduced_mobility: val('p_mob') }); if (r) { closeModalQuiet(); toast(t('Datos guardados')); } };
+actions['profile-save'] = async () => { const miss = firstMissing('p_'); if (miss) return toast(miss);
+  const r = await run('me.update', { name: val('p_name'), email: val('p_email'), ...readBase('p_'), extra: readExtra('p_') }); if (r) { closeModalQuiet(); toast(t('Datos guardados')); } };
+/** Completar el perfil: si el formulario pide datos nuevos, se piden la próxima vez que la persona entra. */
+screens['u-completar'] = { tab: 'u-perfil', render() {
+  const u = me(), miss = FORM.missingFor(formCfg(), u), base = miss.filter(m => m.base).map(m => m.key), ext = miss.filter(m => !m.base).map(m => m.key);
+  if (!S.cpLoaded) { fillBase('c_', u); fillExtra('c_', u.extra); S.cpLoaded = true; }
+  if (!miss.length) return `<h1>${t('Tu perfil está completo')}</h1>${btn('Ir al inicio', 'go', { v: 'u-inicio', cls: 'block' })}`;
+  return `<h1>${t('Completa tu perfil')}</h1><p class="mu">${t('El Hub agregó preguntas al formulario de registro. Respóndelas para seguir usando la app.')}</p>
+    <div class="card stack"><div class="form">${baseInputs('c_', base)}${extraInputs('c_', {}, ext)}</div></div>
+    ${btn('Guardar', 'complete-save', { cls: 'block' })}${btn('Ahora no', 'complete-later', { cls: 'block plain' })}${btn('Cerrar sesión', 'logout', { cls: 'block plain', icon: 'out' })}`;
+} };
+actions['complete-save'] = async () => { const u = me(), miss = FORM.missingFor(formCfg(), u), base = miss.filter(m => m.base).map(m => m.key), ext = miss.filter(m => !m.base).map(m => m.key);
+  const m = firstMissing('c_', {}, [...base, ...ext]); if (m) return toast(m);
+  const p = Object.fromEntries(base.map(k => [k, readBase('c_')[k]])); if (ext.length) p.extra = readExtra('c_', ext);
+  const r = await run('me.update', p); if (r) { S.cpLoaded = false; toast(t('Datos guardados')); go('u-inicio'); } };
+actions['complete-later'] = () => { S.completeLater = true; go('u-inicio'); };
 
 screens['u-config'] = { tab: 'u-perfil', render: () => `${back('u-perfil')}<h1>${t('Configuración')}</h1>
   <div class="card stack"><h3>${t('Tema')}</h3>${seg('theme', themePref(), [['auto', t('Según el dispositivo')], ['light', t('Claro')], ['dark', t('Oscuro')]])}
@@ -454,7 +470,7 @@ screens['u-notif'] = { tab: 'u-perfil', render() {
 } };
 screens['u-priv'] = { tab: 'u-perfil', render: () => `${back('u-config')}<h1>${t('Privacidad y mis datos')}</h1>
   <div class="card stack"><p>${t('Hub Providencia es responsable de tus datos personales. Los usamos para registrar tus entradas y salidas, gestionar tus reservas y elaborar estadísticas del Hub. No se comparten con terceros.')}</p>
-  <p class="sm mu">${t('Para las estadísticas se usan solo comuna, actividad en Providencia, ocupación, género, edad y movilidad reducida, sin tu nombre ni tu RUT.')}</p>
+  <p class="sm mu">${t('Para las estadísticas se usan solo {0}, sin tu nombre ni tu RUT.', statVars())}</p>
   ${btn('Pedir una copia de mis datos', 'data-req', { v: 'copia', cls: 'plain block' })}
   ${me().erase_req_at ? notice(`${icon('clock')} ${t('Pediste la eliminación de tus datos el {0}. Administración la está revisando y te avisará por correo.', fDate(me().erase_req_at))}`, 'warn') : btn('Pedir la eliminación de mis datos', 'erase-req-ask', { cls: 'plain block' })}</div>
   <div class="card stack"><h3>${t('Eliminar mi cuenta')}</h3><p class="sm">${t('Tu cuenta queda inactiva y ya no podrás entrar con ella. Se cancelan tus reservas e inscripciones futuras.')}</p>
@@ -462,7 +478,7 @@ screens['u-priv'] = { tab: 'u-perfil', render: () => `${back('u-config')}<h1>${t
   ${btn('Eliminar mi cuenta', 'close-ask', { cls: 'danger block', icon: 'trash' })}</div>` };
 actions['data-req'] = k => run('me.dataRequest', { kind: k }, 'Solicitud enviada a la administración');
 actions['erase-req-ask'] = () => confirmBox({ title: '¿Pedir la eliminación de tus datos?', ok: 'Enviar solicitud',
-  text: `<p>${t('Se borrarán tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto.')}</p><p>${t('Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te avisaremos por correo cuando se haya hecho.')}</p>`,
+  text: `<p>${t('Se borrarán tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario.')}</p><p>${t('Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te avisaremos por correo cuando se haya hecho.')}</p>`,
   fn: () => run('me.dataRequest', { kind: 'eliminación' }, 'Solicitud enviada a la administración') });
 actions['close-ask'] = () => { fill({ cl_pass: '' }); const pass = !!me().password_hash, n = db().where('reservations', r => r.user_id === App.uid && ['confirmada', 'en_revision'].includes(r.status) && T(r.start_at) > Date.now()).length;
   modal({ html: `<h2 id="dlg-t" style="margin:0">${t('¿Eliminar tu cuenta?')}</h2><div class="stack sm"><p>${t('Ya no podrás entrar con ella ni usar tu código QR.')}${n ? ' ' + t('Se cancelarán tus {0} reservas futuras y se devolverán sus horas.', n) : ''}</p><p class="mu">${t('Si más adelante te registras con tu mismo RUT, podrás restablecerla.')}</p></div>

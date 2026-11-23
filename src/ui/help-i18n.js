@@ -21,6 +21,7 @@ export const GUIDES_I18N = {
     'u-hist': ['History', ['Your past bookings and visits.']],
     'u-config': ['Settings', ['Language, appearance, password and privacy of your data.']],
     'u-priv': ['Privacy and my data', ['You can ask for a copy of your data or ask for it to be deleted. If you ask for deletion, you keep your account, your certifications, your hours and your bookings.', 'Delete my account makes it inactive. If you sign up again with the same RUT, you can restore it with a code sent to your previous email.']],
+    'u-completar': ['Complete your profile', ['The Hub added questions to the sign-up form. Answer them and tap “Save”. With “Not now” you keep using the app, and you’ll be asked again next time you sign in.']],
     'u-reopen': ['Restore my account', ['Type the code sent to the email of your previous account. You’ll get back your ID, your QR code, your certifications and your hours, with the details you entered when signing up.']],
   },
   pt: {
@@ -41,6 +42,7 @@ export const GUIDES_I18N = {
     'u-hist': ['Histórico', ['Suas reservas e visitas anteriores.']],
     'u-config': ['Configurações', ['Idioma, aparência, senha e privacidade dos seus dados.']],
     'u-priv': ['Privacidade e meus dados', ['Você pode pedir uma cópia dos seus dados ou pedir que sejam excluídos. Se pedir a exclusão, você mantém sua conta, suas certificações, suas horas e suas reservas.', 'Excluir minha conta a deixa inativa. Se você se cadastrar de novo com o mesmo RUT, pode restaurá-la com um código enviado ao seu e-mail anterior.']],
+    'u-completar': ['Complete seu perfil', ['O Hub adicionou perguntas ao formulário de cadastro. Responda-as e toque em «Salvar». Com «Agora não» você continua usando o app e será perguntado de novo na próxima vez que entrar.']],
     'u-reopen': ['Restaurar minha conta', ['Digite o código enviado ao e-mail da sua conta anterior. Você recupera seu ID, seu QR, suas certificações e suas horas, com os dados que digitou no cadastro.']],
   },
 };
@@ -73,8 +75,9 @@ export const FAQ_USER_I18N = {
     ['Internship', 'How do I enter the internship office?', 'If the Hub assigned you an internship, Home shows the “Enter the internship office” button. Check in at reception, tap the button and scan the office’s QR. When you leave, tap “Leave the internship office”. If the office is full, wait for someone to leave.'],
     ['Account and data', 'What does the Hub do with my data?', 'It uses them to record entries and exits, manage bookings and produce statistics without your name or RUT. They are not shared with third parties. In Profile › Settings › Privacy and my data you can ask for a copy of your data, ask for it to be deleted, or delete your account.'],
     ['Account and data', 'My access says “restricted”', 'You have an active penalty. Home shows until when and why. If you think it’s a mistake, talk to reception.'],
-    ['Account and data', 'What happens if I ask for my data to be deleted?', 'The administration reviews the request and deletes your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone and photo. You keep your account, your certifications, your hours, your bookings and your penalties. You get an email when it’s done.'],
+    ['Account and data', 'What happens if I ask for my data to be deleted?', 'The administration reviews the request and deletes your visit history, your files, notes and notifications, and your district, activity, occupation, gender, reduced mobility, phone, photo and answers to the questions added to the form. You keep your account, your certifications, your hours, your bookings and your penalties. You get an email when it’s done.'],
     ['Account and data', 'I deleted my account and want to come back', 'Sign up with the same RUT. The system will offer to restore it and send a code to the email it had. You get back your ID, your QR code, your certifications and your hours. If you no longer have that email, go to reception with your ID card.'],
+    ['Account and data', 'Why is the app asking me to complete my profile?', 'The Hub added required questions to the sign-up form. Answer them and tap “Save”. If you tap “Not now”, you’ll be asked again the next time you sign in. You can also change your answers in Profile › Edit my details.'],
     ['Labs', 'A certification says “No seats left”', 'All its sessions in the period are full. Each certification is taught only between the dates it shows. Ask at reception whether more seats will open.'],
   ],
   pt: [
@@ -103,8 +106,9 @@ export const FAQ_USER_I18N = {
     ['Estágio', 'Como entro na sala de estágio?', 'Se o Hub atribuiu um estágio a você, o Início mostra o botão “Entrar na sala de estágio”. Registre sua entrada na recepção, toque no botão e escaneie o QR da sala. Ao sair, toque em “Sair da sala de estágio”. Se a sala estiver lotada, espere alguém sair.'],
     ['Conta e dados', 'O que o Hub faz com meus dados?', 'Usa-os para registrar entradas e saídas, gerir reservas e fazer estatísticas sem seu nome nem seu RUT. Não são compartilhados com terceiros. Em Perfil › Configurações › Privacidade e meus dados você pode pedir uma cópia ou a exclusão dos seus dados, ou excluir sua conta.'],
     ['Conta e dados', 'Meu acesso diz “restrito”', 'Você tem uma penalidade vigente. O Início mostra até quando e o motivo. Se achar que é um erro, fale com a recepção.'],
-    ['Conta e dados', 'O que acontece se eu pedir a exclusão dos meus dados?', 'A administração revisa o pedido e exclui seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular e foto. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades. Você recebe um e-mail quando for feito.'],
+    ['Conta e dados', 'O que acontece se eu pedir a exclusão dos meus dados?', 'A administração revisa o pedido e exclui seu histórico de visitas, seus arquivos, observações e avisos, e sua comuna, atividade, ocupação, gênero, mobilidade reduzida, celular, foto e respostas às perguntas adicionadas ao formulário. Você mantém sua conta, suas certificações, suas horas, suas reservas e suas penalidades. Você recebe um e-mail quando for feito.'],
     ['Conta e dados', 'Excluí minha conta e quero voltar', 'Cadastre-se com o mesmo RUT. O sistema vai oferecer restaurá-la e enviar um código ao e-mail que ela tinha. Você recupera seu ID, seu QR, suas certificações e suas horas. Se não tiver mais esse e-mail, vá à recepção com seu documento.'],
+    ['Conta e dados', 'Por que o app pede para completar meu perfil?', 'O Hub adicionou perguntas obrigatórias ao formulário de cadastro. Responda-as e toque em «Salvar». Se tocar em «Agora não», será perguntado de novo na próxima vez que entrar. Você também pode mudar suas respostas em Perfil › Editar meus dados.'],
     ['Laboratórios', 'Uma certificação diz “Sem vagas”', 'Todas as sessões do período estão lotadas. Cada certificação é dada só entre as datas indicadas. Pergunte na recepção se vão abrir mais vagas.'],
   ],
 };

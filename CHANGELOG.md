@@ -18,6 +18,24 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.8.0] · 23 de noviembre de 2026
+### Agregado
+- **Formulario de registro configurable** (Sistema › Formulario de registro, solo administración).
+  - **Etapa 1, campos del perfil:** celular, comuna, actividad, ocupación, género y movilidad reducida se pueden mostrar u ocultar y marcar obligatorios u opcionales. Las opciones de actividad, ocupación y género se editan, ordenan y traducen al inglés y portugués. Si se cambia el nombre de una opción, se actualiza en los perfiles que la tenían. Ocultar un campo no borra lo que ya estaba guardado.
+  - **Etapa 2, preguntas agregadas:** de una opción, varias opciones, sí o no, número (con mínimo y máximo), fecha, texto, teléfono o correo, con ayuda y traducción opcionales, obligatorias u opcionales y en el orden que se elija. Aparecen en el registro («Más información»), en el perfil y en «Actualizar datos» de recepción.
+  - **Análisis en Datos:** una tarjeta por pregunta con cuántas personas respondieron. Las de opciones y sí o no se cuentan por respuesta, los números se agrupan en rangos con promedio, mínimo y máximo, y las fechas se agrupan por mes. Se pueden ocultar variables como en los demás gráficos. Texto, teléfono y correo no se grafican ni llegan a la analista.
+  - **Completar perfil:** si una pregunta o un campo pasa a ser obligatorio, a quienes ya están registrados se les pide al entrar a la app. Pueden postergarlo en la sesión con «Ahora no». La ficha de recepción indica «Perfil incompleto».
+  - Quitar una pregunta u opción que ya tiene respuestas la **archiva**: no se ofrece, pero se conservan sus respuestas y se puede restaurar.
+  - Descarga completa de respuestas para administración. La descarga de la analista suma solo las preguntas analizables.
+  - El texto de Privacidad y el de Datos listan solo las variables que realmente se usan.
+- Demo: tres preguntas de ejemplo con respuestas (nivel educacional, cómo conoció el Hub, primera vez en un cowork).
+- Pruebas: `tools/test-form.mjs` (con `npm test`), `tools/qa/formulario.cjs` y `tools/qa/formulario.mjs`.
+### Cambiado
+- Las respuestas a las preguntas agregadas se guardan **cifradas** en PostgreSQL (columna `users.extra`, AES-256-GCM, como el RUT y el correo).
+- «Borrar los datos personales» también borra estas respuestas. «Borrar perfil» conserva solo las respuestas anónimas que sirven para Datos.
+### Corregido
+- En las ventanas, «Traducciones» y otras secciones desplegables no se abrían al tocarlas.
+
 ## [2.7.0] · 22 de noviembre de 2026
 ### Agregado
 - **Eliminar mi cuenta** (Privacidad y mis datos): con la contraseña, la cuenta queda inactiva, no puede ingresar ni usar su QR, y se cancelan sus reservas e inscripciones futuras con devolución de horas. Llega un correo.

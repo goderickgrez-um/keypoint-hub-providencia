@@ -4,6 +4,7 @@
 import * as R from './rules.js';
 import * as Q from './queries.js';
 import { ACTIVE, FAILURES, DEFAULTS } from './catalog.js';
+import * as FORM from './form.js';
 
 const N = ctx => (ctx.now ? new Date(ctx.now) : new Date());
 const iso = d => new Date(d).toISOString();
@@ -92,8 +93,10 @@ async function userRow(ctx, d, assisted, self = null) {
   const email = (d.email || '').trim().toLowerCase();
   if (email ? !R.emailOk(email) : !assisted) fail('Escribe un correo válido');
   if (email && db.find('users', u => u.email === email && u.id !== self?.id)) fail('Ese correo ya tiene un perfil');
-  for (const [k, label] of [['comuna', 'la comuna'], ['activity', 'tu actividad en Providencia'], ['occupation', 'a qué te dedicas'], ['gender', 'el género'], ['birth_date', 'la fecha de nacimiento']]) if (!d[k]) fail('Falta ' + label);
-  if (!assisted && !d.phone) fail('Falta el celular');
+  if (!d.birth_date) fail('Falta la fecha de nacimiento');
+  // Campos del perfil y campos agregados: según Reglas › Formulario de registro
+  const F = FORM.regForm(db), base = FORM.checkBase(F, d, { mode: 'register', prev: self, assisted, fail });
+  const extra = FORM.checkExtra(F, d.extra, { mode: 'register', prev: self?.extra, assisted, fail });
   const years = R.age(d.birth_date, N(ctx));
   checkAge(ctx, d.birth_date);
   if (!d.consent_data || !d.consent_image || !d.consent_belongings) fail('Debes aceptar las tres declaraciones');
@@ -103,8 +106,7 @@ async function userRow(ctx, d, assisted, self = null) {
   const verified = !!assisted || !email || (self && self.email_verified && self.email === email);
   const keepGuardian = self && years < 18 && self.guardian_ok;
   const row = {
-    doc_type: type, doc_number: num, name, email: email || null, phone: d.phone || null, comuna: d.comuna, activity: d.activity,
-    occupation: d.occupation, gender: d.gender, birth_date: d.birth_date, reduced_mobility: !!d.reduced_mobility,
+    doc_type: type, doc_number: num, name, email: email || null, ...base, extra, birth_date: d.birth_date,
     password_hash: d.password ? await hashPass(d.password) : self?.password_hash ?? null, photo: d.photo ? dataUrl(d.photo, 600e3) : self?.photo ?? null, email_verified: !!verified,
     status: !verified ? 'pendiente_correo' : years < 18 && !keepGuardian ? 'pendiente_adulto' : 'activo', guardian_ok: !!keepGuardian,
     consent_data: true, consent_image: true, consent_belongings: true, lang: d.lang || 'es',
@@ -313,7 +315,7 @@ export const SERVICES = {
     audit(ctx, accept ? 'autoriza menor' : 'rechaza menor', 'users', minor.id);
   },
   'me.update'(ctx, p) { return updateUser(ctx, me(ctx), p); },
-  'user.update'(ctx, { id, patch }) { need(ctx, 'recepcion'); const u = ctx.db.get('users', id) || fail('No encontramos ese perfil'); updateUser(ctx, u, patch); audit(ctx, 'actualiza perfil', 'users', id); },
+  'user.update'(ctx, { id, patch }) { need(ctx, 'recepcion'); const u = ctx.db.get('users', id) || fail('No encontramos ese perfil'); updateUser(ctx, u, patch, 'staff'); audit(ctx, 'actualiza perfil', 'users', id); },
   'me.readAll'(ctx) { const t = iso(N(ctx)); ctx.db.where('notifications', n => n.user_id === me(ctx).id && !n.read_at && n.kind !== 'tutor').forEach(n => ctx.db.update('notifications', n.id, { read_at: t })); },
   'me.deleteObs'(ctx, { id }) { const o = ctx.db.get('observations', id); if (!o || o.user_id !== me(ctx).id) fail('No encontramos esa observación'); ctx.db.remove('observations', id); },
   'me.dataRequest'(ctx, { kind }) {
@@ -713,8 +715,8 @@ export const SERVICES = {
       db.where('files', f => f.user_id === u.id && !live.has(f.reservation_id)).forEach(f => { if (f.storage) storage.push(f.storage); db.remove('files', f.id); });
       db.where('visits', v => v.user_id === u.id && v.out_at).forEach(v => db.remove('visits', v.id));
       for (const t of ['observations', 'notifications']) db.where(t, r => r.user_id === u.id).forEach(r => db.remove(t, r.id));
-      db.update('users', u.id, { comuna: null, activity: null, occupation: null, gender: null, reduced_mobility: false, phone: null, photo: null, erase_req_at: null });
-      notify(ctx, u.id, 'Tus datos personales fueron eliminados', `Hola ${u.name.split(' ')[0]}: como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones.`);
+      db.update('users', u.id, { comuna: null, activity: null, occupation: null, gender: null, reduced_mobility: false, phone: null, photo: null, extra: null, erase_req_at: null });
+      notify(ctx, u.id, 'Tus datos personales fueron eliminados', `Hola ${u.name.split(' ')[0]}: como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones.`);
       audit(ctx, 'borra datos personales', 'users', u.id, 'a pedido de la persona');
       return { storage };
     }
@@ -738,7 +740,7 @@ export const SERVICES = {
       db.where('auth_codes', c => c.user_id === u.id).forEach(c => db.remove('auth_codes', c.id));
       db.where('outbox', o => o.to_email === u.email).forEach(o => db.remove('outbox', o.id));
       db.where('users', x => x.guardian_id === u.id).forEach(x => db.update('users', x.id, { guardian_id: null, guardian_ok: false }));
-      db.update('users', u.id, { name: 'Usuario eliminado', doc_number: 'ELIM-' + u.id, email: null, phone: null, photo: null, password_hash: null, guardian_id: null, email_verified: false, deleted_at: iso(N(ctx)), sessions_after: iso(N(ctx)) });
+      db.update('users', u.id, { name: 'Usuario eliminado', doc_number: 'ELIM-' + u.id, email: null, phone: null, photo: null, extra: FORM.publicExtra(FORM.regForm(db), u.extra), password_hash: null, guardian_id: null, email_verified: false, deleted_at: iso(N(ctx)), sessions_after: iso(N(ctx)) });
     }
     audit(ctx, 'borra ' + { datos: 'historial', perfil: 'perfil', ambos: 'historial y perfil' }[scope], 'users', u.id);
     return { storage };
@@ -788,7 +790,7 @@ export const SERVICES = {
   },
   'config.set'(ctx, { key, value }) {
     need(ctx);
-    if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key)) fail('Configuración desconocida');
+    if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key) || key === 'reg_form') fail('Configuración desconocida');
     if (key === 'logo') value = dataUrl(value, 400e3);
     if (key === 'public_url' && value && !/^https:\/\/[^\s"'<>]+$/.test(value)) fail('La dirección pública debe empezar con https://');
     if (['intern_space', 'default_zone'].includes(key) && value != null && !ctx.db.get('spaces', +value)) fail('Ese espacio no existe');
@@ -798,6 +800,51 @@ export const SERVICES = {
     if (key === 'max_age' && value < (+ctx.db.cfg('min_age') || 0)) fail('La edad máxima no puede ser menor que la mínima');
     if (key === 'theme') for (const m of Object.values(value || {})) for (const c of Object.values(m || {})) if (!/^#[0-9A-Fa-f]{6}$/.test(c)) fail('Color no válido');
     ctx.db.setCfg(key, value); audit(ctx, 'cambia configuración', 'config', key, key === 'theme' || key === 'logo' ? '' : JSON.stringify(value).slice(0, 200)); },
+  // ---- Formulario de registro (Reglas › Formulario de registro). Solo administración.
+  /** Etapa 1: mostrar u ocultar los campos del perfil, si son obligatorios y sus opciones. Un cambio de nombre se aplica a quienes ya la eligieron. */
+  'form.base'(ctx, { base }) {
+    need(ctx); const db = ctx.db, F = FORM.regForm(db), { base: clean, renames } = FORM.cleanBase(F, base, fail);
+    let moved = 0;
+    for (const [k, from, to] of renames) db.where('users', u => u[k] === from).forEach(u => { db.update('users', u.id, { [k]: to }); moved++; });
+    db.setCfg('reg_form', { ...(db.cfg('reg_form') || {}), base: clean, extra: F.extra });
+    audit(ctx, 'cambia el formulario de registro', 'config', 'reg_form', Object.entries(clean).map(([k, b]) => `${k}:${b.show ? (b.required ? 'obligatorio' : 'opcional') : 'oculto'}`).join(' ') + (renames.length ? ` · ${renames.length} opciones renombradas` : ''));
+    return { renamed: renames.length, moved };
+  },
+  /** Etapa 2: crea o edita un campo nuevo. */
+  'form.field'(ctx, { field }) {
+    need(ctx); const db = ctx.db, F = FORM.regForm(db), old = field?.id ? F.extra.find(f => f.id === field.id) || fail('Ese campo ya no existe') : null;
+    const used = new Set(F.extra.flatMap(f => [f.id, ...(f.options || []).map(o => o.id)]));
+    const newId = () => { let id; do id = 'c' + Math.random().toString(36).slice(2, 8); while (used.has(id)); used.add(id); return id; };
+    const answers = old ? db.all('users').map(u => u.extra?.[old.id]).filter(v => !FORM.isEmpty(v)) : [];
+    const f = FORM.cleanField(field || {}, { old, answered: new Set(answers.flat().map(String)), hasAnswers: answers.length > 0, newId, fail });
+    if (F.extra.some(x => x.id !== f.id && !x.archived && x.label.toLowerCase() === f.label.toLowerCase())) fail('Ya hay un campo con ese nombre');
+    if (old?.archived) f.archived = true;
+    const extra = old ? F.extra.map(x => (x.id === f.id ? f : x)) : [...F.extra, f];
+    if (extra.filter(x => !x.archived).length > 30) fail('El formulario admite hasta 30 campos agregados');
+    db.setCfg('reg_form', { base: F.base, extra });
+    audit(ctx, old ? 'edita campo del formulario' : 'agrega campo al formulario', 'config', f.id, `${f.label} (${FORM.TYPES[f.type]}${f.required ? ', obligatorio' : ''})`);
+    return { id: f.id };
+  },
+  /** Quita un campo: si ya tiene respuestas se archiva (se conservan y se puede restaurar); si no, se borra. */
+  'form.remove'(ctx, { id }) {
+    need(ctx); const db = ctx.db, F = FORM.regForm(db), f = F.extra.find(x => x.id === id) || fail('Ese campo ya no existe');
+    const answered = db.all('users').some(u => !FORM.isEmpty(u.extra?.[id]));
+    db.setCfg('reg_form', { base: F.base, extra: answered ? F.extra.map(x => (x.id === id ? { ...x, archived: true } : x)) : F.extra.filter(x => x.id !== id) });
+    audit(ctx, answered ? 'archiva campo del formulario' : 'borra campo del formulario', 'config', id, f.label);
+    return { archived: answered };
+  },
+  'form.restore'(ctx, { id }) {
+    need(ctx); const db = ctx.db, F = FORM.regForm(db), f = F.extra.find(x => x.id === id && x.archived) || fail('Ese campo no está archivado');
+    if (F.extra.some(x => !x.archived && x.label.toLowerCase() === f.label.toLowerCase())) fail('Ya hay un campo en uso con ese nombre');
+    db.setCfg('reg_form', { base: F.base, extra: F.extra.map(x => (x.id === id ? (({ archived, ...y }) => y)(x) : x)) });
+    audit(ctx, 'restaura campo del formulario', 'config', id, f.label);
+  },
+  'form.move'(ctx, { id, dir }) {
+    need(ctx); const db = ctx.db, F = FORM.regForm(db), live = FORM.liveFields(F), i = live.findIndex(x => x.id === id), j = i + (dir === 'up' ? -1 : 1);
+    if (i < 0) fail('Ese campo ya no existe'); if (j < 0 || j >= live.length) return;
+    [live[i], live[j]] = [live[j], live[i]];
+    db.setCfg('reg_form', { base: F.base, extra: [...live, ...F.extra.filter(x => x.archived)] });
+  },
   'plan.save'(ctx, { floor, shapes }) {
     need(ctx); const db = ctx.db; floor = +floor;
     if (!Q.floorsOf(db).includes(floor)) fail('Ese piso no existe');
@@ -819,13 +866,15 @@ export const SERVICES = {
   'system.tick'(ctx) { return tick(ctx); },
 };
 
-function updateUser(ctx, u, p) {
-  const db = ctx.db, row = {};
-  for (const k of ['name', 'phone', 'comuna', 'activity', 'occupation', 'gender', 'lang', 'birth_date']) if (p[k] !== undefined) row[k] = p[k] === '' ? null : String(p[k]).slice(0, 200);
+/** mode 'self': la persona edita su perfil (se exigen los obligatorios); 'staff': recepción corrige datos. */
+function updateUser(ctx, u, p, mode = 'self') {
+  const db = ctx.db, row = {}, F = FORM.regForm(db);
+  for (const k of ['name', 'lang', 'birth_date']) if (p[k] !== undefined) row[k] = p[k] === '' ? null : String(p[k]).slice(0, 200);
+  Object.assign(row, FORM.checkBase(F, p, { mode, prev: u, fail }));
+  if (p.extra !== undefined) row.extra = FORM.checkExtra(F, p.extra, { mode, prev: u.extra, fail });
   if (p.photo !== undefined) row.photo = dataUrl(p.photo, 600e3);
   if (row.birth_date) { if (!/^\d{4}-\d{2}-\d{2}$/.test(row.birth_date)) fail('Revisa la fecha de nacimiento'); if (row.birth_date !== u.birth_date) checkAge(ctx, row.birth_date); }
   if (row.lang && !['es', 'en', 'pt'].includes(row.lang)) row.lang = 'es';
-  if (p.reduced_mobility !== undefined) row.reduced_mobility = !!p.reduced_mobility;
   if (row.name != null && String(row.name).trim().length < 3) fail('Escribe el nombre completo');
   if (p.email !== undefined) {
     const e = (p.email || '').trim().toLowerCase();
@@ -965,7 +1014,8 @@ export function snapshot(ctx) {
     out.space_managers = all('space_managers');
     for (const t of ['staff', 'staff_roles', 'cert_enrollments', 'user_certs', 'reservations', 'reservation_guests', 'files', 'observations', 'visits', 'hour_adjustments', 'bans', 'event_attendance', 'failure_reports', 'history_stats', 'audit_log']) out[t] = all(t);
     out.notifications = mine('notifications'); out.outbox = rs.includes('admin') ? all('outbox').slice(-30) : [];
-    out.users = all('users').map(u => pii || u.id === uid ? safe(u) : { ...safe(u), name: 'Usuario ' + u.id.slice(-5), doc_number: '', email: null, phone: null, photo: null });
+    const F = FORM.regForm(db); // la analista no recibe datos que identifiquen: ni contacto ni respuestas de texto libre
+    out.users = all('users').map(u => pii || u.id === uid ? safe(u) : { ...safe(u), name: 'Usuario ' + u.id.slice(-5), doc_number: '', email: null, phone: null, photo: null, extra: FORM.publicExtra(F, u.extra) });
   } else {
     const myRes = new Set([...mine('reservations').map(r => r.id), ...mine('reservation_guests').map(g => g.reservation_id)]);
     const visible = new Set([uid, db.get('users', uid)?.guardian_id, ...db.where('users', u => u.guardian_id === uid).map(u => u.id)]);

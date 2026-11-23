@@ -92,10 +92,13 @@ Los usa para registrar entradas y salidas, gestionar reservas y hacer estadísti
 Tienes una penalización vigente. En Inicio ves hasta cuándo y el motivo. Si crees que es un error, habla con recepción.
 
 **¿Qué pasa si pido la eliminación de mis datos?**  
-Administración revisa la solicitud y borra tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular y foto. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te llega un correo cuando se hace.
+Administración revisa la solicitud y borra tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones. Te llega un correo cuando se hace.
 
 **Eliminé mi cuenta y quiero volver**  
 Crea una cuenta con tu mismo RUT. El sistema te ofrecerá restablecerla y te enviará un código al correo que tenía. Recuperas tu ID, tu QR, tus certificaciones y tus horas. Si ya no tienes ese correo, acércate a recepción con tu carnet.
+
+**¿Por qué la app me pide completar mi perfil?**  
+El Hub agregó preguntas obligatorias al formulario de registro. Respóndelas y toca «Guardar». Si tocas «Ahora no», se te pedirá de nuevo la próxima vez que entres. También puedes cambiar tus respuestas en Perfil › Editar mis datos.
 
 ### Pasantía
 
@@ -158,6 +161,12 @@ En Usuarios, sin escribir nada en la búsqueda, ves las solicitudes pendientes. 
 
 **Restablecer una cuenta eliminada** _(Recepción)_  
 Si la persona eliminó su cuenta y quiere volver sin acceso a su correo anterior, revisa su carnet. Al registrarla con su RUT, el sistema ofrece restablecer la cuenta con los datos nuevos; o en Usuarios abre su ficha y toca «Restablecer cuenta».
+
+**¿Cómo cambio lo que se pide al registrarse?** _(Administración)_  
+En Sistema › Formulario de registro. Arriba, los campos del perfil: muestra u oculta cada uno, márcalo obligatorio y edita sus opciones (luego «Guardar campos del perfil»). A la derecha, «Agregar pregunta» para preguntas nuevas, con su traducción opcional. Las de una opción, varias opciones, sí o no, número y fecha aparecen en Datos; texto, teléfono y correo solo en la ficha de cada persona.
+
+**La ficha dice «Perfil incompleto»** _(Recepción)_  
+El formulario pide un dato que esa persona aún no responde. Se le pedirá cuando entre a la app; si no usa la app, complétalo con «Actualizar datos».
 
 **¿Cómo borro los datos de alguien?** _(Administración)_  
 En Usuarios abre su ficha y toca «Borrar datos o perfil». Elige historial, perfil o ambos, escribe tu contraseña de administración y confirma. No se puede deshacer.

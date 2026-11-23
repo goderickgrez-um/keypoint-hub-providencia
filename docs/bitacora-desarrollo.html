@@ -202,6 +202,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <td>Ayudas en inglés y portugués, manual actualizado, informe de QA</td>
 </tr>
 <tr>
+<td>Formulario de registro configurable</td>
+<td>23 nov. 2026</td>
+<td>2.8.0</td>
+<td>Campos del perfil configurables (etapa 1) y preguntas agregadas con su análisis en Datos (etapa 2)</td>
+</tr>
+<tr>
 <td>Cuentas, datos y certificaciones</td>
 <td>22 nov. 2026</td>
 <td>2.7.0</td>
@@ -418,6 +424,20 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li class="done">Ayudas, preguntas frecuentes, traducciones y manual.</li>
 <li class="done">Pruebas: núcleo, navegador (demostración), servidor con PostgreSQL y migración desde 2.6.0, seguridad, accesibilidad, tamaños de pantalla e idiomas.</li>
 </ul>
+<h3>5.16 Formulario de registro configurable (versión 2.8.0, 23 de noviembre)</h3>
+<p><strong>Solicitud.</strong> «Pasemos a la versión completa del sistema de alteración de campos: desarrolla la etapa 1 y confirma su funcionamiento, y haz también el desarrollo de la etapa dos de los nuevos campos con sus análisis. Asegúrate de hacer las pruebas correspondientes en ambos casos.»</p>
+<p><strong>Diseño.</strong> No se creó una base de datos aparte. La definición del formulario vive en la configuración (<code>reg_form</code>) y las respuestas en una columna nueva del perfil (<code>users.extra</code>), cifrada en PostgreSQL como el RUT y el correo. Un módulo común (<code>src/core/form.js</code>) valida las respuestas, calcula los campos que faltan y arma el análisis; lo usan igual el navegador y el servidor. Documento, nombre, correo, fecha de nacimiento, contraseña y declaraciones quedaron fijos porque de ellos dependen el ingreso, el QR, la regla de edad y los menores.</p>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Etapa 1: mostrar u ocultar celular, comuna, actividad, ocupación, género y movilidad reducida; marcarlos obligatorios; editar, ordenar y traducir las opciones; el cambio de nombre de una opción se aplica a los perfiles que la tenían.</li>
+<li class="done">Etapa 2: preguntas de una opción, varias opciones, sí o no, número, fecha, texto, teléfono y correo, con ayuda, traducción, orden y obligatoriedad; archivar y restaurar sin perder respuestas.</li>
+<li class="done">Análisis en Datos por pregunta (conteos, rangos con promedio, meses), descarga para la analista sin datos privados y descarga completa para administración.</li>
+<li class="done">«Completa tu perfil» al entrar cuando falta un dato obligatorio; aviso «Perfil incompleto» en la ficha.</li>
+<li class="done">La analista no recibe texto libre, teléfonos ni correos agregados; el borrado de datos personales incluye las respuestas.</li>
+<li class="done">Ayudas, preguntas frecuentes y traducciones; manual con un apartado nuevo.</li>
+<li class="done">Pruebas por etapa: núcleo (<code>tools/test-form.mjs</code>), navegador (<code>tools/qa/formulario.cjs</code>) y servidor con PostgreSQL y migración desde 2.7.0 (<code>tools/qa/formulario.mjs</code>), más la repetición de todas las pruebas anteriores.</li>
+</ul>
+<p><strong>Corrección encontrada en el camino:</strong> dentro de las ventanas, las secciones desplegables («Traducciones») no se abrían porque el clic quedaba tomado por la ventana.</p>
 <hr />
 <h2>6. Evolución técnica</h2>
 <table>
@@ -425,7 +445,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <th>Aspecto</th>
 <th>Primera entrega (1.0.0)</th>
-<th>Versión 2.7.0</th>
+<th>Versión 2.8.0</th>
 </tr>
 </thead>
 <tbody>
@@ -442,7 +462,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <td>Datos personales</td>
 <td>Texto plano</td>
-<td>RUT, correo y teléfono cifrados (AES-256-GCM)</td>
+<td>RUT, correo, teléfono y respuestas del formulario cifrados (AES-256-GCM)</td>
+</tr>
+<tr>
+<td>Registro</td>
+<td>Formulario fijo</td>
+<td>Campos configurables y preguntas agregadas con su análisis en Datos</td>
 </tr>
 <tr>
 <td>Sesiones</td>
@@ -498,8 +523,8 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li>Respaldos cifrados fuera del equipo (la base y el archivo <code>.data-key</code> juntos).</li>
 <li>Prueba con personas que usan lectores de pantalla.</li>
 <li>Revisión de seguridad externa antes del uso definitivo.</li>
-<li>Etiquetar las versiones en Git (<code>git tag v2.7.0</code>) al subir cada entrega.</li>
-<li>Formulario de registro configurable (propuesta de la versión 2.7.0): campos opcionales activables y editables, y luego un constructor de campos nuevos con análisis en Datos.</li>
+<li>Etiquetar las versiones en Git (<code>git tag v2.8.0</code>) al subir cada entrega.</li>
+<li>Revisar con el Hub qué preguntas agregar al formulario antes de abrir el registro masivo: cada pregunta obligatoria nueva se pide a todas las personas ya registradas.</li>
 </ol>
 <hr />
 <h2>Anexo · Equivalencia de versiones</h2>
@@ -560,8 +585,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <td>2.6.0</td>
 </tr>
 <tr>
-<td>Esta entrega</td>
+<td>Cuentas, datos y certificaciones</td>
 <td>2.7.0</td>
+</tr>
+<tr>
+<td>Esta entrega</td>
+<td>2.8.0</td>
 </tr>
 </tbody>
 </table></body></html>

@@ -1,6 +1,6 @@
-# Informe de QA · Keypoint Hub Providencia 2.6.0 y 2.7.0
+# Informe de QA · Keypoint Hub Providencia 2.6.0 a 2.8.0
 
-Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués. La sección 8 agrega las pruebas de la versión 2.7.0.
+Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués. La sección 8 agrega las pruebas de la versión 2.7.0 y la sección 9, las de la 2.8.0 (formulario de registro configurable).
 
 ## 1. Resumen
 
@@ -111,6 +111,9 @@ Estas pruebas necesitan equipos reales o el Hub. Quedan en la lista de la secci�
 - [ ] 2.7.0: con una cuenta de prueba, «Eliminar mi cuenta», recibir el correo real, registrarse de nuevo con el mismo RUT y restablecerla con el código.
 - [ ] 2.7.0: «Pedir la eliminación de mis datos», ejecutarla en Usuarios y confirmar que llega el correo.
 - [ ] 2.7.0: definir el periodo de una certificación real con «Bloquear ese lugar» y revisar la agenda del laboratorio.
+- [ ] 2.8.0: acordar con el Hub las preguntas del formulario, cargarlas en Sistema › Formulario de registro y revisar la vista previa en un teléfono.
+- [ ] 2.8.0: con una cuenta de prueba ya registrada, comprobar que al entrar aparece «Completa tu perfil» si se agregó una pregunta obligatoria.
+- [ ] 2.8.0: revisar en Datos el análisis de las preguntas después de una semana de registros reales.
 
 ## 7. Cómo repetir las pruebas
 
@@ -136,4 +139,41 @@ Funciones nuevas: eliminar y restablecer cuenta, pedir la eliminación de datos,
 **Ajustes en las pruebas antiguas:** la ventana de borrado ahora tiene cuatro opciones (se agregó «datos personales»). Las pruebas de seguridad necesitan `ALLOWED_ORIGIN` con la dirección de GitHub Pages para verificar CORS, y el bloqueo por intentos fallidos se reinicia solo al reiniciar el servidor: conviene ejecutar `cuentas.mjs` con un servidor recién iniciado.
 
 **No verificado:** el correo real de cuenta eliminada y de datos eliminados (en las pruebas quedan en la bandeja de salida) y el uso en el Acer.
+
+## 9. Pruebas de la versión 2.8.0: formulario de registro configurable
+
+Se probó cada etapa por separado y luego juntas.
+
+| Etapa | Núcleo (`tools/test-form.mjs`) | Navegador (`tools/qa/formulario.cjs`) | Servidor con PostgreSQL (`tools/qa/formulario.mjs`) |
+|---|---|---|---|
+| 1 · Campos del perfil | 29 verificaciones | 21 verificaciones | 9 verificaciones |
+| 2 · Preguntas agregadas y análisis | 48 verificaciones | 43 verificaciones | 19 verificaciones |
+
+**Etapa 1.** Mostrar y ocultar campos, obligatorio u opcional, «Obligatorio» desactivado al ocultar, opciones nuevas con traducción, mover opciones sin perder lo escrito, cambio de nombre aplicado a los perfiles (31 en la demo, 39 en PostgreSQL), registro sin el campo oculto, opción que ya no existe rechazada por el servidor, quien la tenía la conserva, «Completa tu perfil» con solo los campos que faltan, Datos sin el campo oculto, traducción en inglés, permisos (solo administración).
+
+**Etapa 2.** Ocho tipos de pregunta con sus validaciones (número fuera de rango, fecha inexistente, teléfono, correo, opción inválida, sí o no), obligatoria revisada antes de enviar y en el servidor, contacto opcional en el registro asistido, «Completa tu perfil» con «Ahora no» y vuelta a pedir al entrar de nuevo, respuestas en perfil, ficha y «Actualizar datos», análisis en Datos (conteos, varias opciones, sí o no, rangos con promedio, meses), texto libre excluido de Datos y de la descarga de la analista, descarga completa de administración, archivar y restaurar con respuestas conservadas, opción archivada que se sigue contando, tipo bloqueado si hay respuestas, orden.
+
+**Servidor.** Base creada con la 2.7.0 y abierta con el servidor 2.8.0: se agregó la columna `users.extra` y el formulario partió con los valores por defecto. Las respuestas quedan cifradas en PostgreSQL (`enc:v1:…`, sin texto legible), se descifran bien después de reiniciar el servidor, la analista no recibe texto libre ni contacto, una persona usuaria no recibe respuestas ajenas y «Borrar los datos personales» las deja vacías.
+
+**Accesibilidad y tamaños.** axe sin infracciones en Formulario de registro, ventanas de opciones y de pregunta, registro con preguntas, Completa tu perfil, Editar mis datos, Actualizar datos y Datos con preguntas. Sin desborde a 320 px (registro y completar perfil) ni a 375 px (Formulario de registro).
+
+**Defecto corregido (D8, baja):** en las ventanas, las secciones desplegables («Traducciones») no se abrían porque el clic quedaba tomado por la ventana. No había desplegables en ventanas antes de esta versión.
+
+**Prueba antigua ajustada:** «ordenar eventos por fecha» suponía que solo un evento estaba en curso. Según la hora del día, el evento de ejemplo «Semana del emprendimiento» también lo está, y el orden correcto lo pone primero. Se comprobó que la 2.7.0 falla igual a esa hora, así que no es un efecto de la 2.8.0. La prueba ahora acepta cualquier evento en curso al inicio.
+
+**Regresión.** Se repitieron todas las pruebas anteriores sobre la 2.8.0:
+
+| Prueba | Resultado |
+|---|---|
+| Núcleo (`npm test`: reglas y formulario) | Todas correctas |
+| Pruebas por versión 1.2 a 1.4 (87) y 2.7 (47) | Todas correctas (ver el ajuste de «ordenar eventos») |
+| Recorrido de 39 pantallas | Sin errores de JavaScript |
+| Accesibilidad (98 revisiones, claro y oscuro) | Sin infracciones |
+| Tamaños de pantalla (195 combinaciones, más inglés y portugués) | Sin desbordes |
+| Idiomas | Solo quedan en español los datos que escribe el equipo |
+| Servidor: sesiones (17), API (8), app publicada, cuentas 2.7 (30) | Todas correctas |
+| Seguridad (34) | Todas correctas |
+| Carga: 50 sesiones simultáneas | 0 errores; p95 de 288 ms |
+
+**No verificado:** el uso real del formulario por personas del Hub, lectores de pantalla en los campos de varias opciones y la exportación abierta en Excel con caracteres especiales en los nombres de las preguntas.
 
