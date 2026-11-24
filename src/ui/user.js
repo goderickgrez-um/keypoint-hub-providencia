@@ -3,7 +3,6 @@ import * as R from '../core/rules.js';
 import * as Q from '../core/queries.js';
 import { DOC_TYPES, FAILURES, ACTIVE, WEEKDAYS } from '../core/catalog.js';
 import * as FORM from '../core/form.js';
-import { termsCheck, needsTerms, termsUpdateCard, noticesCard, contactCard, LEGAL_VERSION } from './legalui.js';
 import { regForm as formCfg, baseInput, baseInputs, extraInputs, readExtra, readBase, fillBase, fillExtra, firstMissing, extraRows, statVars, baseText, shown } from './formui.js';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../core/seed.js';
 import { t, LANGS, getLang, setLang } from './i18n.js';
@@ -34,7 +33,7 @@ screens['u-login'] = { open: true, render() {
       ${demoCode()}
       ${check('l_keep', 'Mantener la sesión iniciada en este dispositivo (no la marques en equipos compartidos)', { value: true })}
       ${btn(code && !S.codeSent ? 'Enviar código a mi correo' : 'Entrar', 'login', { cls: 'block' })}
-      ${gid ? (S.gsi ? `<div id="gsi" class="c"></div>` : `${btn('Continuar con Google', 'gsi-load', { cls: 'block plain' })}<p class="sm mu c" style="margin:0">${t('Al elegirlo se carga el servicio de Google, que usa sus propias cookies.')}</p>`) : ''}
+      ${gid ? '<div id="gsi" class="c"></div>' : ''}
       <div class="row between w"><button class="btn s plain" data-a="login-mode">${t(code ? 'Entrar con contraseña' : 'Entrar con un código')}</button>${btn('Crear cuenta', 'go', { v: 'u-reg', cls: 's sec' })}</div>
     </div>
     ${App.mode === 'demo' ? `<div class="card stack"><div class="row between"><h3>${t('Cuentas de demostración')}</h3><span class="demo">DEMO</span></div><p class="sm mu">${t('Datos de ejemplo guardados en este navegador. Contraseña de todas las cuentas:')} <b>${DEMO_PASSWORD}</b></p>
@@ -81,7 +80,7 @@ export function regForm(assisted) {
     ${FORM.liveFields(formCfg()).length ? `<div class="card stack"><h3>${t('Más información')}</h3><div class="form">${extraInputs('r_', { assisted })}</div></div>` : ''}
     ${minor ? `<div class="card warn stack"><h3>${t('Autorización de un adulto')}</h3><p class="sm">${t('Las personas menores de 18 años necesitan que un adulto con perfil en el Hub autorice su registro. Escanea el QR de su credencial o escribe su ID.')}</p>
       <div class="row">${field('r_guardian', 'ID o RUT del adulto', { cls: 'sp' })}<button class="icb" style="margin-top:18px" data-a="scan-into" data-v="r_guardian" aria-label="${t('Escanear QR')}">${icon('cam')}</button></div></div>` : ''}
-    <div class="card stack"><h3>${t('Declaraciones')}</h3><p class="sm mu">${t('Aceptarlas es requisito para participar en actividades y usar las dependencias municipales.')}</p>${CONSENTS.map(([k, x]) => check(k, x)).join('')}${termsCheck('c_terms', assisted)}</div>
+    <div class="card stack"><h3>${t('Declaraciones')}</h3><p class="sm mu">${t('Aceptarlas es requisito para participar en actividades y usar las dependencias municipales.')}</p>${CONSENTS.map(([k, x]) => check(k, x)).join('')}</div>
     ${btn(assisted ? 'Registrar usuario' : 'Crear cuenta', 'register', { cls: 'block', v: assisted ? 1 : 0 })}`;
 }
 screens['u-reg'] = { open: true, render: () => `${back('u-login')}<h1>${t('Crear cuenta')}</h1><p class="mu">${t('Te registras una sola vez. Después entras al Hub mostrando tu código QR.')}</p>${regForm(false)}` };
@@ -92,7 +91,7 @@ actions.register = async assisted => {
   const miss = firstMissing('r_', { assisted: assisted === '1', extraOnly: true }); if (miss) return toast(miss); // los campos agregados se revisan aquí, con su nombre en el idioma elegido
   const data = { remember: keepLogin(), assisted: assisted === '1', doc_type: val('r_type', 'rut'), doc_number: val('r_doc'), name: val('r_name'), birth_date: val('r_birth'), ...readBase('r_'), extra: readExtra('r_'),
     email: val('r_email'), password: val('r_pass'), photo: S.regPhoto || null, guardian: val('r_guardian') || null,
-    consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), consent_terms: !!val('c_terms'), lang: getLang() };
+    consent_data: val('c_data'), consent_image: val('c_image'), consent_belongings: val('c_things'), lang: getLang() };
   const r = await run('auth.register', data);
   if (!r) return;
   if (r.closed) return reopenAsk(r, data); // ese RUT tenía una cuenta que la persona eliminó
@@ -172,7 +171,7 @@ screens['u-inicio'] = { tab: 'u-inicio', render() {
 /** Carrusel de banners: todos los publicados, con flechas y puntos para verlos en el computador. */
 function bannerStrip(list) {
   if (!list.length) return '';
-  const one = e => `<button class="banner${e.banner_img ? '' : ' gen'}" data-a="event-open" data-v="${e.id}" aria-label="${esc(e.title)}">${e.banner_img ? `<img src="${esc(e.banner_img)}" alt="${esc(e.banner_alt || e.title)}">` : `<b>${esc(e.title)}</b>`}${e.start_at ? `<span>${fDay(e.start_at)} · ${fTime(e.start_at)}</span>` : ''}</button>`;
+  const one = e => `<button class="banner${e.banner_img ? '' : ' gen'}" data-a="event-open" data-v="${e.id}" aria-label="${esc(e.title)}">${e.banner_img ? `<img src="${esc(e.banner_img)}" alt="">` : `<b>${esc(e.title)}</b>`}${e.start_at ? `<span>${fDay(e.start_at)} · ${fTime(e.start_at)}</span>` : ''}</button>`;
   return `<section class="bnwrap" aria-label="${t('Eventos y avisos')}"><div class="banners" id="banners">${list.map(one).join('')}</div>
     ${list.length > 1 ? `<div class="bnnav"><button class="icb" data-a="bn-move" data-v="-1" aria-label="${t('Anterior')}">${icon('back')}</button><span class="dots" aria-hidden="true">${list.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</span><button class="icb" data-a="bn-play" aria-label="${S.bnStop || calm() ? t('Pasar los banners automáticamente') : t('Detener el paso automático')}" title="${S.bnStop || calm() ? t('Pasar los banners automáticamente') : t('Detener el paso automático')}">${icon(S.bnStop || calm() ? 'play' : 'pause')}</button><button class="icb" data-a="bn-move" data-v="1" aria-label="${t('Siguiente')}">${icon('chev')}</button></div>` : ''}</section>`;
 }
@@ -225,7 +224,7 @@ actions['space-code-typed'] = () => actions['space-code'](val('sp_code'));
 const backBtn = () => `<button class="btn plain s" data-a="go" data-v="u-inicio">${icon('back')} ${t('Volver')}</button>`;
 const seatsLeft = e => (e.seats ? Math.max(0, e.seats - db().where('event_attendance', a => a.event_id === e.id).length) : null);
 actions['event-open'] = id => { const e = db().get('events', +id), mine = db().find('event_attendance', a => a.event_id === e.id && a.user_id === App.uid), left = seatsLeft(e);
-  modal({ html: `${e.poster_img || e.banner_img ? `<img class="poster" src="${esc(e.poster_img || e.banner_img)}" alt="${esc((e.poster_img ? e.poster_alt : e.banner_alt) || e.title)}">` : ''}<h2 style="margin:0">${esc(e.title)}</h2>
+  modal({ html: `${e.poster_img || e.banner_img ? `<img class="poster" src="${esc(e.poster_img || e.banner_img)}" alt="">` : ''}<h2 style="margin:0">${esc(e.title)}</h2>
     ${e.start_at ? `<p class="mu">${fRange(e.start_at, e.end_at || e.start_at)}${e.space_id ? ' · ' + esc(db().get('spaces', e.space_id)?.name) : ''}</p>` : ''}<p>${esc(e.description || '')}</p>
     ${e.kind === 'evento' ? `<div class="row between">${left != null ? pill(t('{0} cupos disponibles', Math.max(0, left)), left > 0 ? 'ok' : 'bad') : pill(t('Entrada liberada'), 'ok')}
       ${mine ? btn('Cancelar inscripción', 'event-signup', { v: e.id + ':0', cls: 's plain' }) : btn('Inscribirme', 'event-signup', { v: e.id + ':1', cls: 's', off: left != null && left <= 0 })}</div>` : ''}` }); };
@@ -438,19 +437,17 @@ actions['profile-save'] = async () => { const miss = firstMissing('p_'); if (mis
   const r = await run('me.update', { name: val('p_name'), email: val('p_email'), ...readBase('p_'), extra: readExtra('p_') }); if (r) { closeModalQuiet(); toast(t('Datos guardados')); } };
 /** Completar el perfil: si el formulario pide datos nuevos, se piden la próxima vez que la persona entra. */
 screens['u-completar'] = { tab: 'u-perfil', render() {
-  const u = me(), miss = FORM.missingFor(formCfg(), u), base = miss.filter(m => m.base).map(m => m.key), ext = miss.filter(m => !m.base).map(m => m.key), terms = needsTerms(u);
+  const u = me(), miss = FORM.missingFor(formCfg(), u), base = miss.filter(m => m.base).map(m => m.key), ext = miss.filter(m => !m.base).map(m => m.key);
   if (!S.cpLoaded) { fillBase('c_', u); fillExtra('c_', u.extra); S.cpLoaded = true; }
-  if (!miss.length && !terms) return `<h1>${t('Tu perfil está completo')}</h1>${btn('Ir al inicio', 'go', { v: 'u-inicio', cls: 'block' })}`;
-  return `<h1>${t(miss.length ? 'Completa tu perfil' : 'Antes de seguir')}</h1>${miss.length ? `<p class="mu">${t('El Hub agregó preguntas al formulario de registro. Respóndelas para seguir usando la app.')}</p>
-    <div class="card stack"><div class="form">${baseInputs('c_', base)}${extraInputs('c_', {}, ext)}</div></div>` : ''}${terms ? termsUpdateCard() : ''}
+  if (!miss.length) return `<h1>${t('Tu perfil está completo')}</h1>${btn('Ir al inicio', 'go', { v: 'u-inicio', cls: 'block' })}`;
+  return `<h1>${t('Completa tu perfil')}</h1><p class="mu">${t('El Hub agregó preguntas al formulario de registro. Respóndelas para seguir usando la app.')}</p>
+    <div class="card stack"><div class="form">${baseInputs('c_', base)}${extraInputs('c_', {}, ext)}</div></div>
     ${btn('Guardar', 'complete-save', { cls: 'block' })}${btn('Ahora no', 'complete-later', { cls: 'block plain' })}${btn('Cerrar sesión', 'logout', { cls: 'block plain', icon: 'out' })}`;
 } };
 actions['complete-save'] = async () => { const u = me(), miss = FORM.missingFor(formCfg(), u), base = miss.filter(m => m.base).map(m => m.key), ext = miss.filter(m => !m.base).map(m => m.key);
   const m = firstMissing('c_', {}, [...base, ...ext]); if (m) return toast(m);
-  if (needsTerms(u) && !val('c_terms_up')) return toast(t('Para seguir, acepta los Términos y condiciones y la Política de privacidad'));
-  if (needsTerms(u) && !(await run('me.acceptTerms', { version: LEGAL_VERSION }))) return;
-  if (miss.length) { const p = Object.fromEntries(base.map(k => [k, readBase('c_')[k]])); if (ext.length) p.extra = readExtra('c_', ext); if (!(await run('me.update', p))) return; }
-  S.cpLoaded = false; toast(t('Datos guardados')); go('u-inicio'); };
+  const p = Object.fromEntries(base.map(k => [k, readBase('c_')[k]])); if (ext.length) p.extra = readExtra('c_', ext);
+  const r = await run('me.update', p); if (r) { S.cpLoaded = false; toast(t('Datos guardados')); go('u-inicio'); } };
 actions['complete-later'] = () => { S.completeLater = true; go('u-inicio'); };
 
 screens['u-config'] = { tab: 'u-perfil', render: () => `${back('u-perfil')}<h1>${t('Configuración')}</h1>
@@ -458,8 +455,7 @@ screens['u-config'] = { tab: 'u-perfil', render: () => `${back('u-perfil')}<h1>$
     <h3>${t('Idioma')}</h3>${seg('lang', getLang(), Object.entries(LANGS))}
     <h3>${t('Accesibilidad')}</h3><label class="ck"><input type="checkbox" data-a="a11y" data-v="big" ${a11y('big') ? 'checked' : ''}><span>${t('Texto más grande')}</span></label><label class="ck"><input type="checkbox" data-a="a11y" data-v="contrast" ${a11y('contrast') ? 'checked' : ''}><span>${t('Mayor contraste')}</span></label></div>
   <div class="card stack"><h3>${t('Contraseña')}</h3>${field('np', 'Nueva contraseña (mínimo 8 caracteres)', { type: 'password', attrs: 'autocomplete="new-password"' })}${field('np2', 'Confirmar contraseña', { type: 'password', attrs: 'autocomplete="new-password" data-enter="pass-save"' })}${btn('Guardar contraseña', 'pass-save', { cls: 's sec' })}</div>
-  ${noticesCard()}
-  <div class="list">${[['u-perfil', 'user', 'Perfil y actualizar datos'], ['u-notif', 'bell', 'Notificaciones'], ['u-priv', 'shield', 'Privacidad y mis datos'], ['u-ayuda', 'help', 'Ayuda y preguntas frecuentes'], ['u-privacidad', 'shield', 'Política de privacidad'], ['u-terminos', 'file', 'Términos y condiciones'], ['u-contacto', 'phone', 'Contacto del Hub']].map(([k, i, l]) => `<button class="li" data-a="${['u-privacidad', 'u-terminos', 'u-contacto'].includes(k) ? 'legal' : 'go'}" data-v="${k}">${icon(i)}<span class="sp"><b>${t(l)}</b></span>${icon('chev')}</button>`).join('')}</div>
+  <div class="list">${[['u-perfil', 'user', 'Perfil y actualizar datos'], ['u-notif', 'bell', 'Notificaciones'], ['u-priv', 'shield', 'Privacidad y mis datos'], ['u-ayuda', 'help', 'Ayuda y preguntas frecuentes']].map(([k, i, l]) => `<button class="li" data-a="go" data-v="${k}">${icon(i)}<span class="sp"><b>${t(l)}</b></span>${icon('chev')}</button>`).join('')}</div>
   <div class="card"><h3>${t('Acerca de')}</h3><p class="sm mu">${esc(cfg('system_name'))} · ${t('versión')} ${typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : ''}. ${t('Desarrollado por el equipo keypoint: Constanza Martinez, Maite Martinez, Cesar Aravena, Diego Donoso y Roderick Grez.')}</p>
     <p class="sm mu">${t('Para instalar la app, abre el menú del navegador y elige «Instalar» o «Agregar a la pantalla de inicio».')}</p></div>
   ${btn('Cerrar sesión', 'logout', { cls: 'block plain', icon: 'out' })}` };
@@ -475,7 +471,6 @@ screens['u-notif'] = { tab: 'u-perfil', render() {
 screens['u-priv'] = { tab: 'u-perfil', render: () => `${back('u-config')}<h1>${t('Privacidad y mis datos')}</h1>
   <div class="card stack"><p>${t('Hub Providencia es responsable de tus datos personales. Los usamos para registrar tus entradas y salidas, gestionar tus reservas y elaborar estadísticas del Hub. No se comparten con terceros.')}</p>
   <p class="sm mu">${t('Para las estadísticas se usan solo {0}, sin tu nombre ni tu RUT.', statVars())}</p>
-  <div class="row w">${btn('Política de privacidad', 'legal', { v: 'u-privacidad', cls: 's plain', icon: 'shield' })}${btn('Términos y condiciones', 'legal', { v: 'u-terminos', cls: 's plain', icon: 'file' })}</div>
   ${btn('Pedir una copia de mis datos', 'data-req', { v: 'copia', cls: 'plain block' })}
   ${me().erase_req_at ? notice(`${icon('clock')} ${t('Pediste la eliminación de tus datos el {0}. Administración la está revisando y te avisará por correo.', fDate(me().erase_req_at))}`, 'warn') : btn('Pedir la eliminación de mis datos', 'erase-req-ask', { cls: 'plain block' })}</div>
   <div class="card stack"><h3>${t('Eliminar mi cuenta')}</h3><p class="sm">${t('Tu cuenta queda inactiva y ya no podrás entrar con ella. Se cancelan tus reservas e inscripciones futuras.')}</p>

@@ -1,7 +1,7 @@
 // Recorre las pantallas de usuario en EN y PT y lista los textos que siguen en español.
 const { chromium } = require('playwright');
 const URL0 = process.env.HUB_URL || 'http://localhost:8765/';
-const SCR = ['u-inicio','u-reservar','u-sala','u-gaming','u-lab','u-cert','u-eventos','u-activas','u-perfil','u-horas','u-notif','u-hist','u-config','u-priv','u-ayuda','u-entrar','u-privacidad','u-terminos','u-contacto','u-baja'];
+const SCR = ['u-inicio','u-reservar','u-sala','u-gaming','u-lab','u-cert','u-eventos','u-activas','u-perfil','u-horas','u-notif','u-hist','u-config','u-priv','u-ayuda','u-entrar'];
 const ES = process.env.STRICT ? /[ñ¿¡]|\b(tu|tus|del|los|las|el|y|puedes|tienes|aquí|también|ningún|ninguna|usuario|hora|horas|reservas?|desde|hasta|sesión|elige|toca|escribe)\b/i : /[áéíóúñ¿¡]|\b(tu|tus|de la|del|los|las|para|reserva|horas|sesión|está|con|sin|una|hoy|mañana|cerrar|ingresa|elige|desde)\b/i;
 (async () => {
   const b = await chromium.launch(), out = {};

@@ -6,7 +6,7 @@ Proyecto Capstone del equipo **keypoint**: Constanza Martinez, Maite Martinez, C
 
 ## Versión
 
-Versión actual: **2.9.0** (24 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
+Versión actual: **2.8.0** (23 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
 
 ## Dos formas de usarlo
 
@@ -35,10 +35,6 @@ docs/          Informe, manual de uso, preguntas frecuentes (es, en, pt), inform
 tools/         Construcción, pruebas (tools/qa) y generación de documentos
 ```
 
-## Privacidad y textos legales
-
-La app incluye una Política de privacidad y Términos y condiciones (en Privacidad y Términos, al pie de cada pantalla). Se completan con el contacto del Hub (Reglas › Contacto del Hub) y con las preguntas del formulario de registro. **Son un borrador que debe revisar la Municipalidad antes de publicar.** La app no usa cookies, analítica ni rastreo: el detalle está en [docs/auditoria-terceros.md](docs/auditoria-terceros.md).
-
 ## Seguridad
 
 Ver **SEGURIDAD.md**. Los datos personales se guardan cifrados con la clave del archivo `.data-key` (o `DATA_KEY` en `.env`), que no se sube a GitHub y debe respaldarse.
@@ -52,6 +48,5 @@ npm run build          genera web/ y dist/
 npm run db:build       genera database/schema.sql y seed.sql
 npm run db:init -- --demo    crea tablas y carga datos de ejemplo
 npm run db:init -- --clean   crea tablas con la configuración del Hub y la cuenta de administración
-npm run docs:legal     genera los borradores de la política y los términos en docs/
 npm start              inicia el servidor en http://localhost:8080
 ```

@@ -5,7 +5,6 @@ import * as R from './rules.js';
 import * as Q from './queries.js';
 import { ACTIVE, FAILURES, DEFAULTS } from './catalog.js';
 import * as FORM from './form.js';
-import { LEGAL_VERSION, unsubToken } from './legal.js';
 
 const N = ctx => (ctx.now ? new Date(ctx.now) : new Date());
 const iso = d => new Date(d).toISOString();
@@ -31,17 +30,12 @@ const manages = (ctx, spaceId) => { const rs = roles(ctx); return rs.includes('a
 const needSpace = (ctx, spaceId) => manages(ctx, spaceId) || fail('Solo el encargado de este espacio o administración puede hacerlo');
 const audit = (ctx, action, entity, id, detail) => ctx.db.insert('audit_log', { at: iso(N(ctx)), actor_id: ctx.uid, action, entity, entity_id: id == null ? null : String(id), detail: detail || null });
 
-/** Correo saliente. kind 'cuenta': necesario (códigos, cuenta), se envía siempre; 'aviso': se omite si la persona se dio de baja. */
-function mail(ctx, user, subject, body, kind = 'cuenta') {
-  if (!user?.email || (kind === 'aviso' && user.email_notices === false)) return;
-  ctx.db.insert('outbox', { to_email: user.email, subject, body, kind, user_id: user.id ?? null, created_at: iso(N(ctx)) });
-}
+function mail(ctx, user, subject, body) { if (user?.email) ctx.db.insert('outbox', { to_email: user.email, subject, body, created_at: iso(N(ctx)) }); }
 /** Avisa a todos los encargados de un espacio. */
 const notifyManagers = (ctx, spaceId, title, text, kind) => Q.managersOf(ctx.db, spaceId).forEach(id => notify(ctx, id, title, text, kind));
-/** Aviso en la app y por correo. essential = el correo se envía aunque la persona se haya dado de baja de los avisos. */
-function notify(ctx, uid, title, text, kind = 'aviso', data = null, essential = false) {
+function notify(ctx, uid, title, text, kind = 'aviso', data = null) {
   ctx.db.insert('notifications', { user_id: uid, kind, title, text, data, created_at: iso(N(ctx)) });
-  mail(ctx, ctx.db.get('users', uid), title, text || title, essential ? 'cuenta' : 'aviso');
+  mail(ctx, ctx.db.get('users', uid), title, text || title);
 }
 const minorAt = (ctx, u) => (R.age(u.birth_date, N(ctx)) ?? 99) < 18;
 /** Recalcula el estado del perfil: correo pendiente → autorización de adulto pendiente → activo. */
@@ -106,7 +100,6 @@ async function userRow(ctx, d, assisted, self = null) {
   const years = R.age(d.birth_date, N(ctx));
   checkAge(ctx, d.birth_date);
   if (!d.consent_data || !d.consent_image || !d.consent_belongings) fail('Debes aceptar las tres declaraciones');
-  if (!d.consent_terms) fail('Debes aceptar los Términos y condiciones y la Política de privacidad');
   if (d.password && d.password.length < 8) fail('La contraseña debe tener al menos 8 caracteres');
   if (!assisted && !d.password) fail('Crea una contraseña de al menos 8 caracteres');
   // Al restablecer, el correo que ya estaba confirmado sigue confirmado; uno nuevo se confirma con un código
@@ -116,7 +109,7 @@ async function userRow(ctx, d, assisted, self = null) {
     doc_type: type, doc_number: num, name, email: email || null, ...base, extra, birth_date: d.birth_date,
     password_hash: d.password ? await hashPass(d.password) : self?.password_hash ?? null, photo: d.photo ? dataUrl(d.photo, 600e3) : self?.photo ?? null, email_verified: !!verified,
     status: !verified ? 'pendiente_correo' : years < 18 && !keepGuardian ? 'pendiente_adulto' : 'activo', guardian_ok: !!keepGuardian,
-    consent_data: true, consent_image: true, consent_belongings: true, terms_version: LEGAL_VERSION, terms_at: iso(N(ctx)), lang: d.lang || 'es',
+    consent_data: true, consent_image: true, consent_belongings: true, lang: d.lang || 'es',
   };
   if (!self) row.created_at = iso(N(ctx));
   return row;
@@ -127,7 +120,7 @@ async function reopen(ctx, u, d, assisted) {
   if (!d) patch.status = u.email_verified || !u.email ? (minorAt(ctx, u) && !u.guardian_ok ? 'pendiente_adulto' : 'activo') : 'pendiente_correo';
   db.update('users', u.id, { ...patch, closed_at: null, sessions_after: iso(N(ctx)) });
   const v = db.get('users', u.id);
-  notify(ctx, v.id, 'Tu cuenta fue restablecida', 'Recuperaste tu ID, tu código QR, tus certificaciones, tus horas y tu historial en el Hub.', 'aviso', null, true);
+  notify(ctx, v.id, 'Tu cuenta fue restablecida', 'Recuperaste tu ID, tu código QR, tus certificaciones, tus horas y tu historial en el Hub.');
   audit(ctx, 'restablece cuenta', 'users', v.id, assisted ? 'en recepción' : 'con código al correo');
   return v;
 }
@@ -145,7 +138,7 @@ function askGuardian(ctx, minor, code) {
   if (!adult || adult.id === minor.id) fail('No encontramos a ese adulto. Debe tener un perfil en el Hub');
   if (adult.status !== 'activo' || minorAt(ctx, adult) || Q.activeBan(db, adult.id, N(ctx))) fail('Esa persona no puede autorizar perfiles');
   db.update('users', minor.id, { guardian_id: adult.id, guardian_ok: false });
-  notify(ctx, adult.id, `${minor.name} pide tu autorización`, 'Confirma si autorizas su perfil como adulto responsable.', 'tutor', { minor_id: minor.id }, true);
+  notify(ctx, adult.id, `${minor.name} pide tu autorización`, 'Confirma si autorizas su perfil como adulto responsable.', 'tutor', { minor_id: minor.id });
   return { adult: adult.name };
 }
 
@@ -235,7 +228,7 @@ function scan(ctx, { code, at, source = 'qr', dry }) {
   return { ...base, inside: true, action: 'entrada', attended, zone: zone?.name || null, zoneByReservation: !!r0, next: next ? { id: next.id, space: db.get('spaces', next.space_id)?.name, start_at: next.start_at } : null };
 }
 
-export const PUBLIC = ['auth.register', 'auth.reopenCode', 'auth.reopen', 'auth.verify', 'mail.unsubscribe', 'auth.login', 'auth.code', 'auth.codeLogin', 'auth.google', 'auth.guardian', 'system.tick'];
+export const PUBLIC = ['auth.register', 'auth.reopenCode', 'auth.reopen', 'auth.verify', 'auth.login', 'auth.code', 'auth.codeLogin', 'auth.google', 'auth.guardian', 'system.tick'];
 
 export const SERVICES = {
   // ---------------------------------------------------------------- Acceso
@@ -321,15 +314,7 @@ export const SERVICES = {
     else { db.update('users', minor.id, { guardian_id: null, guardian_ok: false }); notify(ctx, minor.id, 'No se pudo confirmar el permiso para tu perfil', 'El adulto no autorizó la solicitud. Puedes pedirla a otra persona.'); }
     audit(ctx, accept ? 'autoriza menor' : 'rechaza menor', 'users', minor.id);
   },
-  'me.update'(ctx, p) { const u = me(ctx); if (p.email_notices !== undefined) ctx.db.update('users', u.id, { email_notices: !!p.email_notices }); return updateUser(ctx, u, p); },
-  /** Acepta la versión vigente de los Términos y la Política de privacidad (se pide al entrar si cambió). */
-  'me.acceptTerms'(ctx, { version }) { const u = me(ctx); if (version !== LEGAL_VERSION) fail('Los términos cambiaron. Vuelve a abrirlos'); ctx.db.update('users', u.id, { terms_version: LEGAL_VERSION, terms_at: iso(N(ctx)) }); audit(ctx, 'acepta términos', 'users', u.id, 'versión ' + LEGAL_VERSION); return { ok: true }; },
-  /** Baja de los avisos por correo desde el enlace firmado de cada correo (sin iniciar sesión). */
-  async 'mail.unsubscribe'(ctx, { u, t }) {
-    const user = ctx.db.get('users', String(u || '')); if (!user || !ctx.mailSecret || !t || (await unsubToken(ctx.mailSecret, user.id)) !== String(t)) fail('El enlace no es válido o ya no está vigente');
-    if (user.email_notices !== false) { ctx.db.update('users', user.id, { email_notices: false }); audit(ctx, 'se da de baja de los avisos por correo', 'users', user.id); }
-    return { ok: true, name: user.name.split(' ')[0] };
-  },
+  'me.update'(ctx, p) { return updateUser(ctx, me(ctx), p); },
   'user.update'(ctx, { id, patch }) { need(ctx, 'recepcion'); const u = ctx.db.get('users', id) || fail('No encontramos ese perfil'); updateUser(ctx, u, patch, 'staff'); audit(ctx, 'actualiza perfil', 'users', id); },
   'me.readAll'(ctx) { const t = iso(N(ctx)); ctx.db.where('notifications', n => n.user_id === me(ctx).id && !n.read_at && n.kind !== 'tutor').forEach(n => ctx.db.update('notifications', n.id, { read_at: t })); },
   'me.deleteObs'(ctx, { id }) { const o = ctx.db.get('observations', id); if (!o || o.user_id !== me(ctx).id) fail('No encontramos esa observación'); ctx.db.remove('observations', id); },
@@ -731,7 +716,7 @@ export const SERVICES = {
       db.where('visits', v => v.user_id === u.id && v.out_at).forEach(v => db.remove('visits', v.id));
       for (const t of ['observations', 'notifications']) db.where(t, r => r.user_id === u.id).forEach(r => db.remove(t, r.id));
       db.update('users', u.id, { comuna: null, activity: null, occupation: null, gender: null, reduced_mobility: false, phone: null, photo: null, extra: null, erase_req_at: null });
-      notify(ctx, u.id, 'Tus datos personales fueron eliminados', `Hola ${u.name.split(' ')[0]}: como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones.`, 'aviso', null, true);
+      notify(ctx, u.id, 'Tus datos personales fueron eliminados', `Hola ${u.name.split(' ')[0]}: como pediste, eliminamos tu historial de visitas, tus archivos, observaciones y avisos, y tu comuna, actividad, ocupación, género, movilidad reducida, celular, foto y respuestas a las preguntas agregadas al formulario. Conservas tu cuenta, tus certificaciones, tus horas, tus reservas y tus penalizaciones.`);
       audit(ctx, 'borra datos personales', 'users', u.id, 'a pedido de la persona');
       return { storage };
     }
@@ -772,11 +757,6 @@ export const SERVICES = {
     const row = { kind: e.kind || 'evento', title: e.title.trim(), description: e.description || null, start_at: e.start_at ? iso(e.start_at) : null, end_at: e.end_at ? iso(e.end_at) : null, seats, space_id: e.space_id ? +e.space_id : null, published: e.published !== false };
     if (e.banner_img !== undefined) row.banner_img = dataUrl(e.banner_img, 2.5e6) ?? (String(e.banner_img).startsWith('data:image/svg+xml,') && !/<script|on\w+=|javascript:/i.test(decodeURIComponent(e.banner_img)) ? e.banner_img : null);
     if (e.poster_img !== undefined) row.poster_img = dataUrl(e.poster_img, 4e6) ?? null;
-    // Texto alternativo: obligatorio para cada imagen (lo leen los lectores de pantalla y se muestra si la imagen no carga)
-    for (const k of ['banner', 'poster']) if (e[k + '_alt'] !== undefined) row[k + '_alt'] = String(e[k + '_alt'] || '').trim().slice(0, 300) || null;
-    const old = e.id ? db.get('events', e.id) : {}, has = k => (row[k + '_img'] !== undefined ? row[k + '_img'] : old?.[k + '_img']), alt = k => (row[k + '_alt'] !== undefined ? row[k + '_alt'] : old?.[k + '_alt']);
-    if (has('banner') && !alt('banner')) fail('Escribe el texto alternativo del banner: describe lo que muestra la imagen');
-    if (has('poster') && !alt('poster')) fail('Escribe el texto alternativo de la imagen del anuncio');
     const r = e.id ? db.update('events', e.id, row) : db.insert('events', { ...row, created_at: iso(N(ctx)) });
     audit(ctx, 'guarda evento', 'events', r.id, row.title);
     return { id: r.id };
@@ -812,12 +792,6 @@ export const SERVICES = {
     need(ctx);
     if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key) || key === 'reg_form') fail('Configuración desconocida');
     if (key === 'logo') value = dataUrl(value, 400e3);
-    if (key === 'hub_contact') { const c = value || {}, cl = (v, n) => String(v ?? '').trim().slice(0, n);
-      value = { owner: cl(c.owner, 160), phone: cl(c.phone, 40), email: cl(c.email, 120).toLowerCase(), address: cl(c.address, 200), hours: cl(c.hours, 160) };
-      if (!value.owner) fail('Escribe el nombre del responsable');
-      if (!value.email && !value.phone) fail('Indica al menos un correo o un teléfono de contacto');
-      if (value.email && !R.emailOk(value.email)) fail('El correo de contacto no es válido');
-      if (value.phone && !/^\+?[\d\s().-]{7,20}$/.test(value.phone)) fail('El teléfono de contacto no es válido'); }
     if (key === 'public_url' && value && !/^https:\/\/[^\s"'<>]+$/.test(value)) fail('La dirección pública debe empezar con https://');
     if (['intern_space', 'default_zone'].includes(key) && value != null && !ctx.db.get('spaces', +value)) fail('Ese espacio no existe');
     if (typeof DEFAULTS[key] === 'number') { value = +value; if (!Number.isFinite(value) || value < 0 || value > 1e6) fail('Valor no válido'); }

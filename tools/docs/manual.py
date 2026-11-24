@@ -58,7 +58,7 @@ body = f"""
 <section class="chap"><h2>2. Usuarios del Hub</h2>
 <h3>Crear la cuenta</h3>
 <ol><li>Toca <b>Crear cuenta</b> y completa los datos del formulario: documento (RUT, RUT provisorio o pasaporte), nombre, fecha de nacimiento, género, correo, celular, comuna, actividad en Providencia, ocupación y movilidad reducida.</li>
-<li>Crea una contraseña de al menos 8 caracteres, acepta las tres declaraciones y marca la casilla <b>Acepto los Términos y condiciones y la Política de privacidad</b>. La casilla viene sin marcar; los botones de al lado abren cada documento en una ventana sin perder lo escrito. El registro acepta personas de 4 a 95 años (rango ajustable en Reglas).</li>
+<li>Crea una contraseña de al menos 8 caracteres y acepta las tres declaraciones. El registro acepta personas de 4 a 95 años (rango ajustable en Reglas).</li>
 <li>Escribe el código que llega al correo para activar la cuenta.</li></ol>
 <p><b>Menores de 18 años.</b> El formulario pide el ID o RUT de un adulto con perfil en el Hub (también se puede escanear su QR). El adulto recibe el aviso en su inicio y confirma con «Sí, autorizo». Al aceptar queda como responsable ante accidentes, pérdida de equipos o mala conducta del menor. Si responde «No», el menor recibe el aviso y puede pedirla a otra persona.</p>
 <h3>Inicio y credencial</h3>
@@ -87,13 +87,7 @@ body = f"""
 <li><b>Eliminar mi cuenta:</b> con la contraseña, la cuenta queda inactiva: no se puede entrar ni usar el QR, y se cancelan las reservas e inscripciones futuras (las horas se devuelven). Llega un correo con los detalles.</li></ul>
 <p><b>Restablecer la cuenta.</b> Si la persona vuelve a registrarse con el mismo RUT, el sistema le ofrece restablecer la cuenta y envía un código al correo que tenía (se muestra oculto, por ejemplo p•••@ejemplo.cl). Con el código recupera su ID, su QR, sus certificaciones, sus horas y su historial, con los datos nuevos del formulario; si cambió de correo, lo confirma con otro código. Sin acceso a ese correo, recepción la restablece revisando el carnet.</p>
 {shots(('u-priv', 'Privacidad y mis datos.'), ('u-eliminar', 'Eliminar mi cuenta.'), ('u-priv-pedida', 'Solicitud de eliminación en revisión.'), mobile=True)}
-{shots(('u-restablecer', 'Registro con el RUT de una cuenta eliminada.'), ('u-reopen', 'Código para restablecer.'), mobile=True)}
-<h3>Textos legales, contacto y avisos por correo</h3>
-<p>Al pie de cada pantalla están <b>Privacidad</b>, <b>Términos</b> y <b>Contacto</b>, el teléfono y el correo del Hub, la versión de la app y el crédito «Diseñada por KeyPoint Systems con herramientas de IA». La Política de privacidad explica qué datos se piden, para qué, quién los ve, cuánto tiempo se guardan y cómo pedir una copia o su eliminación; los Términos, las reglas de uso. Ambos están en los tres idiomas. Si el Hub publica una versión nueva, la app la pide al entrar, con la misma casilla.</p>
-<p>Los <b>avisos por correo</b> (reservas, eventos, horas y archivos) terminan con un enlace para dejar de recibirlos; también se desactivan en Configuración › Avisos por correo. Los avisos siguen apareciendo en la app. Los códigos de acceso y los mensajes necesarios para la cuenta llegan siempre.</p>
-<p>La app no usa cookies, analítica ni rastreo, por eso no muestra un aviso de cookies. Si el Hub activó el ingreso con Google, el servicio de Google se carga solo al tocar «Continuar con Google».</p>
-{shots(('u-reg-terminos', 'Registro: casilla de términos sin marcar.'), ('u-privacidad', 'Política de privacidad.'), ('u-config-avisos', 'Configuración: avisos por correo y textos legales.'), mobile=True)}
-{shots(('u-contacto', 'Contacto del Hub.'), ('u-pie', 'Pie de página con versión y créditos.'), mobile=True)}</section>
+{shots(('u-restablecer', 'Registro con el RUT de una cuenta eliminada.'), ('u-reopen', 'Código para restablecer.'), mobile=True)}</section>
 
 <section class="chap"><h2>3. Reserva en dos pasos: entrar y terminar</h2>
 <p>Con la confirmación en dos pasos (activada por defecto en Reglas), una reserva empieza cuando la persona está dentro del Hub y escanea el QR pegado en la entrada del espacio. Así el tiempo que se descuenta es el real y recepción sabe quién está en cada laboratorio o sala.</p>
@@ -166,9 +160,8 @@ body = f"""
 <p>En el detalle de cada espacio está su <b>QR</b>: «Descargar cartel para imprimir» genera una imagen lista para pegar en la entrada.</p>
 {shots(('a-esp', 'Espacios.'), ('a-plano', 'Editor del plano.'))}
 {wide('a-espd', 'Detalle de un laboratorio: equipos y su QR.')}
-<h3>Eventos y banners</h3><p>Crea eventos con fecha, cupos y lugar, o avisos sin fecha. Cada uno lleva una imagen de banner (1200 × 400 px) y una imagen de anuncio que se abre al tocarlo. Al elegir cada imagen aparece su <b>texto alternativo</b>, obligatorio: una frase que describe lo que muestra la imagen («Personas mirando una impresora 3D»), para quienes usan lector de pantalla o cuando la imagen no carga. No repitas el título. Los banners se muestran en el orden de la lista: se mueven con las flechas o con <b>Ordenar por fecha</b>. Los eventos en curso siguen visibles; los terminados aparecen en amarillo con la etiqueta «terminado», pasan solos al final y ya no se muestran. Los cupos nunca bajan de cero. Se puede descargar la lista de inscritos y asistentes.</p>
+<h3>Eventos y banners</h3><p>Crea eventos con fecha, cupos y lugar, o avisos sin fecha. Cada uno lleva una imagen de banner (1200 × 400 px) y una imagen de anuncio que se abre al tocarlo. Los banners se muestran en el orden de la lista: se mueven con las flechas o con <b>Ordenar por fecha</b>. Los eventos en curso siguen visibles; los terminados aparecen en amarillo con la etiqueta «terminado», pasan solos al final y ya no se muestran. Los cupos nunca bajan de cero. Se puede descargar la lista de inscritos y asistentes.</p>
 {wide('a-eventos', 'Eventos y banners con su orden.')}
-{wide('a-eventos-alt', 'Banner con su texto alternativo.')}
 <h3>Agenda y bloqueos</h3><p>Elige el espacio (o todo el Hub) y el día, toca las horas que quieres bloquear o liberar y revisa la lista «Horas bloqueadas». Los cambios se aplican con <b>Guardar cambios</b> y una confirmación; las reservas afectadas se cancelan con aviso y devolución de horas.</p>
 {wide('a-agenda', 'Agenda: horas marcadas y lista de horas bloqueadas antes de guardar.')}
 <h3>Apariencia, reglas y empleados</h3>
@@ -181,11 +174,8 @@ body = f"""
 <li><b>Solicitudes de eliminación de datos:</b> con la búsqueda vacía, Usuarios muestra las solicitudes pendientes. En la ficha, <b>Eliminar sus datos</b> la ejecuta y <b>Descartar solicitud</b> la cierra sin cambios.</li>
 <li><b>Cuentas eliminadas por la persona:</b> la ficha lo indica y recepción ve «Cuenta eliminada» al escanear. Revisando el carnet, recepción o administración pueden <b>Restablecer cuenta</b>.</li>
 <li><b>Restringir acceso:</b> desde Usuarios, por horas, días o de forma permanente. Recepción verá el aviso al escanear.</li>
-<li><b>Auditoría:</b> registro de las acciones del equipo.</li>
-<li><b>Contacto del Hub</b> (Reglas): responsable, teléfono, correo, dirección y horario. Se muestran en el pie de la app, en la ayuda, en la pantalla de contacto, al final de cada correo y en la Política de privacidad. El teléfono que trae de ejemplo es inventado: reemplázalo por el real.</li>
-<li><b>Últimos correos</b> (Reglas, abajo): cada correo con su tipo (aviso o cuenta) y el botón <b>Ver</b>, que muestra el texto tal como sale, con su pie y el enlace de baja.</li></ul>
+<li><b>Auditoría:</b> registro de las acciones del equipo.</li></ul>
 {shots(('a-apar', 'Apariencia.'), ('a-reglas-2', 'Reglas: dos pasos, pasantía y aforo por piso.'))}
-{shots(('a-reglas-contacto', 'Reglas: contacto del Hub.'), ('a-correo-vista', 'Vista previa de un aviso con su pie y enlace de baja.'))}
 {wide('a-husr-admin', 'Ficha de una persona vista por administración: pasantía, restricciones, borrado y reserva actual.')}
 {wide('a-husr-solic', 'Solicitudes de eliminación de datos y su ejecución desde la ficha.')}
 <h3>Formulario de registro</h3>
@@ -232,14 +222,6 @@ body = f"""
 <li><b>Ayuda y preguntas frecuentes</b> (desde Perfil o desde la ayuda de cada pantalla) reúne las respuestas con buscador. El personal tiene además «Ayuda para el personal», filtrada por su credencial.</li>
 <li>Los valores que aparecen en las respuestas (minutos de tolerancia, reservas activas, edades) se toman de las Reglas vigentes.</li></ul>
 {shots(('u-help', 'Ayuda de la pantalla.'), ('u-tour', 'Recorrido guiado.'), ('u-ayuda', 'Preguntas frecuentes con buscador.'), mobile=True)}
-<h3>Navegación con teclado</h3>
-<p>Toda la app se usa sin mouse:</p>
-{tbl(['Tecla', 'Qué hace'], [
- ['Tab / Mayús + Tab', 'Avanza o retrocede entre botones y campos. El primer Tab muestra <b>Saltar al contenido</b>, que lleva directo a la pantalla sin pasar por el encabezado.'],
- ['Enter o Espacio', 'Activa el botón o la opción con foco. Al cambiar de pantalla, el foco queda en su título.'],
- ['Esc', 'Cierra la ventana o el menú lateral abiertos, y el foco vuelve a donde estaba.'],
- ['Flechas (plano)', 'En el editor del plano, Tab llega a cada zona, Enter la selecciona, las flechas la mueven 10 px y Mayús + flechas cambian su tamaño.']])}
-{shots(('u-saltar', '«Saltar al contenido» al presionar Tab.'), mobile=True)}
 <h3>Idiomas</h3>
 <p>La app de usuarios está en español, inglés y portugués, incluidas las ayudas, los recorridos, las preguntas frecuentes y las notificaciones. El idioma se elige en Configuración y queda guardado en la cuenta. Las pantallas del equipo del Hub quedan en español. Las preguntas frecuentes también están impresas en <code>docs/preguntas-frecuentes.pdf</code> (usuarios y personal), <code>docs/faq-en.pdf</code> y <code>docs/faq-pt.pdf</code>.</p>
 <h3>Problemas comunes</h3>

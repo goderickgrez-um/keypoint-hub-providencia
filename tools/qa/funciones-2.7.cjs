@@ -53,7 +53,7 @@ const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d
     await go('u-reg'); await p.fill('#f-r_doc', rut); await p.fill('#f-r_name', name); await p.fill('#f-r_birth', '1990-03-03'); await p.selectOption('#f-r_gender', { index: 1 });
     await p.fill('#f-r_email', email); await p.fill('#f-r_phone', '+56 9 5555 1234'); await p.fill('#f-r_comuna', 'Providencia');
     await p.selectOption('#f-r_activity', { index: 1 }); await p.selectOption('#f-r_occ', { index: 1 }); await p.fill('#f-r_pass', pass); await p.fill('#f-r_pass2', pass);
-    for (const c of ['c_data', 'c_image', 'c_things', 'c_terms']) await p.check('#f-' + c);
+    for (const c of ['c_data', 'c_image', 'c_things']) await p.check('#f-' + c);
     await p.click('[data-a="register"]'); await p.waitForTimeout(600); };
   const demoCode = async () => (await p.innerText('main')).match(/es\s+(\d{6})|is\s+(\d{6})|é\s+(\d{6})/)?.slice(1).find(Boolean);
   await reg('Paula Prueba Cierre', 'paula.cierre@ejemplo.cl', 'clave-paula-1');

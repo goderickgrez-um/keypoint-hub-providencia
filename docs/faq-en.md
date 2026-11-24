@@ -100,21 +100,6 @@ Sign up with the same RUT. The system will offer to restore it and send a code t
 **Why is the app asking me to complete my profile?**  
 The Hub added required questions to the sign-up form. Answer them and tap “Save”. If you tap “Not now”, you’ll be asked again the next time you sign in. You can also change your answers in Profile › Edit my details.
 
-**Where can I read the Privacy policy and the Terms?**  
-At the bottom of every screen, under “Privacy” and “Terms”, and in Profile › Settings. They say what data the Hub asks for, why, who sees it, how long it is kept and how to use your rights.
-
-**Does the app use cookies or track me?**  
-No. The app uses no cookies, ads, analytics or tracking. It only keeps your session, your language and the offline action queue on your device. If you choose “Continue with Google”, Google’s service loads and uses its own cookies.
-
-**I don’t want email notices**  
-Tap the “stop getting notices” link at the end of any notice, or untick “Email notices” in Profile › Settings. You will still see notices in the app. Access codes and messages your account needs are always sent.
-
-**The app asks me to accept the terms**  
-The Hub published or changed its Terms and conditions and Privacy policy. Read them, tick the box and tap “Save” to continue.
-
-**How do I contact the Hub?**  
-The Hub’s phone and email are at the bottom of every screen, at the end of this help and in Profile › Settings › Hub contact.
-
 ### Internship
 
 **How do I enter the internship office?**  

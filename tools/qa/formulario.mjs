@@ -32,9 +32,9 @@ ok(b1.s === 200 && b1.j.result.moved === n0 && n0 > 0, `renombrar una opción ac
 ok(sql("select count(*) from users where activity='Estudio'") === '0' && +sql("select count(*) from users where activity='Estudio o capacitación'") === n0, 'PostgreSQL guarda el nombre nuevo');
 ok(sql("select value->'base'->'comuna'->>'show' from config where key='reg_form'") === 'false', 'configuración guardada en la base');
 const doc1 = '19.111.222-' + dv('19111222');
-const r1 = await rpc('auth.register', { name: 'Servidor Etapa Uno', doc_number: doc1, email: 'srv.etapa1@ejemplo.cl', phone: '+56 9 1212 3434', activity: 'Estudio o capacitación', occupation: 'Estudiante', gender: '', birth_date: '1993-03-03', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password: 'clave-etapa-1' });
+const r1 = await rpc('auth.register', { name: 'Servidor Etapa Uno', doc_number: doc1, email: 'srv.etapa1@ejemplo.cl', phone: '+56 9 1212 3434', activity: 'Estudio o capacitación', occupation: 'Estudiante', gender: '', birth_date: '1993-03-03', consent_data: true, consent_image: true, consent_belongings: true, password: 'clave-etapa-1' });
 ok(r1.s === 200, 'registro sin comuna (oculta) ni género (opcional)');
-const bad1 = await rpc('auth.register', { name: 'Servidor Malo', doc_number: '19.333.444-' + dv('19333444'), email: 'srv.malo@ejemplo.cl', phone: '+56 9 1212 3435', activity: 'Estudio', occupation: 'Estudiante', birth_date: '1993-03-03', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password: 'clave-etapa-1' });
+const bad1 = await rpc('auth.register', { name: 'Servidor Malo', doc_number: '19.333.444-' + dv('19333444'), email: 'srv.malo@ejemplo.cl', phone: '+56 9 1212 3435', activity: 'Estudio', occupation: 'Estudiante', birth_date: '1993-03-03', consent_data: true, consent_image: true, consent_belongings: true, password: 'clave-etapa-1' });
 ok(bad1.s === 400 && /opción válida/.test(bad1.j.error), 'el servidor rechaza una opción que ya no existe');
 
 // ---- Etapa 2
@@ -44,7 +44,7 @@ const fB = (await rpc('form.field', { field: { type: 'text', label: 'Comentarios
 const fC = (await rpc('form.field', { field: { type: 'number', label: 'Personas en tu hogar', min: 1, max: 15 } }, adm)).j.result.id;
 ok(fA && fB && fC, 'tres preguntas creadas');
 const opt = (await snap(adm)).tables.config.find(c => c.key === 'reg_form').value.extra.find(f => f.id === fA).options[1].id;
-const doc2 = '19.555.666-' + dv('19555666'), form2 = { name: 'Servidor Etapa Dos', doc_number: doc2, email: 'srv.etapa2@ejemplo.cl', phone: '+56 9 7878 9090', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1990-09-09', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password: 'clave-etapa-2' };
+const doc2 = '19.555.666-' + dv('19555666'), form2 = { name: 'Servidor Etapa Dos', doc_number: doc2, email: 'srv.etapa2@ejemplo.cl', phone: '+56 9 7878 9090', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1990-09-09', consent_data: true, consent_image: true, consent_belongings: true, password: 'clave-etapa-2' };
 ok((await rpc('auth.register', { ...form2, extra: { [fB]: 'Hola' } })).s === 400, 'falta la obligatoria: rechazado');
 ok((await rpc('auth.register', { ...form2, extra: { [fA]: opt, [fC]: '99' } })).s === 400, 'número fuera de rango: rechazado');
 const r2 = await rpc('auth.register', { ...form2, extra: { [fA]: opt, [fB]: 'Texto privado del servidor', [fC]: '4' } }); const id2 = r2.j.result?.id;

@@ -33,7 +33,7 @@ export const local = {
     try { chan = new BroadcastChannel('keypoint-hub'); chan.onmessage = async () => { const d = await read(); if (d) { App.db.load(d); onChange(); } }; } catch { /* sin canal entre pestañas */ }
   },
   async call(name, args) {
-    const ctx = { db: App.db, uid: App.uid, now: new Date(), demo: true, mailSecret: 'demo' };
+    const ctx = { db: App.db, uid: App.uid, now: new Date(), demo: true };
     try { const r = await call(ctx, name, args); App.db.take(); save(); if (r.session) { App.uid = r.session; session(r.session, args && 'remember' in args ? !!args.remember : remembered()); } return r; }
     catch (e) { App.db.rollback(); throw e; }
   },

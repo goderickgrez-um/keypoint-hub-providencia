@@ -1,6 +1,6 @@
 // Desborde horizontal por tamaño de pantalla y rol
 const { chromium } = require('playwright');
-const SETS = [['camila.rojas@ejemplo.cl', ['u-inicio','u-reservar','u-sala','u-gaming','u-lab','u-cert','u-eventos','u-activas','u-perfil','u-horas','u-notif','u-hist','u-config','u-priv','u-ayuda','u-entrar','u-privacidad','u-terminos','u-contacto','u-baja']],
+const SETS = [['camila.rojas@ejemplo.cl', ['u-inicio','u-reservar','u-sala','u-gaming','u-lab','u-cert','u-eventos','u-activas','u-perfil','u-horas','u-notif','u-hist','u-config','u-priv','u-ayuda','u-entrar']],
   ['marta.pizarro@ejemplo.cl', ['a-scan','a-reg','a-prox','a-ahora','a-husr','a-agenda']], ['tomas.fuentes@ejemplo.cl', ['a-panel','a-rev','a-cert','a-solic','a-fallas']],
   ['roderick.grez@mayor.cl', ['a-panel','a-esp','a-plano','a-eventos','a-reglas','a-emp','a-apar','a-audit','a-ayuda']], ['ignacio.vera@ejemplo.cl', ['a-datos','a-uso','a-imp']]];
 (async () => { const b = await chromium.launch(); let n = 0, bad = [], errs = [];

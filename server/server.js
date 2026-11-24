@@ -1,7 +1,7 @@
 // Servidor del Hub: sirve la app (web/), expone la API y guarda todo en PostgreSQL.
 // Arranque: npm start   (lee la configuración del archivo .env)
 import http from 'node:http';
-import { createReadStream, createWriteStream, existsSync, readFileSync, writeFileSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, readFileSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { basename, extname, join, normalize, resolve, sep } from 'node:path';
@@ -9,9 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import { Store } from '../src/core/store.js';
 import { call, snapshot, tick } from '../src/core/services.js';
 import * as Q from '../src/core/queries.js';
-import { loadAll, persist, createSchema, isEmpty, pool, MAIL_SECRET, ROOT as root } from './db.mjs';
-import { mailFooter, unsubToken } from '../src/core/legal.js';
-import { DEFAULTS } from '../src/core/catalog.js';
+import { loadAll, persist, createSchema, isEmpty, pool, ROOT as root } from './db.mjs';
 
 // ---- Configuración (.env)
 const PORT = +process.env.PORT || 8080, SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex'), UPLOADS = resolve(process.env.UPLOADS_DIR || join(root, 'uploads'));
@@ -77,56 +75,19 @@ async function verifyGoogle(cred) {
 }
 
 // ---- Correo saliente (nodemailer). Sin SMTP_PASS los correos quedan en la tabla outbox.
-// Cada correo lleva un pie con el contacto del Hub, la versión y, en los avisos, el enlace de baja.
-// MAIL_TEST_DIR (solo pruebas): en vez de enviarlos, los guarda como archivos .json en esa carpeta.
 let mailer = null;
 let sending = false;
-const APP_URL = () => String(db.cfg('public_url') || process.env.PUBLIC_APP_URL || '').replace(/[#?].*$/, '');
-const API_URL = () => String(process.env.PUBLIC_API_URL || '').replace(/\/+$/, '');
-/** Arma el correo final: texto + pie y, en los avisos, las cabeceras de baja de un clic (RFC 8058). */
-async function compose(o, m) {
-  const contact = { ...DEFAULTS.hub_contact, ...(db.cfg('hub_contact') || {}) }, kind = o.kind || 'cuenta', headers = {}, links = {};
-  if (kind === 'aviso' && o.user_id) {
-    const tk = await unsubToken(MAIL_SECRET, o.user_id), q = `u=${encodeURIComponent(o.user_id)}&t=${tk}`;
-    if (APP_URL()) links.unsubscribe = `${APP_URL()}#baja=${encodeURIComponent(o.user_id)}.${tk}`;
-    else if (API_URL()) links.unsubscribe = `${API_URL()}/api/baja?${q}`;
-    const lu = [API_URL() && `<${API_URL()}/api/baja?${q}>`, contact.email && `<mailto:${contact.email}?subject=${encodeURIComponent('Dejar de recibir avisos')}>`].filter(Boolean);
-    if (lu.length) headers['List-Unsubscribe'] = lu.join(', ');
-    if (API_URL()) headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
-  }
-  return { from: `"${m.from || 'Hub Providencia'}" <${m.user}>`, to: o.to_email, subject: o.subject, text: o.body + '\n' + mailFooter({ kind, contact, version: APP_VERSION, links }), headers };
-}
 async function sendMail() {
   if (sending) return; sending = true;
   try {
-  const TEST = process.env.MAIL_TEST_DIR;
-  if (!process.env.SMTP_PASS && !TEST) return;
-  const m = db.cfg('mail') || {}; if (!m.user && !TEST) return;
-  if (!mailer) { const nm = (await import('nodemailer')).default; mailer = TEST ? nm.createTransport({ jsonTransport: true }) : nm.createTransport({ host: m.host, port: m.port, secure: +m.port === 465, auth: { user: m.user, pass: process.env.SMTP_PASS } }); }
+  if (!process.env.SMTP_PASS) return;
+  const m = db.cfg('mail'); if (!m?.user) return;
+  if (!mailer) { const nm = (await import('nodemailer')).default; mailer = nm.createTransport({ host: m.host, port: m.port, secure: +m.port === 465, auth: { user: m.user, pass: process.env.SMTP_PASS } }); }
   for (const o of db.where('outbox', o => !o.sent_at).slice(0, 20)) {
-    try {
-      const info = await mailer.sendMail(await compose(o, { ...m, user: m.user || 'hub@ejemplo.cl' }));
-      if (TEST) { mkdirSync(TEST, { recursive: true }); writeFileSync(join(TEST, `${o.id}.json`), info.message); }
-      await commit(() => db.update('outbox', o.id, { sent_at: new Date().toISOString(), body: /código/i.test(o.subject) ? '[código enviado]' : o.body, subject: o.subject.replace(/\d{6}/, '••••••') })); }
+    try { await mailer.sendMail({ from: `"${m.from || 'Hub Providencia'}" <${m.user}>`, to: o.to_email, subject: o.subject, text: o.body }); await commit(() => db.update('outbox', o.id, { sent_at: new Date().toISOString(), body: /código/i.test(o.subject) ? '[código enviado]' : o.body, subject: o.subject.replace(/\d{6}/, '••••••') })); }
     catch (e) { console.error('Correo no enviado:', e.message); break; }
   }
   } finally { sending = false; }
-}
-
-/** Página simple de baja (cuando la app no tiene dirección pública o el programa de correo usa la baja de un clic). */
-const bajaPage = (title, text, form = '') => `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Hub Providencia</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:10vh auto;padding:0 16px;color:#1d2433;background:#fff}h1{font-size:1.4rem}button{font:inherit;padding:.7em 1.2em;border-radius:10px;border:0;background:#0b5cad;color:#fff;cursor:pointer}button:focus-visible{outline:3px solid #f5a623;outline-offset:2px}.mu{color:#5a6475;font-size:.9rem}</style>
-<main><h1>${title}</h1><p>${text}</p>${form}<p class="mu">Keypoint Hub Providencia ${APP_VERSION}</p></main></html>`;
-const bajaEsc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-async function baja(req, res) {
-  const q = new URL(req.url, 'http://x').searchParams, u = q.get('u') || '', t = q.get('t') || '';
-  const send = (code, html) => { res.writeHead(code, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'", ...SEC }); res.end(html); };
-  const valid = u && t && db.get('users', u) && (await unsubToken(MAIL_SECRET, u)) === t;
-  if (!valid) return send(400, bajaPage('Avisos por correo', 'El enlace no es válido o ya no está vigente.'));
-  if (req.method === 'GET') return send(200, bajaPage('¿Dejar de recibir avisos por correo?', 'Dejarás de recibir por correo los avisos de reservas, eventos, horas y archivos. Seguirás viéndolos en la app. Los códigos de acceso y los mensajes necesarios para tu cuenta se envían siempre.',
-    `<form method="post" action="/api/baja?u=${bajaEsc(encodeURIComponent(u))}&amp;t=${bajaEsc(t)}"><button type="submit">Dejar de recibir avisos</button></form>`));
-  await commit(() => call({ db, uid: null, now: new Date(), mailSecret: MAIL_SECRET }, 'mail.unsubscribe', { u, t }));
-  send(200, bajaPage('Listo', 'Ya no recibirás avisos por correo. Puedes volver a activarlos en la app: Perfil › Configuración › Avisos por correo.'));
 }
 
 // ---- Tareas periódicas
@@ -177,8 +138,7 @@ function view(ctx, uid, since) {
 const readBody = req => new Promise((ok, ko) => { let n = 0; const ch = []; req.on('data', c => { n += c.length; if (n > 30 * 1048576) { ko(Object.assign(new Error('Solicitud demasiado grande'), { user: true })); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch).toString('utf8'))); req.on('error', ko); });
 
 async function api(req, res, path) {
-  const uid = uidOf(req), ctx = { db, uid, now: new Date(), verifyGoogle, mailSecret: MAIL_SECRET };
-  if (path === '/api/baja' && (req.method === 'GET' || req.method === 'POST')) return baja(req, res);
+  const uid = uidOf(req), ctx = { db, uid, now: new Date(), verifyGoogle };
   if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, new URL(req.url, 'http://x').searchParams.get('since')));
   if (path === '/api/rpc' && req.method === 'POST') {
     let name, args; try { ({ name, args } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }

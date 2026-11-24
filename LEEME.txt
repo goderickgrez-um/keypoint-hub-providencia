@@ -98,17 +98,6 @@ CUENTAS DE LA DEMO (contraseña: demo1234)
     SMTP_PASS con una "contraseña de aplicación" de esa cuenta
     (Cuenta de Google › Seguridad › Contraseñas de aplicaciones).
     Sin SMTP_PASS los correos quedan guardados sin enviarse.
-  Contacto del Hub: Reglas › Contacto del Hub. Aparece en el pie de
-    la app, en la ayuda, al final de cada correo y en la política
-    de privacidad. El teléfono que trae de ejemplo es inventado:
-    cámbialo por el real.
-  Enlace de baja de los avisos por correo: poner la dirección
-    pública de la app en Reglas (o PUBLIC_APP_URL en .env). Para el
-    botón "Cancelar suscripción" de Gmail y Outlook, poner además
-    PUBLIC_API_URL con la dirección de Tailscale Funnel.
-  Textos legales: la Política de privacidad y los Términos se arman
-    solos con el contacto y las preguntas del formulario. Son un
-    borrador: debe revisarlos la Municipalidad antes de publicar.
   Ingreso con Google: crear un "ID de cliente OAuth" tipo Web en
     https://console.cloud.google.com (orígenes autorizados: la
     dirección del sistema) y pegarlo en Reglas.

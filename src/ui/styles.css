@@ -170,17 +170,3 @@ video.cam { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4 
 .fp input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 1; }
 .fp:focus-within .btn { outline: 2px solid var(--ac); outline-offset: 2px; }
 .cw { display: flex; align-items: center; gap: 8px; } .cw input[type="color"] { width: 44px; height: 34px; padding: 2px; border-radius: 8px; flex: none; cursor: pointer; }
-
-/* ---- 2.9: saltar al contenido, pie de página y documentos legales */
-.skip { position: fixed; z-index: 100; left: 8px; top: 8px; padding: 10px 14px; border: 0; border-radius: 10px; background: var(--ac); color: var(--on); font-weight: 650; transform: translateY(-160%); transition: transform .15s; }
-.skip:focus, .skip:focus-visible { transform: none; }
-main.wrap:focus { outline: none; } main h1[tabindex="-1"]:focus { outline: none; } main h1[tabindex="-1"]:focus-visible { outline: 2px solid var(--ac); outline-offset: 4px; border-radius: 4px; }
-.foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--ln); display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; font-size: .78rem; color: var(--mu); }
-.foot p { margin: 0; overflow-wrap: anywhere; } .foot a { color: inherit; }
-.foot nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; }
-.lk { border: 0; background: none; padding: 6px 2px; min-height: 32px; color: var(--act); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.legal h1 { margin-bottom: 4px; } .legal h2 { font-size: 1.05rem; margin: 18px 0 4px; } .legal h3 { font-size: 1rem; margin: 14px 0 4px; }
-.legal p, .legal li { line-height: 1.55; max-width: 68ch; } .legal ul { padding-left: 20px; margin: 4px 0; } .legal li + li { margin-top: 4px; }
-.modal .legal { max-height: none; }
-
-.mailpv{white-space:pre-wrap;word-break:break-word;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--bg2,rgba(127,127,127,.08));padding:12px;border-radius:10px;max-height:50vh;overflow:auto}

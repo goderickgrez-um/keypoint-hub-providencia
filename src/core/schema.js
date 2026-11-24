@@ -14,8 +14,7 @@ export const TABLES = {
       status: 'text=activo', guardian_id: 'users?', guardian_ok: 'bool=false', consent_data: 'bool=false', consent_image: 'bool=false',
       consent_belongings: 'bool=false', lang: 'text=es', created_at: 'ts', deleted_at: 'ts?', sessions_after: 'ts?', intern: 'bool=false',
       closed_at: 'ts?', erase_req_at: 'ts?', // closed_at: la persona eliminó su cuenta (se puede restablecer); erase_req_at: pidió borrar sus datos
-      extra: 'text?', // respuestas a los campos agregados al formulario de registro ({ id del campo: valor }); en el servidor se guarda cifrado
-      terms_version: 'text?', terms_at: 'ts?', email_notices: 'bool=true' }, // versión de términos aceptada y si recibe avisos por correo (los de cuenta se envían siempre)
+      extra: 'text?' }, // respuestas a los campos agregados al formulario de registro ({ id del campo: valor }); en el servidor se guarda cifrado
     unique: ['doc_number'], index: ['email'],
     check: ["status in ('pendiente_correo','pendiente_adulto','activo')"] },
 
@@ -96,7 +95,7 @@ export const TABLES = {
 
   events: { doc: 'Eventos y avisos. Cada uno puede mostrarse como banner en el inicio.',
     cols: { id: 'int', kind: 'text=evento', title: 'text', description: 'text?', start_at: 'ts?', end_at: 'ts?', seats: 'int?',
-      space_id: 'spaces?', banner_img: 'text?', poster_img: 'text?', banner_alt: 'text?', poster_alt: 'text?', published: 'bool=true', sort_order: 'int?', created_at: 'ts' } }, // *_alt: texto alternativo de cada imagen
+      space_id: 'spaces?', banner_img: 'text?', poster_img: 'text?', published: 'bool=true', sort_order: 'int?', created_at: 'ts' } },
 
   event_attendance: { doc: 'Inscripción y asistencia a eventos.',
     cols: { id: 'int', event_id: 'events', user_id: 'users', status: 'text=inscrito', at: 'ts' }, unique: ['event_id, user_id'] },
@@ -117,7 +116,7 @@ export const TABLES = {
     cols: { id: 'int', day: 'date', space: 'text', visits: 'int=0', source: 'text?' } },
 
   outbox: { doc: 'Correos por enviar o enviados (confirmaciones, códigos, avisos).',
-    cols: { id: 'int', to_email: 'text', subject: 'text', body: 'text', kind: 'text=cuenta', user_id: 'users?', created_at: 'ts', sent_at: 'ts?' } }, // kind: cuenta (necesario) o aviso (se puede dar de baja)
+    cols: { id: 'int', to_email: 'text', subject: 'text', body: 'text', created_at: 'ts', sent_at: 'ts?' } },
 
   sessions: { doc: 'Sesiones abiertas por dispositivo. Cerrar sesión las revoca; cambiar la contraseña invalida todas.',
     cols: { id: 'int', user_id: 'users', device: 'text?', remember: 'bool=false', created_at: 'ts', revoked_at: 'ts?' },

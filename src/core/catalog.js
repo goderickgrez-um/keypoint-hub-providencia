@@ -55,9 +55,6 @@ export const DEFAULTS = {
   min_age: 4, max_age: 95,
   mail: { host: 'smtp.gmail.com', port: 465, user: '', from: '' },
   google_client_id: '', microsoft_client_id: '',
-  // Datos de contacto del Hub: aparecen en el pie de la app, en la ayuda, en los correos y en la política de privacidad.
-  // El teléfono es de ejemplo: cámbialo en Reglas › Contacto del Hub.
-  hub_contact: { owner: 'Hub Providencia · Municipalidad de Providencia', phone: '+56 2 2345 6789', email: 'keypoint.systems.um@gmail.com', address: '', hours: '' },
   theme: THEME,
   // Formulario de registro (Reglas › Formulario de registro): campos del perfil y campos agregados por administración
   reg_form: { base: { phone: { show: true, required: true }, comuna: { show: true, required: true },

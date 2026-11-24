@@ -34,10 +34,9 @@ screens['a-plano'] = { roles: ['admin'], render() {
   return `${back('a-esp', 'Espacios')}<div class="head"><h1>Plano del Hub</h1>${floorSeg('pl-floor', p.floor)}</div>
     <div class="row w">${btn('Agregar piso', 'fl-add', { cls: 's plain', icon: 'plus' })}${Q.floorsOf(db()).length > 1 ? btn('Eliminar piso ' + p.floor, 'fl-del', { v: p.floor, cls: 's plain danger', icon: 'trash' }) : ''}</div>
     <p class="mu">Agrega rectángulos, arrástralos y cambia su tamaño desde la esquina. Dos rectángulos del mismo color se pueden unir en una sola zona.</p>
-    <p class="sm mu" style="margin:0">Con el teclado: Tab llega a cada zona, Enter la selecciona, las flechas la mueven y Mayús + flechas cambian su tamaño.</p>
     <div class="row w">${btn('Agregar rectángulo', 'pl-add', { cls: 's sec', icon: 'plus' })}${s ? btn('Traer al frente', 'pl-z', { v: 1, cls: 's plain' }) + btn('Enviar atrás', 'pl-z', { v: -1, cls: 's plain' }) + btn('Duplicar', 'pl-dup', { cls: 's plain' }) + btn('Unir con el mismo color', 'pl-join', { cls: 's plain' }) + (s.group_id ? btn('Separar', 'pl-split', { cls: 's plain' }) : '') + btn('Borrar', 'pl-del', { cls: 's danger' }) : ''}</div>
     <div class="grid" style="grid-template-columns:minmax(0,3fr) minmax(240px,1fr)"><div class="card" style="padding:8px">
-      <svg id="plan-ed" class="plan" viewBox="0 0 ${W} ${H}" role="group" aria-label="Editor del plano">${p.shapes.map(r => `<g data-shape="${r.id}" style="cursor:move" tabindex="0" role="button" aria-pressed="${r.id === p.sel}" aria-label="Zona ${esc(r.label || 'sin nombre')}, ${r.w} × ${r.h}, posición ${r.x}, ${r.y}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="8" fill="${r.color}" stroke="${r.id === p.sel ? 'var(--tx)' : 'none'}" stroke-width="3" ${r.group_id ? 'stroke-dasharray="0"' : ''}/>
+      <svg id="plan-ed" class="plan" viewBox="0 0 ${W} ${H}">${p.shapes.map(r => `<g data-shape="${r.id}" style="cursor:move"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="8" fill="${r.color}" stroke="${r.id === p.sel ? 'var(--tx)' : 'none'}" stroke-width="3" ${r.group_id ? 'stroke-dasharray="0"' : ''}/>
         <text x="${r.x + 12}" y="${r.y + 28}" fill="${r.text_color || '#fff'}">${esc(r.label || '')}</text>${r.capacity ? `<text x="${r.x + 12}" y="${r.y + 52}" fill="${r.text_color || '#fff'}" style="font-weight:400;font-size:16px">${r.capacity} personas</text>` : ''}
         ${r.id === p.sel ? `<rect class="hd" data-handle="${r.id}" x="${r.x + r.w - 14}" y="${r.y + r.h - 14}" width="22" height="22" rx="5"/>` : ''}</g>`).join('')}</svg></div>
     <div class="card stack">${s ? `<h3>Zona seleccionada</h3>${field('pl_label', 'Nombre', { live: true })}${select('pl_space', 'Vincular con el espacio (completa nombre, tipo y aforo)', spaces.filter(x => x.active || x.id === s.space_id).map(x => [x.id, x.name + ' · piso ' + x.floor]), { raw: true, blank: 'Sin vincular', live: true })}
@@ -69,8 +68,7 @@ actions['fl-del'] = f => { const n = db().where('spaces', s => s.floor === +f &&
   confirmBox({ title: `¿Eliminar el piso ${f}?`, danger: true, ok: 'Eliminar piso', text: `<p>Se borra su plano${n ? ` y se <b>desactivan sus ${n} espacios</b>. Las reservas futuras en ellos se cancelan con aviso; el historial se conserva` : ''}.</p><p>No se puede deshacer.</p>`,
     fn: async () => { const r = await run('floor.remove', { floor: +f }); if (r) { ed().shapes = null; ed().floor = Q.floorsOf(db())[0]; toast(`Piso eliminado${r.deactivated ? ` · ${r.deactivated} espacios desactivados` : ''}`); go(S.k); } } }); };
 
-const refocus = id => requestAnimationFrame(() => document.querySelector(`#plan-ed [data-shape="${id}"]`)?.focus());
-/** Arrastre y cambio de tamaño con puntero (mouse o dedo) y con teclado. */
+/** Arrastre y cambio de tamaño con puntero (mouse o dedo). */
 export function bindPlan() {
   const svg = document.getElementById('plan-ed'); if (!svg) return;
   const pt = e => { const b = svg.getBoundingClientRect(); return { x: (e.clientX - b.left) * W / b.width, y: (e.clientY - b.top) * H / b.height }; };
@@ -91,16 +89,4 @@ export function bindPlan() {
     const hd = g.querySelector('.hd'); if (hd) { hd.setAttribute('x', s.x + s.w - 14); hd.setAttribute('y', s.y + s.h - 14); }
   };
   svg.onpointerup = () => { if (ed().drag) { ed().drag = null; go(S.k); } };
-  // Teclado: Enter o espacio selecciona; flechas mueven 10 px; Mayús + flechas cambian el tamaño
-  svg.onkeydown = e => {
-    const g = e.target.closest?.('[data-shape]'); if (!g) return;
-    const p = ed(), id = +g.dataset.shape, keys = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (p.sel !== id) { sync(); p.sel = id; S.planLoaded = null; } go(S.k); return refocus(id); }
-    if (!keys[e.key]) return; e.preventDefault();
-    if (p.sel !== id) { sync(); p.sel = id; S.planLoaded = null; }
-    const s = cur(), [dx, dy] = keys[e.key].map(v => v * 10);
-    if (e.shiftKey) { s.w = Math.max(60, Math.min(W - s.x, s.w + dx)); s.h = Math.max(50, Math.min(H - s.y, s.h + dy)); }
-    else { s.x = Math.max(0, Math.min(W - s.w, s.x + dx)); s.y = Math.max(0, Math.min(H - s.h, s.y + dy)); }
-    go(S.k); refocus(id);
-  };
 }

@@ -4,7 +4,6 @@ import { FAQ_USER, FAQ_STAFF, fillRules as fillWith } from './faq-data.js';
 import { S, db, me, myRoles, screens, actions, go, modal, closeModal, esc, icon, btn, field, val, UI } from './kit.js';
 import { t, getLang } from './i18n.js';
 import { GUIDES_I18N, FAQ_USER_I18N } from './help-i18n.js';
-import { contactCard } from './legalui.js';
 
 const fillRules = txt => fillWith(txt, k => db()?.cfg(k));
 export { FAQ_USER, FAQ_STAFF };
@@ -67,11 +66,7 @@ export const GUIDES = {
   'u-horas': { title: 'Mis horas', steps: [[null, 'Cada laboratorio tiene horas al mes por persona. Se reinician el día 1 y no se acumulan.']] },
   'u-notif': { title: 'Notificaciones', steps: [[null, 'Avisos de tus reservas, cancelaciones, archivos revisados y autorizaciones de menores.']] },
   'u-hist': { title: 'Historial', steps: [[null, 'Tus reservas y visitas anteriores.']] },
-  'u-config': { title: 'Configuración', steps: [[null, 'Idioma, apariencia, contraseña, avisos por correo y privacidad de tus datos. Abajo están la Política de privacidad, los Términos y el contacto del Hub.']] },
-  'u-privacidad': { title: 'Política de privacidad', steps: [[null, 'Qué datos pide el Hub, para qué, quién los ve, cuánto tiempo se guardan y cómo pedir una copia o su eliminación.']] },
-  'u-terminos': { title: 'Términos y condiciones', steps: [[null, 'Las reglas para usar la app y las dependencias del Hub: cuenta, reservas, horas, laboratorios, archivos y penalizaciones.']] },
-  'u-contacto': { title: 'Contacto del Hub', steps: [[null, 'Toca el teléfono para llamar o el correo para escribir al Hub.']] },
-  'u-baja': { title: 'Avisos por correo', steps: [[null, 'Confirma para dejar de recibir avisos por correo. Seguirás viéndolos en la app y puedes reactivarlos en Configuración.']] },
+  'u-config': { title: 'Configuración', steps: [[null, 'Idioma, apariencia, contraseña y privacidad de tus datos.']] },
   'u-priv': { title: 'Privacidad y mis datos', steps: [
     [null, 'Puedes pedir una copia de tus datos o pedir que se eliminen. Si pides la eliminación, conservas tu cuenta, tus certificaciones, tus horas y tus reservas.'],
     ['[data-a="close-ask"]', 'Eliminar mi cuenta la deja inactiva. Si vuelves a registrarte con tu mismo RUT, puedes restablecerla con un código que llega a tu correo anterior.']] },
@@ -120,7 +115,7 @@ export const GUIDES = {
     ['[data-a="fl-add"]', 'Agrega o elimina pisos. Eliminar un piso desactiva sus espacios.']] },
   'a-datos': { title: 'Datos', steps: [[null, 'Visitas, reservas y perfiles por periodo. Descarga los datos en CSV.'], ['.bartog', 'Toca una variable para ocultarla y comparar mejor las demás: la escala se ajusta sola.']] },
   'a-emp': { title: 'Empleados', steps: [[null, 'Asigna credenciales (administración, encargado, recepción, analista) y los laboratorios de cada encargado.']] },
-  'a-reglas': { title: 'Reglas', steps: [[null, 'Horarios, bloques, tolerancia, saldo, aforo por piso, edades permitidas, correo y contacto del Hub (aparece en el pie, la ayuda, los correos y la política de privacidad). Abajo, los últimos correos con su vista previa.']] },
+  'a-reglas': { title: 'Reglas', steps: [[null, 'Horarios, bloques, tolerancia, saldo, aforo por piso, edades permitidas y correo.']] },
   'a-form': { title: 'Formulario de registro', steps: [
     [null, 'Qué datos se piden al crear una cuenta. Documento, nombre, correo, fecha de nacimiento, contraseña y declaraciones son fijos.'],
     ['[data-a="fm-base-save"]', 'Campos del perfil: muestra u oculta cada campo, márcalo obligatorio y edita sus opciones. Un cambio de nombre de una opción se aplica a quienes ya la tenían.'],
@@ -181,8 +176,7 @@ const faqList = (items, q, es) => {
 };
 screens['u-ayuda'] = { tab: 'u-perfil', open: true, render: () => `${me() ? '' : `<button class="btn plain s" data-a="go" data-v="u-login">${icon('back')} ${t('Volver')}</button>`}<h1>${t('Ayuda y preguntas frecuentes')}</h1>
   <p class="mu">${t('Respuestas rápidas sobre el uso del Hub. En cada pantalla, el botón {0} explica qué hacer ahí.', icon('help'))}</p>
-  <div class="form">${field('faq_q', 'Buscar en las preguntas', { cls: 'full', live: true, attrs: 'type="search" autocomplete="off"', ph: 'reserva, certificación, menor…' })}</div>${faqList(faqUser(), val('faq_q'))}
-  <h2>${t('¿No encontraste la respuesta?')}</h2>${contactCard()}` };
+  <div class="form">${field('faq_q', 'Buscar en las preguntas', { cls: 'full', live: true, attrs: 'type="search" autocomplete="off"', ph: 'reserva, certificación, menor…' })}</div>${faqList(faqUser(), val('faq_q'))}` };
 screens['a-ayuda'] = { roles: ['admin', 'encargado', 'recepcion', 'analista'], render() {
   const mine = myRoles(), all = S.faqAll || mine.includes('admin'), items = FAQ_STAFF.filter(x => all || x[3].some(r => mine.includes(r)));
   return `<h1>Ayuda para el personal</h1><p class="mu">Preguntas frecuentes del equipo del Hub. ${mine.includes('admin') ? '' : `Se muestran las de tu credencial. <button class="btn s plain" data-a="faq-all">${all ? 'Ver solo las mías' : 'Ver todas'}</button>`}</p>

@@ -26,13 +26,13 @@ assert.equal((await call(ctx(null), 'auth.login', { ident: '12.345.678-5', passw
 await rejects(call(ctx(null), 'auth.login', { ident: cam, password: 'mala' }), /incorrectos/);
 
 // Registro con confirmación de correo
-const reg = await call(ctx(null), 'auth.register', { name: 'Persona Nueva', doc_number: '15.555.555-6', email: 'nueva@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1990-05-05', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1, consent_terms: 1 });
+const reg = await call(ctx(null), 'auth.register', { name: 'Persona Nueva', doc_number: '15.555.555-6', email: 'nueva@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1990-05-05', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1 });
 assert.equal(reg.status, 'pendiente_correo');
 assert.equal((await call(ctx(null), 'auth.verify', { id: reg.id, code: reg.demo_code })).session, reg.id);
 assert.equal(db.get('users', reg.id).status, 'activo');
 
 // Menor de edad: necesita la autorización de un adulto
-const kid = await call(ctx(null), 'auth.register', { name: 'Menor Prueba', doc_number: '24.000.000-' + R.dv('24000000'), email: 'menor@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Estudio', occupation: 'Estudiante', gender: 'Hombre', birth_date: '2012-01-01', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1, consent_terms: 1, guardian: cam });
+const kid = await call(ctx(null), 'auth.register', { name: 'Menor Prueba', doc_number: '24.000.000-' + R.dv('24000000'), email: 'menor@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Estudio', occupation: 'Estudiante', gender: 'Hombre', birth_date: '2012-01-01', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1, guardian: cam });
 await call(ctx(null), 'auth.verify', { id: kid.id, code: kid.demo_code });
 assert.equal(db.get('users', kid.id).status, 'pendiente_adulto');
 const ask = db.find('notifications', n => n.kind === 'tutor' && n.data.minor_id === kid.id);
@@ -104,7 +104,7 @@ await rejects(call(ctx(admin), 'config.set', { key: 'cosa', value: 1 }), /descon
 await rejects(call(ctx(cam), 'me.update', { photo: 'javascript:alert(1)' }), /no válido/);
 
 // v1.2 · Edad permitida entre 4 y 95 años
-const base = { name: 'Edad Fuera', email: 'edad@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1, consent_terms: 1 };
+const base = { name: 'Edad Fuera', email: 'edad@ejemplo.cl', phone: '1', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', password: 'clave1234', consent_data: 1, consent_image: 1, consent_belongings: 1 };
 await rejects(call(ctx(null), 'auth.register', { ...base, doc_number: '9.999.999-' + R.dv('9999999'), birth_date: '2024-01-01', guardian: cam }), /entre 4 y 95/);
 await rejects(call(ctx(null), 'auth.register', { ...base, doc_number: '9.999.998-' + R.dv('9999998'), birth_date: '1920-01-01' }), /entre 4 y 95/);
 
@@ -214,7 +214,7 @@ await rejects(call(ctx(cam), 'event.order', { ids: [] }), /./);
 
 // 2.7 · Eliminar mi cuenta, restablecerla con el mismo RUT, pedir eliminación de datos, periodo de certificaciones, permisos
 {
-  const mk = async (doc, email) => { const r = await call(ctx(null), 'auth.register', { name: 'Cuenta ' + doc, doc_number: doc, email, phone: '+56911112222', comuna: 'Ñuñoa', activity: 'Trabajo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1995-05-05', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password: 'clave-segura-1' });
+  const mk = async (doc, email) => { const r = await call(ctx(null), 'auth.register', { name: 'Cuenta ' + doc, doc_number: doc, email, phone: '+56911112222', comuna: 'Ñuñoa', activity: 'Trabajo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1995-05-05', consent_data: true, consent_image: true, consent_belongings: true, password: 'clave-segura-1' });
     await call(ctx(null), 'auth.verify', { id: r.id, code: r.demo_code }); return db.get('users', r.id); };
   const doc = '17.777.777-' + R.dv('17777777'), u = await mk(doc, 'cierre@ejemplo.cl');
   const lab = db.find('spaces', s => s.kind === 'lab' && s.monthly_hours > 0);
@@ -230,7 +230,7 @@ await rejects(call(ctx(cam), 'event.order', { ids: [] }), /./);
   assert.equal((await call(ctx(marta), 'access.scan', { code: u.id })).action, 'cerrada');
   await rejects(call(ctx(admin), 'cert.grant', { certification_id: db.find('certifications', c => c.space_id === lab.id).id, user: u.id }), /No encontramos a esa persona/);
   // Alguien se registra con el mismo RUT: se ofrece restablecer con un código al correo anterior
-  const again = { name: 'Cuenta Restablecida', doc_number: doc, email: 'nuevo-correo@ejemplo.cl', phone: '+56933334444', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1995-05-05', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password: 'otra-clave-22' };
+  const again = { name: 'Cuenta Restablecida', doc_number: doc, email: 'nuevo-correo@ejemplo.cl', phone: '+56933334444', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1995-05-05', consent_data: true, consent_image: true, consent_belongings: true, password: 'otra-clave-22' };
   const off = await call(ctx(null), 'auth.register', again); assert.equal(off.closed, true); assert.equal(off.hint, 'c•••@ejemplo.cl'); assert.equal(off.id, undefined);
   const code = await call(ctx(null), 'auth.reopenCode', { doc_number: doc }); assert.ok(code.demo_code);
   await rejects(call(ctx(null), 'auth.reopen', { ...again, code: '000000' }), /no es correcto/);

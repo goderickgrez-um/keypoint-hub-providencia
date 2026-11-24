@@ -19,7 +19,7 @@ const F = () => FORM.regForm(db);
 let doc = 16000000;
 const rut = () => { doc += 7919; return `${doc}-${R.dv(String(doc))}`; };
 const person = (o = {}) => ({ name: 'Persona Formulario', doc_number: rut(), email: `f${doc}@ejemplo.cl`, phone: '+56 9 1111 2222', comuna: 'Providencia', activity: 'Vivo', occupation: 'Estudiante', gender: 'Mujer',
-  birth_date: '1990-01-01', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password: 'clave-segura-1', ...o });
+  birth_date: '1990-01-01', consent_data: true, consent_image: true, consent_belongings: true, password: 'clave-segura-1', ...o });
 const reg = (o, uid = null) => call(ctx(uid), 'auth.register', person(o));
 const baseCfg = patch => Object.fromEntries(Object.entries(F().base).map(([k, b]) => [k, { show: b.show, required: b.required, ...(b.options ? { options: b.options.map(o => ({ ...o, was: o.label })) } : {}), ...(patch[k] || {}) }]));
 

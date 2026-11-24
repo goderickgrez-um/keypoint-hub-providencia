@@ -1,26 +1,25 @@
 {
   "name": "keypoint-hub-providencia",
-  "version": "2.9.0",
+  "version": "2.8.0",
   "private": true,
   "type": "module",
   "description": "Sistema de registro y reservas del Hub Providencia (equipo keypoint)",
   "scripts": {
     "start": "node server/server.js",
     "db:build": "node tools/build-db.mjs",
-    "test": "node tools/test-core.mjs && node tools/test-form.mjs && node tools/test-legal.mjs",
+    "test": "node tools/test-core.mjs && node tools/test-form.mjs",
     "build": "node tools/bundle.mjs",
     "db:init": "node server/init-db.mjs",
-    "docs:faq": "node tools/docs/faq.mjs",
-    "docs:legal": "node tools/docs/legales.mjs"
+    "docs:faq": "node tools/docs/faq.mjs"
   },
   "dependencies": {
-    "nodemailer": "^10.6.1",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "nodemailer": "^6.9.16"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.24.0"
   }
 }

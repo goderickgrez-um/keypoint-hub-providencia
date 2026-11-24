@@ -41,9 +41,6 @@ create table if not exists users (
   closed_at timestamptz,
   erase_req_at timestamptz,
   extra text,
-  terms_version text,
-  terms_at timestamptz,
-  email_notices boolean not null default true,
   unique (doc_number),
   check (status in ('pendiente_correo','pendiente_adulto','activo'))
 );
@@ -75,9 +72,6 @@ alter table users add column if not exists intern boolean default false;
 alter table users add column if not exists closed_at timestamptz;
 alter table users add column if not exists erase_req_at timestamptz;
 alter table users add column if not exists extra text;
-alter table users add column if not exists terms_version text;
-alter table users add column if not exists terms_at timestamptz;
-alter table users add column if not exists email_notices boolean default true;
 create index if not exists users_email_idx on users (email);
 
 -- Códigos de un solo uso para confirmar el correo o entrar sin contraseña.
@@ -465,8 +459,6 @@ create table if not exists events (
   space_id integer references spaces(id) on delete set null,
   banner_img text,
   poster_img text,
-  banner_alt text,
-  poster_alt text,
   published boolean not null default true,
   sort_order integer,
   created_at timestamptz not null default now()
@@ -480,8 +472,6 @@ alter table events add column if not exists seats integer;
 alter table events add column if not exists space_id integer references spaces(id) on delete set null;
 alter table events add column if not exists banner_img text;
 alter table events add column if not exists poster_img text;
-alter table events add column if not exists banner_alt text;
-alter table events add column if not exists poster_alt text;
 alter table events add column if not exists published boolean default true;
 alter table events add column if not exists sort_order integer;
 alter table events add column if not exists created_at timestamptz;
@@ -591,16 +581,12 @@ create table if not exists outbox (
   to_email text not null,
   subject text not null,
   body text not null,
-  kind text not null default 'cuenta',
-  user_id text references users(id) on delete set null,
   created_at timestamptz not null default now(),
   sent_at timestamptz
 );
 alter table outbox add column if not exists to_email text;
 alter table outbox add column if not exists subject text;
 alter table outbox add column if not exists body text;
-alter table outbox add column if not exists kind text default 'cuenta';
-alter table outbox add column if not exists user_id text references users(id) on delete set null;
 alter table outbox add column if not exists created_at timestamptz;
 alter table outbox add column if not exists sent_at timestamptz;
 

@@ -1,4 +1,4 @@
-# Informe de QA · Keypoint Hub Providencia 2.6.0 a 2.9.0
+# Informe de QA · Keypoint Hub Providencia 2.6.0 a 2.8.0
 
 Equipo keypoint · Hub Providencia · 22 de noviembre de 2026. Aseguramiento de calidad y mediación con el Hub: Cesar Aravena. Pruebas automatizadas ejecutadas sobre la versión 2.6.0, que incluye las ayudas en inglés y portugués. La sección 8 agrega las pruebas de la versión 2.7.0 y la sección 9, las de la 2.8.0 (formulario de registro configurable).
 
@@ -177,44 +177,3 @@ Se probó cada etapa por separado y luego juntas.
 
 **No verificado:** el uso real del formulario por personas del Hub, lectores de pantalla en los campos de varias opciones y la exportación abierta en Excel con caracteres especiales en los nombres de las preguntas.
 
-
-## 10. Pruebas de la versión 2.9.0: textos legales, accesibilidad y correos
-
-| Área | Núcleo (`tools/test-legal.mjs`) | Navegador (`tools/qa/legales.cjs`) | Servidor con PostgreSQL (`tools/qa/servidor-legal.mjs`) |
-|---|---|---|---|
-| Verificaciones | 43 | 71 | 42 |
-
-**Términos y política.** La casilla aparece sin marcar; sin marcarla no se crea la cuenta (pantalla y servidor, también en el registro asistido); con ella se guardan versión y fecha. Las cuentas de una base 2.8.0 quedan sin aceptar y la app se los pide; aceptar una versión distinta de la vigente se rechaza. Los documentos tienen 12 y 9 secciones en los tres idiomas, citan las leyes 19.628 y 21.719, declaran que no hay cookies y traen el contacto y las preguntas reales del formulario. Se abren en una ventana desde el registro sin perder lo escrito.
-
-**Contacto.** Solo administración lo cambia; se rechazan correo o teléfono inválidos y campos desconocidos; se ve sin iniciar sesión; el pie cambia al guardar; persiste al reiniciar el servidor.
-
-**Correos.** Con `MAIL_TEST_DIR` se revisó el correo final que arma el servidor: el aviso trae el enlace personal a la app, el contacto, la versión y el crédito, más `List-Unsubscribe` (https y mailto) y `List-Unsubscribe-Post`. El código de acceso no trae baja. `/api/baja` con firma alterada responde 400; el GET solo muestra la confirmación; el POST (un clic) da de baja y queda en la auditoría. Después de la baja el aviso llega a la app pero no al correo, y se reactiva desde Configuración. El cuerpo sigue cifrado en la base.
-
-**Teclado.** El primer Tab llega a «Saltar al contenido» y Enter lleva al contenido; al cambiar de pantalla el foco va al título; las ventanas retienen el foco y se cierran con Esc; el menú lateral recibe el foco y se cierra con Esc; en el plano, Enter selecciona una zona, las flechas la mueven 10 px y Mayús + flechas la agrandan, sin perder el foco.
-
-**Texto alternativo.** Sin imagen no se pide; con imagen es obligatorio (pantalla y servidor); la persona usuaria ve el banner con ese texto; todas las imágenes del inicio tienen `alt`.
-
-**Google.** No se carga ningún script de Google al abrir la app.
-
-**Defectos corregidos (D9 y D10, bajos):** el título que recibía el foco al cambiar de pantalla lo perdía con el segundo dibujado (se quitaba su `tabindex`); y en la demo, el enlace de baja abierto desde la vista previa del correo volvía a la pantalla anterior por el historial de la ventana. Ambos se encontraron con las pruebas nuevas, antes de entregar.
-
-**Prueba antigua ajustada:** en `v14`, «entrada de Camila» esperaba siempre una entrada. Según la hora, los datos de ejemplo dejan a Camila dentro del Hub (tiene una reserva en curso) y el escaneo registra correctamente su salida. Se aceptan ambos resultados.
-
-**Prueba antigua ajustada (servidor):** `srv14` tenía la misma dependencia de la hora. Antes de iniciar el servidor se cierra la visita abierta de Camila en la base de prueba, y así la prueba vuelve a comprobar una entrada.
-
-**Regresión.** Se repitieron todas las pruebas anteriores sobre la 2.9.0:
-
-| Prueba | Resultado |
-|---|---|
-| Núcleo (`npm test`: reglas, formulario y legales) | Todas correctas |
-| Pruebas por versión 1.2 a 1.4 (87), 2.7 (47 y 47) y 2.8 (63 y 63) | Todas correctas (con los ajustes de hora descritos) |
-| Recorrido de 39 pantallas | Sin errores de JavaScript |
-| Accesibilidad (104 revisiones, claro y oscuro, incluidas Política, Términos y Contacto) | Sin infracciones |
-| Tamaños de pantalla (incluidas las pantallas nuevas, más inglés y portugués) | Sin desbordes |
-| Idiomas | En inglés solo quedan en español los datos que escribe el equipo; en portugués, el detector marca palabras que existen en ambos idiomas (se revisaron: todo está en portugués) |
-| Servidor: sesiones (17), API (8), app publicada sin errores ni bloqueos de CSP, cuentas 2.7 (30) | Todas correctas |
-| Formulario contra el servidor (`formulario.mjs`) | 26 de 28: las 2 restantes comprueban la migración 2.7 → 2.8 (versión 2.8.0 y base sin preguntas) y no aplican a una base 2.9 recién creada; la migración 2.8 → 2.9 se probó con `servidor-legal.mjs` |
-| Seguridad (34) | Todas correctas |
-| Carga: 50 sesiones simultáneas (1000 pedidos), escaneos y datos de administración | 0 errores; p95 de 274 ms (sesiones), 46 ms (escaneos) y 35 ms (datos) |
-
-**No verificado:** el envío real por Gmail (los correos se revisaron tal como los arma el servidor, sin pasar por SMTP) y cómo muestran Gmail y Outlook el botón «Cancelar suscripción», que depende de su reputación del remitente; lectores de pantalla reales (NVDA, VoiceOver) con el teclado; la revisión jurídica de los textos legales, que corresponde a la Municipalidad.

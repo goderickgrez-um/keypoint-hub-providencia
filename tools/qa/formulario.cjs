@@ -24,7 +24,7 @@ const ok = (c, m) => { console.log((c ? 'OK  ' : 'FALLA ') + m); c ? okN++ : fai
     if (await p.$('#f-r_gender')) await p.selectOption('#f-r_gender', { index: 1 });
     await p.fill('#f-r_email', o.email); if (await p.$('#f-r_phone')) await p.fill('#f-r_phone', '+56 9 5555 1234'); if (await p.$('#f-r_comuna')) await p.fill('#f-r_comuna', 'Providencia');
     await p.selectOption('#f-r_activity', o.activity ? { label: o.activity } : { index: 1 }); await p.selectOption('#f-r_occ', { index: 1 });
-    await p.fill('#f-r_pass', 'clave-forma-1'); await p.fill('#f-r_pass2', 'clave-forma-1'); for (const c of ['c_data', 'c_image', 'c_things', 'c_terms']) await p.check('#f-' + c); };
+    await p.fill('#f-r_pass', 'clave-forma-1'); await p.fill('#f-r_pass2', 'clave-forma-1'); for (const c of ['c_data', 'c_image', 'c_things']) await p.check('#f-' + c); };
   const code = async () => (await p.innerText('main')).match(/(\d{6})/)?.[1];
   const verifyNew = async () => { await p.fill('#f-v_code', await code()); await p.click('[data-a="verify"]'); await W(800); };
   const dv = n => { let s = 0, m = 2; for (const c of String(n).split('').reverse()) { s += +c * m; m = m === 7 ? 2 : m + 1; } const r = 11 - (s % 11); return r === 11 ? '0' : r === 10 ? 'K' : String(r); };

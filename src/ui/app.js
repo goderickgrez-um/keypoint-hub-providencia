@@ -3,7 +3,6 @@ import { App, S, UI, db, me, myRoles, screens, actions, go, toast, closeModal, e
 import { t, setLang, getLang } from './i18n.js';
 import { applyTheme } from './theme.js';
 import * as FORM from '../core/form.js';
-import { footer, readBaja, needsTerms } from './legalui.js';
 import { local } from '../data/local.js';
 import { remote } from '../data/remote.js';
 import { logoSrc, pendingScreen, stopBanners } from './user.js';
@@ -16,7 +15,7 @@ const TABS = [['u-inicio', 'home', 'Inicio'], ['u-reservar', 'cal', 'Reservar'],
 const can = rs => !rs || myRoles().some(r => r === 'admin' || rs.includes(r));
 
 function nav(k) {
-  return NAV.map(([group, items]) => { const ok = items.filter(([key]) => can(screens[key]?.roles)); return ok.length ? `<h4>${group}</h4>${ok.map(([key, label, ic]) => `<button class="${k === key ? 'on' : ''}"${k === key ? ' aria-current="page"' : ''} data-a="go" data-v="${key}">${icon(ic)}${label}</button>`).join('')}` : ''; }).join('')
+  return NAV.map(([group, items]) => { const ok = items.filter(([key]) => can(screens[key]?.roles)); return ok.length ? `<h4>${group}</h4>${ok.map(([key, label, ic]) => `<button class="${k === key ? 'on' : ''}" data-a="go" data-v="${key}">${icon(ic)}${label}</button>`).join('')}` : ''; }).join('')
     + `<h4>Cambiar de app</h4><button data-a="to-user">${icon('user')}App de usuario</button><button data-a="logout">${icon('out')}Cerrar sesión</button>`;
 }
 
@@ -34,7 +33,7 @@ function morph(root, html) {
       if (!o) return cur.appendChild(n);
       if (!same(o, n)) return cur.replaceChild(n, o);
       if (n.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
-      for (const { name } of [...o.attributes]) if (!n.hasAttribute(name) && !(name === 'open' && o.tagName === 'DETAILS') && !(name === 'tabindex' && o.tagName === 'H1')) o.removeAttribute(name); // el título que recibió el foco lo conserva
+      for (const { name } of [...o.attributes]) if (!n.hasAttribute(name) && !(name === 'open' && o.tagName === 'DETAILS')) o.removeAttribute(name);
       for (const { name, value } of [...n.attributes]) if (o.getAttribute(name) !== value) o.setAttribute(name, value);
       // Lo escrito o elegido (S.f) manda sobre el HTML: las ventanas se dibujan una vez y, sin esto,
       // cada redibujo devolvía sus campos y listas al valor con que se abrieron.
@@ -55,15 +54,13 @@ function morph(root, html) {
 }
 let skipPop = false, lastModal = null, opener = null;
 
-let lastK = null; // pantalla anterior: al cambiar de pantalla, el foco va a su título
 function render() {
-  readBaja(); // enlace de baja de los correos (#baja=…)
   let k = location.hash.slice(1) || (App.uid ? (S.staff ? 'a-panel' : 'u-inicio') : 'u-login');
   if (!screens[k]) k = 'u-login';
   if (!App.uid && !screens[k].open) k = 'u-login';
   if (App.uid && ['u-login', 'u-reg', 'u-verif'].includes(k)) k = S.staff ? 'a-panel' : 'u-inicio';
   // El formulario de registro pidió datos nuevos: se piden al entrar a la app de usuarios (se puede postergar en la sesión)
-  if (App.uid && !k.startsWith('a-') && !['u-completar', 'u-config', 'u-priv', 'u-ayuda', 'u-notif', 'u-privacidad', 'u-terminos', 'u-contacto', 'u-baja'].includes(k) && !S.completeLater && me()?.status === 'activo' && (needsTerms(me()) || FORM.missingFor(FORM.regForm(db()), me()).length)) k = 'u-completar';
+  if (App.uid && !k.startsWith('a-') && !['u-completar', 'u-config', 'u-priv', 'u-ayuda', 'u-notif'].includes(k) && !S.completeLater && me()?.status === 'activo' && FORM.missingFor(FORM.regForm(db()), me()).length) k = 'u-completar';
   const scr = screens[k], staffScreen = k.startsWith('a-'), u = me();
   if (staffScreen && !myRoles().length) k = 'u-inicio';
   S.k = k;
@@ -75,12 +72,11 @@ function render() {
   const unread = u ? db().where('notifications', n => n.user_id === u.id && !n.read_at).length : 0, demo = App.mode === 'demo' ? '<span class="demo">DEMO</span>' : '';
   const brand = `<div class="brand"><img class="logo" src="${logoSrc()}" alt=""><div><b>${esc(db().cfg('system_name'))}</b><span>${staffScreen ? 'keypoint system' : esc(db().cfg('tagline'))}</span></div>${demo}</div>`;
   let html;
-  const skip = `<button class="skip" data-a="skip">${t('Saltar al contenido')}</button>`;
-  if (!App.uid || (scr.open && k !== 'u-ayuda')) html = `${skip}<main class="wrap" id="contenido" tabindex="-1"><div class="helpfloat">${helpButton(k)}</div>${body}${footer()}</main>`;
-  else if (staffScreen) html = `${skip}<header class="top"><button class="icb only-m" data-a="menu" aria-label="Menú">${icon('menu')}</button>${brand}${can(['recepcion']) ? `<button class="icb" data-a="go" data-v="a-scan" aria-label="Escanear QR">${icon('qr')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="a-perfil" aria-label="Mi perfil">${avatarMini()}</button></header>
-      <div class="staff"><nav class="side" aria-label="Menú del equipo">${nav(k)}</nav><main class="wrap" id="contenido" tabindex="-1">${body}${footer(true)}</main></div>${S.drawer ? `<div class="scrim" data-a="menu"><nav class="side">${nav(k)}</nav></div>` : ''}`;
-  else html = `${skip}<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
-      <main class="wrap" id="contenido" tabindex="-1">${body}${footer()}</main><nav class="tabs" aria-label="${t('Secciones')}">${TABS.map(([key, ic, label]) => `<button class="${(scr.tab || k) === key ? 'on' : ''}"${(scr.tab || k) === key ? ' aria-current="page"' : ''} data-a="go" data-v="${key}">${icon(ic)}${t(label)}</button>`).join('')}</nav>`;
+  if (!App.uid || (scr.open && k !== 'u-ayuda')) html = `<main class="wrap"><div class="helpfloat">${helpButton(k)}</div>${body}</main>`;
+  else if (staffScreen) html = `<header class="top"><button class="icb only-m" data-a="menu" aria-label="Menú">${icon('menu')}</button>${brand}${can(['recepcion']) ? `<button class="icb" data-a="go" data-v="a-scan" aria-label="Escanear QR">${icon('qr')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="a-perfil" aria-label="Mi perfil">${avatarMini()}</button></header>
+      <div class="staff"><nav class="side">${nav(k)}</nav><main class="wrap">${body}</main></div>${S.drawer ? `<div class="scrim" data-a="menu"><nav class="side">${nav(k)}</nav></div>` : ''}`;
+  else html = `<header class="top">${brand}${myRoles().length ? `<button class="icb" data-a="to-staff" aria-label="${t('Panel del equipo')}">${icon('gear')}</button>` : ''}${helpButton(k)}<button class="icb" data-a="go" data-v="u-notif" aria-label="${t('Notificaciones')}">${icon('bell')}${unread ? '<span class="dot"></span>' : ''}</button></header>
+      <main class="wrap">${body}</main><nav class="tabs">${TABS.map(([key, ic, label]) => `<button class="${(scr.tab || k) === key ? 'on' : ''}" data-a="go" data-v="${key}">${icon(ic)}${t(label)}</button>`).join('')}</nav>`;
   const root = document.getElementById('app');
   const mh = S.modal ? (S.modal.render ? S.modal.render() : S.modal.html) : ''; // una ventana con render() se vuelve a dibujar con cada cambio
   morph(root, html + (S.modal ? `<div class="modal" data-a="modal-bg"><div role="dialog" aria-modal="true" tabindex="-1"${/id="dlg-t"/.test(mh) ? ' aria-labelledby="dlg-t"' : ''}><button class="icb mx" data-a="modal-close" aria-label="${t('Cerrar')}">${icon('x')}</button>${mh}</div></div>` : '') + tourCard() + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : ''));
@@ -89,13 +85,10 @@ function render() {
   if (S.modal && S.modal !== lastModal) { lastModal = S.modal; opener ||= document.activeElement; const d = root.querySelector('[role=dialog]'); (d.querySelector('input,select,textarea,button:not(.mx)') || d).focus(); return bindPlan(); }
   if (!S.modal && lastModal) { lastModal = null; if (opener?.isConnected) { opener.focus(); opener = null; return bindPlan(); } opener = null; }
   if (focus) { const el = root.querySelector(`[data-i="${focus}"]`); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* no aplica */ } } }
-  else if (!S.modal && root.querySelector('[data-af]')) root.querySelector('[data-af]').focus();
-  else if (!S.modal && lastK && lastK !== k && !S.drawer) { const h = root.querySelector('main h1'); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } } // teclado y lectores de pantalla: la pantalla nueva empieza en su título
-  if (S.drawer && S.drawer !== 'open') { S.drawer = 'open'; root.querySelector('.scrim .side button')?.focus(); }
-  lastK = k;
+  else if (!S.modal) root.querySelector('[data-af]')?.focus();
   bindPlan(); placeTour();
   if (App.uid && S.pendingSpace) { const c = S.pendingSpace; S.pendingSpace = null; setTimeout(() => actions['space-code']?.(c), 0); } // QR de un espacio leído con la cámara del teléfono
-  if (k === 'u-login' && db().cfg('google_client_id') && S.gsi) google(); // el servicio de Google se carga solo si la persona lo elige
+  if (k === 'u-login' && db().cfg('google_client_id')) google();
 }
 UI.render = render;
 
@@ -108,8 +101,6 @@ function google() {
 
 actions.go = v => { S.drawer = false; S.modal = null; window.scrollTo(0, 0); go(v); };
 actions.menu = () => { S.drawer = !S.drawer; render(); };
-actions.skip = () => { const m = document.getElementById('contenido'); m?.focus(); m?.scrollIntoView(); };
-actions['gsi-load'] = () => { S.gsi = true; render(); };
 actions['to-staff'] = () => { S.staff = true; go('a-panel'); };
 actions['to-user'] = () => { S.staff = false; S.drawer = false; go('u-inicio'); };
 actions['modal-close'] = () => closeModal();
@@ -131,7 +122,7 @@ root.addEventListener('change', e => { const el = e.target, k = el.dataset.i;
   if (el.dataset.color) actions['th-color']?.(el.dataset.color, el.value);
   if (el.dataset.file && el.files?.[0]) { const f = el.files[0]; el.value = ''; (S.picked ||= {})[el.dataset.file] = { name: f.name, size: f.size }; actions['file:' + el.dataset.file]?.(f); } });
 root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset?.enter) { e.preventDefault(); S.f[e.target.dataset.i] = e.target.value; actions[e.target.dataset.enter]?.(); } });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal(); else if (e.key === 'Escape' && S.tour) actions['tour-end'](); else if (e.key === 'Escape' && S.drawer) { S.drawer = false; render(); document.querySelector('[data-a="menu"]')?.focus(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) closeModal(); else if (e.key === 'Escape' && S.tour) actions['tour-end']();
   if (e.key === 'Tab' && S.modal) { const d = root.querySelector('[role=dialog]'), f = [...d.querySelectorAll('button:not([disabled]),input,select,textarea,a[href]')].filter(x => x.offsetParent !== null); if (!f.length) return;
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); } } });
 // Si la persona desliza los banners (dedo, rueda, trackpad o teclado), el paso automático se detiene

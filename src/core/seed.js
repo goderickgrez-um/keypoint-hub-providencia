@@ -4,7 +4,6 @@ import { Store } from './store.js';
 import * as R from './rules.js';
 import * as Q from './queries.js';
 import { hashPass, tick } from './services.js';
-import { LEGAL_VERSION } from './legal.js';
 import { DEFAULTS, ACTIVITIES, OCCUPATIONS, GENDERS, FAILURES, ACCEPT_3D, ACCEPT_LASER } from './catalog.js';
 
 export const DEMO_PASSWORD = 'demo1234';
@@ -181,8 +180,6 @@ export async function seed(nowArg = new Date()) {
   const charla = ev({ title: 'Charla: formaliza tu emprendimiento', description: 'Pasos para iniciar actividades, obtener patente y emitir boletas. Incluye ronda de preguntas.', start_at: iso(R.atMin(workday(2), 960)), end_at: iso(R.atMin(workday(2), 1050)), seats: 60, space_id: audit.id, banner_img: banner('Formaliza tu emprendimiento', 'Charla en el auditorio', '#2A7FA8', '#4E8D5B', 1200, 400), poster_img: banner('Formaliza tu emprendimiento', 'Auditorio · segundo piso', '#2A7FA8', '#4E8D5B', 1200, 1500) });
   ev({ title: 'Feria de emprendedores de Providencia', description: 'Muestra y venta de productos de emprendimientos locales.', start_at: iso(R.atMin(workday(6), 600)), end_at: iso(R.atMin(workday(6), 960)), seats: null, space_id: cowork.id, banner_img: banner('Feria de emprendedores', 'Productos y servicios de la comuna', '#4E8D5B', '#0E7C86', 1200, 400), poster_img: banner('Feria de emprendedores', 'Hub Providencia', '#4E8D5B', '#0E7C86', 1200, 1500) });
   ev({ kind: 'aviso', title: 'Certificaciones todas las semanas', description: 'Láser los martes, resina los miércoles, filamento los jueves y textil los viernes, siempre a las 12:00. Inscríbete desde Reservar › Certificaciones.', banner_img: banner('Certifícate en los laboratorios', 'Sesiones semanales a las 12:00', '#3B6FB6', '#8A5FBF', 1200, 400) });
-  // Texto alternativo de las imágenes de ejemplo (lo que dice el banner)
-  db.all('events').forEach(e => db.update('events', e.id, { ...(e.banner_img ? { banner_alt: `Banner: ${e.title}. ${(e.description || '').split('. ')[0].replace(/\.$/, '')}.` } : {}), ...(e.poster_img ? { poster_alt: `Afiche: ${e.title}. ${e.description || ''}`.trim() } : {}) }));
   db.insert('event_attendance', { event_id: charla.id, user_id: camila.id, at: iso(day(-1)) });
   db.all('events').filter(e => e.seats).forEach(e => people.filter(() => rnd() < .16).forEach(u => db.insert('event_attendance', { event_id: e.id, user_id: u.id, at: iso(day(-int(1, 6))) })));
   db.all('cert_sessions').slice(0, 6).forEach(s => people.filter(() => rnd() < .02).slice(0, 4).forEach(u => db.insert('cert_enrollments', { session_id: s.id, user_id: u.id })));
@@ -227,8 +224,6 @@ export async function seed(nowArg = new Date()) {
     const via = ['ov1', 'ov2', 'ov3', 'ov4'].filter((_, i) => rnd() < [.5, .35, .3, .15][i]);
     db.update('users', u.id, { extra: { cedu01: weights(['oe1', 'oe2', 'oe3', 'oe4', 'oe5'], [1, 6, 5, 9, 3]), ...(via.length ? { cvia01: via } : {}), ...(rnd() < .9 ? { cpri01: rnd() < .55 } : {}) } });
   });
-  // Las cuentas de ejemplo ya aceptaron la versión vigente de los términos
-  db.all('users').forEach(u => db.update('users', u.id, { terms_version: LEGAL_VERSION, terms_at: u.created_at }));
   tick(ctx);
   db.take();
   return db.dump();
