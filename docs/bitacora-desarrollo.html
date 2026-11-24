@@ -438,6 +438,27 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li class="done">Pruebas por etapa: núcleo (<code>tools/test-form.mjs</code>), navegador (<code>tools/qa/formulario.cjs</code>) y servidor con PostgreSQL y migración desde 2.7.0 (<code>tools/qa/formulario.mjs</code>), más la repetición de todas las pruebas anteriores.</li>
 </ul>
 <p><strong>Corrección encontrada en el camino:</strong> dentro de las ventanas, las secciones desplegables («Traducciones») no se abrían porque el clic quedaba tomado por la ventana.</p>
+<h3>5.17 Textos legales, accesibilidad y correos (versión 2.9.0, 24 de noviembre)</h3>
+<p><strong>Solicitud.</strong> «Agrega política de privacidad, términos y condiciones, banner de cookies si es necesario, enlace de baja en los correos, navegación con teclado, pon una casilla sin marcar para aceptar los términos y condiciones al crear un usuario, al pie de la página incluir la versión de la app y que fue diseñada por KeyPoint Systems con herramientas de IA, agrega texto alternativo a las imágenes (opción de ingreso del texto alternativo a las imágenes de los banners). Audita los SDK, analítica y el rastreo de ser necesario. Y por último también incluye los datos de contacto del Hub (configurable: por ahora un número de teléfono inventado y el correo keypoint.systems.um@gmail.com).»</p>
+<p><strong>Decisiones.</strong></p>
+<ul>
+<li>Los textos legales se generan desde un módulo común (<code>src/core/legal.js</code>) con el contacto configurado y las preguntas que realmente pide el formulario, en los tres idiomas. Así no quedan desactualizados cuando el Hub cambia el formulario. Se revisó el marco vigente: la Ley 19.628 rige hoy y la Ley 21.719 entra en vigencia el 15 de octubre de 2027, tras el aplazamiento de la Ley 21.855. Quedan como borrador para la Municipalidad.</li>
+<li><strong>No se agregó banner de cookies</strong>: la auditoría mostró que la app no usa cookies, analítica ni rastreo, y que lo que guarda en el navegador es estrictamente necesario. El único tercero que podía poner cookies sin que la persona lo pidiera era Google, que ahora se carga solo al tocar «Continuar con Google».</li>
+<li>La baja de los correos separa <strong>avisos</strong> (se pueden desactivar) de <strong>correos de cuenta</strong> (códigos, verificación, restablecimiento, eliminación de datos, autorización de menores), que se envían siempre. El enlace va firmado con HMAC-SHA-256 usando una clave derivada de la clave de cifrado, para no agregar otra clave que respaldar.</li>
+</ul>
+<p><strong>Tareas incluidas:</strong></p>
+<ul>
+<li class="done">Política de privacidad y Términos en la app (es, en, pt), versión 1.0, con pantalla propia y ventana desde el registro.</li>
+<li class="done">Casilla sin marcar en el registro y en el registro asistido; versión y fecha guardadas; se pide a las cuentas que no han aceptado la versión vigente.</li>
+<li class="done">Contacto del Hub configurable en Reglas, con valores de ejemplo; pantalla de contacto y tarjeta al final de la ayuda.</li>
+<li class="done">Pie de página con enlaces, contacto, versión y crédito en todas las pantallas.</li>
+<li class="done">Avisos por correo con pie, enlace de baja, cabeceras <code>List-Unsubscribe</code> y página <code>/api/baja</code>; opción en Configuración; vista previa en Reglas.</li>
+<li class="done">Navegación con teclado: saltar al contenido, foco en el título, <code>aria-current</code>, Esc en el menú lateral, plano con flechas.</li>
+<li class="done">Texto alternativo obligatorio para el banner y la imagen del anuncio.</li>
+<li class="done">Auditoría de SDK, analítica y rastreo (<code>docs/auditoria-terceros.md</code>); nodemailer y esbuild actualizados.</li>
+<li class="done">Pruebas: núcleo (<code>tools/test-legal.mjs</code>), navegador (<code>tools/qa/legales.cjs</code>) y servidor con migración desde 2.8.0 (<code>tools/qa/servidor-legal.mjs</code>), más la repetición de todas las anteriores.</li>
+</ul>
+<p><strong>Correcciones encontradas en el camino:</strong> el título que recibía el foco al cambiar de pantalla lo perdía con el segundo dibujado (la actualización quitaba su <code>tabindex</code>); y en la demo, el enlace de baja abierto desde una ventana volvía a la pantalla anterior por el historial de la ventana.</p>
 <hr />
 <h2>6. Evolución técnica</h2>
 <table>
@@ -445,7 +466,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <th>Aspecto</th>
 <th>Primera entrega (1.0.0)</th>
-<th>Versión 2.8.0</th>
+<th>Versión 2.9.0</th>
 </tr>
 </thead>
 <tbody>
@@ -492,7 +513,12 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <td>Accesibilidad</td>
 <td>Sin revisión formal</td>
-<td>WCAG 2 A/AA revisado en todas las pantallas, claro y oscuro</td>
+<td>WCAG 2 A/AA revisado en todas las pantallas, claro y oscuro; navegación completa con teclado</td>
+</tr>
+<tr>
+<td>Privacidad</td>
+<td>Sin textos legales</td>
+<td>Política y términos versionados, aceptación registrada, baja de avisos por correo, sin cookies ni rastreo</td>
 </tr>
 <tr>
 <td>Versión</td>
@@ -512,6 +538,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li><strong>Accesibilidad:</strong> axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.</li>
 <li><strong>QA de la versión 2.6.0:</strong> informe completo en <code>docs/informe-qa.pdf</code>, con los resultados por área, los defectos corregidos y lo que falta probar en el Hub.</li>
 <li><strong>Versión 2.7.0:</strong> pruebas del núcleo, 47 verificaciones en el navegador y 30 contra el servidor real para las funciones nuevas; repetidas las de versiones anteriores, seguridad (34), accesibilidad (98 revisiones), tamaños de pantalla e idiomas. Detalle en la sección 8 de <code>docs/informe-qa.pdf</code>.</li>
+<li><strong>Versión 2.9.0:</strong> 43 verificaciones del núcleo, 71 en el navegador y 42 contra el servidor real (con migración desde 2.8.0) para las funciones nuevas; repetidas todas las anteriores, accesibilidad (104 revisiones), tamaños, idiomas, seguridad y carga. Detalle en la sección 10 de <code>docs/informe-qa.pdf</code>.</li>
 <li><strong>Pendiente de verificación en terreno:</strong> la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.</li>
 </ul>
 <hr />
@@ -523,7 +550,8 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li>Respaldos cifrados fuera del equipo (la base y el archivo <code>.data-key</code> juntos).</li>
 <li>Prueba con personas que usan lectores de pantalla.</li>
 <li>Revisión de seguridad externa antes del uso definitivo.</li>
-<li>Etiquetar las versiones en Git (<code>git tag v2.8.0</code>) al subir cada entrega.</li>
+<li>Etiquetar las versiones en Git (<code>git tag v2.9.0</code>) al subir cada entrega.</li>
+<li>Que la Municipalidad revise la Política de privacidad y los Términos, y reemplazar el teléfono de ejemplo del contacto por el real.</li>
 <li>Revisar con el Hub qué preguntas agregar al formulario antes de abrir el registro masivo: cada pregunta obligatoria nueva se pide a todas las personas ya registradas.</li>
 </ol>
 <hr />

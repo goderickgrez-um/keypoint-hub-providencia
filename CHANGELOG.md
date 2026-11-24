@@ -18,6 +18,26 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.9.0] · 24 de noviembre de 2026
+### Agregado
+- **Política de privacidad y Términos y condiciones** dentro de la app, en español, inglés y portugués (versión 1.0). Se arman con el contacto del Hub y las preguntas que realmente pide el formulario. Citan la Ley 19.628 vigente y la Ley 21.719, que rige desde el 15 de octubre de 2027. Son un **borrador**: debe revisarlos la Municipalidad. `npm run docs:legal` genera `docs/politica-privacidad.md` y `docs/terminos-condiciones.md`.
+- **Casilla sin marcar para aceptar los términos** al crear una cuenta (también en el registro asistido de recepción), con botones para leer cada documento en una ventana sin perder lo escrito. Se guardan la versión aceptada y la fecha. A las cuentas que aún no aceptan la versión vigente se les pide al entrar.
+- **Contacto del Hub configurable** (Reglas › Contacto del Hub): responsable, teléfono, correo, dirección y horario. Aparece en el pie, en la ayuda, en una pantalla de contacto, al final de cada correo y en la política. Viene con el correo keypoint.systems.um@gmail.com y un teléfono de ejemplo (+56 2 2345 6789, inventado).
+- **Pie de página** en todas las pantallas (ingreso, app de usuarios y panel del equipo): Privacidad, Términos, Contacto, teléfono y correo, nombre del sistema, versión y «Diseñada por KeyPoint Systems con herramientas de IA».
+- **Enlace de baja en los avisos por correo.** Los avisos (reservas, eventos, horas, archivos) terminan con un enlace firmado para dejar de recibirlos y llevan las cabeceras `List-Unsubscribe` y `List-Unsubscribe-Post` (baja de un clic en Gmail y Outlook). Los correos de cuenta (códigos, verificación, restablecimiento, eliminación de datos, autorización de menores) se envían siempre. Nueva opción «Avisos por correo» en Configuración, pantalla de confirmación en la app y página `/api/baja` en el servidor. Variables nuevas: `PUBLIC_APP_URL` y `PUBLIC_API_URL`.
+- **Texto alternativo de los banners**: al subir el banner o la imagen del anuncio de un evento aparece el campo, que es obligatorio. La app lo usa en lugar del título.
+- **Vista previa de cada correo** en Reglas › Últimos correos, con su pie y su tipo (aviso o cuenta).
+- **Auditoría de SDK, analítica y rastreo** (`docs/auditoria-terceros.md`): sin analítica, sin cookies y sin rastreo, por eso no hay banner de cookies.
+### Accesibilidad (navegación con teclado)
+- Botón «Saltar al contenido» al comienzo de cada pantalla.
+- Al cambiar de pantalla el foco va al título; las pestañas y el menú marcan la sección actual (`aria-current`).
+- El menú lateral del teléfono recibe el foco al abrirse y se cierra con Esc.
+- Editor del plano: cada zona se alcanza con Tab; Enter la selecciona, las flechas la mueven y Mayús + flechas cambian su tamaño.
+### Cambiado
+- El servicio de Google se carga solo al tocar «Continuar con Google» (antes, al abrir la pantalla de ingreso), con un aviso de que usa sus propias cookies.
+- nodemailer 10.6.1 y esbuild 0.28.2 (`npm audit`: 0 vulnerabilidades).
+- Preguntas frecuentes nuevas para usuarios (políticas, cookies, avisos por correo, términos, contacto) y para el equipo (contacto, texto alternativo, bajas), en los tres idiomas donde corresponde.
+
 ## [2.8.0] · 23 de noviembre de 2026
 ### Agregado
 - **Formulario de registro configurable** (Sistema › Formulario de registro, solo administración).

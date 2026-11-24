@@ -8,7 +8,7 @@ const sql = q => execSync(`psql "${process.env.DATABASE_URL}" -tAc "${q.replace(
 const codeOf = id => sql(`select code from auth_codes where user_id='${id}' and not used order by expires_at desc limit 1`);
 const dv = n => { let s = 0, m = 2; for (const c of String(n).split('').reverse()) { s += +c * m; m = m === 7 ? 2 : m + 1; } const r = 11 - (s % 11); return r === 11 ? '0' : r === 10 ? 'K' : String(r); };
 const rut = '18.123.456-' + dv('18123456');
-const form = (name, email, password) => ({ name, doc_number: rut, email, phone: '+56977778888', comuna: 'Providencia', activity: 'Trabajo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1992-02-02', consent_data: true, consent_image: true, consent_belongings: true, password });
+const form = (name, email, password) => ({ name, doc_number: rut, email, phone: '+56977778888', comuna: 'Providencia', activity: 'Trabajo', occupation: 'Estudiante', gender: 'Mujer', birth_date: '1992-02-02', consent_data: true, consent_image: true, consent_belongings: true, consent_terms: true, password });
 
 // Registro y confirmación de correo (el código llega por correo: se lee de la base)
 const reg = await rpc('auth.register', form('Servidor Prueba', 'srv.prueba@ejemplo.cl', 'clave-srv-001'));

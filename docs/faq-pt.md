@@ -100,6 +100,21 @@ Cadastre-se com o mesmo RUT. O sistema vai oferecer restaurá-la e enviar um có
 **Por que o app pede para completar meu perfil?**  
 O Hub adicionou perguntas obrigatórias ao formulário de cadastro. Responda-as e toque em «Salvar». Se tocar em «Agora não», será perguntado de novo na próxima vez que entrar. Você também pode mudar suas respostas em Perfil › Editar meus dados.
 
+**Onde leio a Política de privacidade e os Termos?**  
+No rodapé de cada tela, em “Privacidade” e “Termos”, e em Perfil › Configurações. Dizem quais dados o Hub pede, para quê, quem os vê, por quanto tempo são guardados e como exercer seus direitos.
+
+**O app usa cookies ou me rastreia?**  
+Não. O app não usa cookies, publicidade, análise nem rastreamento. Só guarda no seu dispositivo a sessão, o idioma e a fila de ações sem conexão. Se você escolher “Continuar com Google”, o serviço do Google é carregado e usa seus próprios cookies.
+
+**Não quero receber avisos por e-mail**  
+Toque no link “deixar de receber avisos” no fim de qualquer aviso, ou desmarque “Avisos por e-mail” em Perfil › Configurações. Você continuará vendo os avisos no app. Os códigos de acesso e as mensagens necessárias para sua conta chegam sempre.
+
+**O app pede para aceitar os termos**  
+O Hub publicou ou mudou seus Termos e condições e sua Política de privacidade. Leia, marque a caixa e toque em “Salvar” para continuar.
+
+**Como entro em contato com o Hub?**  
+O telefone e o e-mail do Hub estão no rodapé de cada tela, no fim desta ajuda e em Perfil › Configurações › Contato do Hub.
+
 ### Estágio
 
 **Como entro na sala de estágio?**  
