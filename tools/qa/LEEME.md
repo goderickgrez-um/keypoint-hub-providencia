@@ -17,6 +17,9 @@ Scripts usados para el informe de QA (`docs/informe-qa.pdf`). Requieren Node 20+
 | `node tools/test-form.mjs` | Formulario de registro configurable: campos del perfil (etapa 1) y preguntas agregadas con su análisis (etapa 2) | sin servidor |
 | `formulario.cjs` | Lo mismo en el navegador: pantalla de administración, registro, completar perfil, idiomas, Datos, descargas, axe y tamaños. `ETAPA=1` o `ETAPA=2` corre solo una etapa | demo en `HUB_URL` |
 | `formulario.mjs` | Lo mismo contra el servidor real: migración, permisos, respuestas cifradas en PostgreSQL, lo que recibe cada credencial y persistencia al reiniciar | inicia el servidor por su cuenta (puerto 8080) con `DATABASE_URL` y `DATA_KEY` de una base de prueba |
+| `node tools/test-legal.mjs` | Términos al registrarse, textos legales en 3 idiomas, contacto configurable, avisos por correo con baja firmada y texto alternativo | sin servidor |
+| `legales.cjs` | Lo mismo en el navegador: pie, documentos, casilla sin marcar, navegación con teclado (saltar al contenido, ventanas, foco, plano, menú), contacto en Reglas, texto alternativo, vista previa del correo y baja, idiomas y axe | demo en `HUB_URL` |
+| `servidor-legal.mjs` | Lo mismo contra el servidor real: migración, pie de los correos, cabeceras `List-Unsubscribe`, `/api/baja` (GET muestra, POST da de baja), persistencia al reiniciar | inicia el servidor (puerto 8080) con `DATABASE_URL` y `DATA_KEY` de una base de prueba; guarda los correos en `/tmp/hubmail` con `MAIL_TEST_DIR` |
 | `carga.mjs` | 50 sesiones simultáneas pidiendo datos, escaneos de recepción y datos de administración | servidor con base de prueba en `HUB_API` |
 
 Para servir la demo: copia `web/` a una carpeta de pruebas, cambia su `config.js` por `window.HUB_CONFIG = null;` y ejecuta `python -m http.server 8765` dentro de ella.

@@ -100,6 +100,21 @@ Crea una cuenta con tu mismo RUT. El sistema te ofrecerá restablecerla y te env
 **¿Por qué la app me pide completar mi perfil?**  
 El Hub agregó preguntas obligatorias al formulario de registro. Respóndelas y toca «Guardar». Si tocas «Ahora no», se te pedirá de nuevo la próxima vez que entres. También puedes cambiar tus respuestas en Perfil › Editar mis datos.
 
+**¿Dónde leo la Política de privacidad y los Términos?**  
+Al pie de cada pantalla, en «Privacidad» y «Términos», y en Perfil › Configuración. Dicen qué datos pide el Hub, para qué, quién los ve, cuánto tiempo se guardan y cómo ejercer tus derechos.
+
+**¿La app usa cookies o me rastrea?**  
+No. La app no usa cookies, publicidad, analítica ni rastreo. Solo guarda en tu dispositivo la sesión, el idioma y la fila de acciones sin conexión. Si eliges «Continuar con Google», se carga el servicio de Google, que usa sus propias cookies.
+
+**No quiero recibir avisos por correo**  
+Toca el enlace «dejar de recibir avisos» al final de cualquier aviso, o desmarca «Avisos por correo» en Perfil › Configuración. Seguirás viendo los avisos en la app. Los códigos de acceso y los mensajes necesarios para tu cuenta llegan siempre.
+
+**La app me pide aceptar los términos**  
+El Hub publicó o cambió sus Términos y condiciones y su Política de privacidad. Léelos, marca la casilla y toca «Guardar» para seguir.
+
+**¿Cómo contacto al Hub?**  
+El teléfono y el correo del Hub están al pie de cada pantalla, al final de esta ayuda y en Perfil › Configuración › Contacto del Hub.
+
 ### Pasantía
 
 **¿Cómo entro a la oficina de pasantía?**  
@@ -154,6 +169,9 @@ En Eventos y banners crea el evento o aviso, sube la imagen (1200 × 400 px) y m
 **¿Por qué un banner está en amarillo?** _(Administración)_  
 Ya terminó y no se muestra a los usuarios. Los eventos en curso siguen apareciendo hasta su término (o hasta el final del día si no tienen término).
 
+**¿Qué es el texto alternativo de un banner?** _(Administración)_  
+Una descripción corta de lo que muestra la imagen («Personas trabajando en el cowork»). La leen los lectores de pantalla y aparece si la imagen no carga. Es obligatoria cuando el evento tiene banner o imagen del anuncio; no repitas el título.
+
 ### Personas
 
 **Una persona pidió eliminar sus datos** _(Administración)_  
@@ -179,6 +197,9 @@ En la ficha de la persona: «Restringir acceso» (administración) bloquea su en
 
 **¿Cómo asigno una pasantía?** _(Administración)_  
 En Reglas elige la oficina de pasantía (con su aforo). Luego, en Usuarios, abre la ficha de la persona y toca «Asignar pasantía». Verá el botón de la oficina en su Inicio.
+
+**Alguien ya no quiere recibir correos** _(Administración, Recepción)_  
+La persona toca el enlace al final de cualquier aviso o desmarca «Avisos por correo» en su Configuración. Deja de recibir avisos por correo, pero los sigue viendo en la app; los códigos de acceso y los mensajes de su cuenta se envían siempre. En Reglas › Últimos correos puedes ver cada correo con su pie.
 
 ### Hub
 
@@ -206,3 +227,6 @@ El Hub ya está abierto en otra ventana. Ciérrala, o en PowerShell: netstat -an
 
 **¿Qué debo respaldar?** _(Administración)_  
 La base de datos (pg_dump) y el archivo .data-key juntos. Sin la clave no se pueden leer RUT, correos ni teléfonos.
+
+**¿Dónde cambio el teléfono y el correo de contacto del Hub?** _(Administración)_  
+En Sistema › Reglas, tarjeta «Contacto del Hub». Se usan en el pie de la app, en la ayuda, al final de cada correo y en la Política de privacidad como responsable de los datos. El teléfono que trae de ejemplo es inventado: reemplázalo por el real.

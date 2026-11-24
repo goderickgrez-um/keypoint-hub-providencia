@@ -7,6 +7,7 @@ import { heatPlan, floorSeg } from './plan.js';
 import { uname, sname, rangeOf, rangeBar, anon } from './staff.js';
 import { logoSrc } from './user.js';
 import * as FORM from '../core/form.js';
+import * as LEGAL from '../core/legal.js';
 import { regForm as formCfg, baseInputs, baseInput, extraInputs, statVars } from './formui.js';
 import { fileInput, confirmBox, memo, qrSvg, labOnly, App, S, db, me, myRoles, can, manages, mySpaces, screens, actions, go, run, toast, modal, esc, icon, field, area, select, check, btn, seg, pill, empty, back, stat, table, avatar, swatches, openDays, dayChips, heatGrid, barsH, colChart, fDay, fDate, fTime, fDT, fRange, fmtN, val, fill, readImage, readText, download, csv } from './kit.js';
 
@@ -15,7 +16,7 @@ const closeQuiet = () => { S.modal = null; };
 const local = d => { d = new Date(d); return `${R.dayKey(d)}T${R.hmOf(d)}`; }; // para <input type="datetime-local">
 
 // ============================================================ Eventos y banners
-const evFill = e => fill({ ev_kind: e?.kind || 'evento', ev_title: e?.title || '', ev_desc: e?.description || '', ev_start: e?.start_at ? local(e.start_at) : '', ev_end: e?.end_at ? local(e.end_at) : '', ev_seats: e?.seats || '', ev_space: e?.space_id || '', ev_pub: e ? e.published : true });
+const evFill = e => fill({ ev_balt: e?.banner_alt || '', ev_palt: e?.poster_alt || '', ev_kind: e?.kind || 'evento', ev_title: e?.title || '', ev_desc: e?.description || '', ev_start: e?.start_at ? local(e.start_at) : '', ev_end: e?.end_at ? local(e.end_at) : '', ev_seats: e?.seats || '', ev_space: e?.space_id || '', ev_pub: e ? e.published : true });
 screens['a-eventos'] = { roles: ['admin'], render() {
   const now = new Date(), list = Q.sortEvents(db().all('events'), now), cur = db().get('events', S.ev);
   if (S.evLoaded !== (cur?.id ?? 0)) { evFill(cur); S.evLoaded = cur?.id ?? 0; S.evImg = {}; }
@@ -29,8 +30,8 @@ screens['a-eventos'] = { roles: ['admin'], render() {
       ${btn('Nuevo evento o aviso', 'ev-pick', { v: 0, cls: 'sec block', icon: 'plus' })}</div>
     <div class="card stack"><h3>${cur ? 'Editar' : 'Nuevo'}</h3><div class="form">${select('ev_kind', 'Tipo', [['evento', 'Evento con fecha'], ['aviso', 'Aviso sin fecha']], { raw: true, live: true })}${field('ev_title', 'Título', { cls: 'full' })}${area('ev_desc', 'Descripción')}
       ${val('ev_kind') === 'evento' ? field('ev_start', 'Inicio', { type: 'datetime-local' }) + field('ev_end', 'Término', { type: 'datetime-local' }) + field('ev_seats', 'Cupos (vacío = sin límite)', { type: 'number', attrs: 'min="1"' }) + select('ev_space', 'Lugar', db().all('spaces').map(s => [s.id, s.name]), { raw: true, blank: 'Sin lugar fijo' }) : ''}</div>
-      <label class="f">Imagen del banner (recomendado 1200 × 400 px)${fileInput('ev-banner', 'image/*')}</label>${img('banner_img') ? `<img src="${esc(img('banner_img'))}" alt="" style="width:100%;border-radius:10px;aspect-ratio:3/1;object-fit:cover">` : ''}
-      <label class="f">Imagen del anuncio que se abre al tocar el banner (mayor calidad, hasta 1600 px)${fileInput('ev-poster', 'image/*')}</label>${img('poster_img') ? `<img src="${esc(img('poster_img'))}" alt="" style="max-height:160px;border-radius:10px;align-self:flex-start">` : ''}
+      <label class="f">Imagen del banner (recomendado 1200 × 400 px)${fileInput('ev-banner', 'image/*')}</label>${img('banner_img') ? `<img src="${esc(img('banner_img'))}" alt="${esc(val('ev_balt') || 'Vista previa del banner')}" style="width:100%;border-radius:10px;aspect-ratio:3/1;object-fit:cover">${area('ev_balt', 'Texto alternativo del banner (obligatorio): describe la imagen y escribe el texto que aparece en ella', { attrs: 'maxlength="300" rows="2"' })}` : ''}
+      <label class="f">Imagen del anuncio que se abre al tocar el banner (mayor calidad, hasta 1600 px)${fileInput('ev-poster', 'image/*')}</label>${img('poster_img') ? `<img src="${esc(img('poster_img'))}" alt="${esc(val('ev_palt') || 'Vista previa del anuncio')}" style="max-height:160px;border-radius:10px;align-self:flex-start">${area('ev_palt', 'Texto alternativo del anuncio (obligatorio): lo que dice y muestra la imagen', { attrs: 'maxlength="300" rows="2"' })}` : ''}
       ${check('ev_pub', 'Publicado: visible para los usuarios')}<div class="row">${btn('Guardar', 'ev-save', { cls: 'sp' })}${cur ? btn('Borrar', 'ev-del', { v: cur.id, cls: 'danger' }) : ''}</div>
       ${cur?.kind === 'evento' ? `<p class="sm mu">${att.length} inscritos · ${att.filter(a => a.status === 'asistio').length} asistieron</p>${att.length ? btn('Descargar lista de asistentes', 'ev-csv', { v: cur.id, cls: 's plain', icon: 'down' }) : ''}` : ''}</div></div>`;
 } };
@@ -45,7 +46,7 @@ actions['ev-bydate'] = () => confirmBox({ title: '¿Ordenar por fecha?', ok: 'Or
     await run('event.order', { ids }, 'Banners ordenados por fecha'); } });
 actions['file:ev-banner'] = async f => { (S.evImg ||= {}).banner_img = await readImage(f, 1200); go(S.k); };
 actions['file:ev-poster'] = async f => { (S.evImg ||= {}).poster_img = await readImage(f, 1600); go(S.k); };
-actions['ev-save'] = async () => { const r = await run('event.save', { id: S.evLoaded || undefined, kind: val('ev_kind'), title: val('ev_title'), description: val('ev_desc'), start_at: val('ev_kind') === 'evento' && val('ev_start') ? new Date(val('ev_start')) : null, end_at: val('ev_kind') === 'evento' && val('ev_end') ? new Date(val('ev_end')) : null, seats: val('ev_seats'), space_id: val('ev_space'), published: val('ev_pub'), ...(S.evImg || {}) });
+actions['ev-save'] = async () => { const r = await run('event.save', { id: S.evLoaded || undefined, kind: val('ev_kind'), title: val('ev_title'), description: val('ev_desc'), start_at: val('ev_kind') === 'evento' && val('ev_start') ? new Date(val('ev_start')) : null, end_at: val('ev_kind') === 'evento' && val('ev_end') ? new Date(val('ev_end')) : null, seats: val('ev_seats'), space_id: val('ev_space'), published: val('ev_pub'), banner_alt: val('ev_balt'), poster_alt: val('ev_palt'), ...(S.evImg || {}) });
   if (r) { S.ev = r.id; S.evLoaded = -1; toast('Evento guardado'); } };
 actions['ev-del'] = id => { run('event.remove', { id: +id }, 'Evento borrado'); S.ev = 0; S.evLoaded = -1; };
 actions['ev-csv'] = id => download('asistentes-evento-' + id + '.csv', csv(['ID', 'Nombre', 'Estado', 'Fecha'], db().where('event_attendance', a => a.event_id === +id).map(a => [a.user_id, uname(a.user_id), a.status, fDT(a.at)])));
@@ -195,14 +196,26 @@ actions['file:logo'] = async f => run('config.set', { key: 'logo', value: await 
 actions['logo-reset'] = () => run('config.set', { key: 'logo', value: null }, 'Logo restablecido');
 actions['ap-save'] = async () => { await run('config.set', { key: 'system_name', value: val('ap_name') || DEFAULTS.system_name }); await run('config.set', { key: 'tagline', value: val('ap_tag') }, 'Identidad guardada'); };
 
+/** Vista previa de un correo tal como sale: texto + pie con contacto, versión y (en avisos) el enlace de baja. */
+actions['ob-view'] = async id => {
+  const o = db().get('outbox', +id || id); if (!o) return;
+  const contact = { ...DEFAULTS.hub_contact, ...(cfg('hub_contact') || {}) }, links = {};
+  if (o.kind === 'aviso' && o.user_id && App.mode === 'demo') links.unsubscribe = `${location.href.split('#')[0]}#baja=${o.user_id}.${await LEGAL.unsubToken('demo', o.user_id)}`;
+  else if (o.kind === 'aviso') links.unsubscribe = '(enlace personal de baja)';
+  const text = (o.body || '') + '\n' + LEGAL.mailFooter({ kind: o.kind || 'cuenta', contact, version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '', links });
+  modal({ html: `<h2 id="dlg-t" style="margin:0">${esc(o.subject)}</h2><p class="sm mu">Para: ${esc(o.to_email)} · ${o.kind === 'aviso' ? 'Aviso' : 'Correo de cuenta'}</p><pre class="mailpv">${esc(text)}</pre>${App.mode === 'demo' && links.unsubscribe?.startsWith('http') ? btn('Probar el enlace de baja', 'ob-try', { v: links.unsubscribe.split('#baja=')[1], cls: 's plain' }) : ''}<div class="row">${btn('Cerrar', 'modal-close', { cls: 'sp' })}</div>` });
+};
+
+/** Demo: abre la confirmación de baja como si se hubiera tocado el enlace del correo. */
+actions['ob-try'] = v => { const [u, tk] = String(v).split('.'); S.baja = { u, t: tk }; S.bajaDone = false; actions['modal-close'](); setTimeout(() => go('u-baja'), 120); };
 // ============================================================ Reglas
 const NUM = [['block_min', 'Duración del bloque de salas y gaming (min)'], ['block_gap_min', 'Pausa entre bloques (min)'], ['cancel_notice_min', 'Aviso mínimo para cancelar sin perder horas (min)'], ['tolerance_min', 'Espera antes de liberar una reserva (min)'],
   ['max_active', 'Reservas activas por persona'], ['max_hours', 'Duración máxima de una reserva (h)'], ['staff_extra_hours', 'Horas extra del personal por laboratorio'], ['release_room_after_min', 'Liberar sala sin anfitrión tras (min)'],
   ['code_minutes', 'Vigencia de los códigos enviados por correo (min)'], ['file_max_mb', 'Tamaño máximo de archivo (MB)'], ['keep_rejected_days', 'Días que se guarda un archivo rechazado'], ['keep_approved_days', 'Días mínimos que se guarda un archivo aprobado'], ['min_age', 'Edad mínima para registrarse (años)'], ['max_age', 'Edad máxima para registrarse (años)']];
 screens['a-reglas'] = { roles: ['admin'], render() {
-  if (!S.rgLoaded) { const h = cfg('hours'), m = cfg('mail'), fc = cfg('floor_capacity'); NUM.forEach(([k]) => { S.f['rg_' + k] = cfg(k); }); for (const f in fc) S.f['rg_f' + f] = fc[f];
+  if (!S.rgLoaded || S.f.rg_two === undefined) { const h = cfg('hours'), hc = { ...DEFAULTS.hub_contact, ...(cfg('hub_contact') || {}) }, m = cfg('mail'), fc = cfg('floor_capacity'); NUM.forEach(([k]) => { S.f['rg_' + k] = cfg(k); }); for (const f in fc) S.f['rg_f' + f] = fc[f];
     for (let d = 0; d < 7; d++) { S.f['rg_o' + d] = h[d] ? R.hm(h[d][0]) : ''; S.f['rg_c' + d] = h[d] ? R.hm(h[d][1]) : ''; }
-    fill({ rg_two: !!cfg('two_step'), rg_fw: cfg('finish_window_min') ?? 5, rg_url: cfg('public_url') || '', rg_intern: cfg('intern_space') ?? '', rg_zone: cfg('default_zone') ?? '', rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id') }); S.rgLoaded = true; }
+    fill({ rg_two: !!cfg('two_step'), rg_fw: cfg('finish_window_min') ?? 5, rg_url: cfg('public_url') || '', rg_intern: cfg('intern_space') ?? '', rg_zone: cfg('default_zone') ?? '', rg_host: cfg('release_room_without_host'), rg_mh: m.host, rg_mp: m.port, rg_mu: m.user, rg_mf: m.from, rg_g: cfg('google_client_id'), rg_ms: cfg('microsoft_client_id'), rg_co: hc.owner, rg_cp: hc.phone, rg_ce: hc.email, rg_ca: hc.address, rg_ch: hc.hours }); S.rgLoaded = true; }
   const out = [...db().all('outbox')].reverse().slice(0, 8);
   return `<h1>Reglas del sistema</h1><p class="mu">Estos valores rigen para todo el Hub. Las horas mensuales y los minutos entre trabajos se definen en cada espacio.</p>
     <div class="grid"><div class="card stack"><h3>Horario de atención</h3><p class="sm mu">Deja un día vacío para marcarlo como cerrado.</p>
@@ -217,9 +230,11 @@ screens['a-reglas'] = { roles: ['admin'], render() {
     <div class="card stack"><h3>Reservas y archivos</h3><div class="form">${NUM.map(([k, l]) => field('rg_' + k, l, { type: 'number', attrs: 'min="0"' })).join('')}</div>${check('rg_host', 'Liberar la sala de reuniones si el anfitrión no llega (por defecto se mantiene para los invitados)')}</div>
     <div class="card stack"><h3>Correo y cuentas</h3><p class="sm mu">Cuenta que envía confirmaciones y avisos. La contraseña de aplicación va en el archivo .env del servidor, nunca aquí.</p>
       <div class="form">${field('rg_mh', 'Servidor SMTP')}${field('rg_mp', 'Puerto', { type: 'number' })}${field('rg_mu', 'Cuenta de correo', { type: 'email' })}${field('rg_mf', 'Nombre del remitente')}
-      ${field('rg_g', 'ID de cliente de Google (ingreso con Google)', { cls: 'full' })}${field('rg_ms', 'ID de cliente de Microsoft (pendiente de activar)', { cls: 'full' })}</div></div></div>
+      ${field('rg_g', 'ID de cliente de Google (ingreso con Google)', { cls: 'full' })}${field('rg_ms', 'ID de cliente de Microsoft (pendiente de activar)', { cls: 'full' })}</div></div>
+    <div class="card stack"><h3>Contacto del Hub</h3><p class="sm mu">Aparece en el pie de la app, en la ayuda, al final de cada correo y en la política de privacidad (como responsable de los datos). El teléfono que viene de ejemplo es inventado: reemplázalo por el real.</p>
+      <div class="form">${field('rg_co', 'Responsable (nombre que verán las personas)', { cls: 'full' })}${field('rg_cp', 'Teléfono', { type: 'tel' })}${field('rg_ce', 'Correo de contacto', { type: 'email' })}${field('rg_ca', 'Dirección (opcional)', { cls: 'full' })}${field('rg_ch', 'Horario de atención (opcional, texto libre)', { cls: 'full', ph: 'Lunes a viernes, 9:00 a 18:00' })}</div></div></div>
     ${btn('Guardar reglas', 'rg-save', { cls: 'block' })}
-    <h2>Últimos correos generados</h2>${table(['Fecha', 'Para', 'Asunto', 'Estado'], out.map(o => [fDT(o.created_at), esc(o.to_email), esc(o.subject), o.sent_at ? pill('Enviado', 'ok') : pill(App.mode === 'demo' ? 'Simulado en la demo' : 'En cola', 'warn')]), 'Aún no se generan correos.')}`;
+    <h2>Últimos correos generados</h2><p class="sm mu">Los avisos llevan al final un enlace para dejar de recibirlos; los correos de cuenta (códigos, restablecimiento) se envían siempre.</p>${table(['Fecha', 'Para', 'Asunto', 'Tipo', 'Estado', ''], out.map(o => [fDT(o.created_at), esc(o.to_email), esc(o.subject), o.kind === 'aviso' ? 'Aviso' : 'Cuenta', o.sent_at ? pill('Enviado', 'ok') : pill(App.mode === 'demo' ? 'Simulado en la demo' : 'En cola', 'warn'), btn('Ver', 'ob-view', { v: o.id, cls: 's plain' })]), 'Aún no se generan correos.')}`;
 } };
 actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).split(':').map(Number); return h * 60 + m; }, hours = {};
   for (let d = 0; d < 7; d++) if (val('rg_o' + d) && val('rg_c' + d)) { hours[d] = [mins(val('rg_o' + d)), mins(val('rg_c' + d))]; if (hours[d][1] <= hours[d][0]) return toast(`Revisa el horario del ${WEEKDAYS[d].toLowerCase()}`); }
@@ -227,7 +242,8 @@ actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).
   try { await set('hours', hours); for (const [k] of NUM) await set(k, Math.max(0, +val('rg_' + k) || 0));
     await set('floor_capacity', Object.fromEntries(Q.floorsOf(db()).map(f => [f, +val('rg_f' + f) || 0]))); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null); await set('two_step', !!val('rg_two')); await set('finish_window_min', Math.min(60, Math.max(1, +val('rg_fw') || 5))); await set('intern_space', val('rg_intern') ? +val('rg_intern') : null);
     if (val('rg_url') && !/^https:\/\/[^\s]+$/.test(val('rg_url'))) return toast('La dirección pública debe empezar con https://'); await set('public_url', val('rg_url').trim());
-    await set('mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }); await set('google_client_id', val('rg_g').trim()); await set('microsoft_client_id', val('rg_ms').trim()); toast('Reglas guardadas'); }
+    await set('mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }); await set('google_client_id', val('rg_g').trim()); await set('microsoft_client_id', val('rg_ms').trim());
+    await set('hub_contact', { owner: val('rg_co'), phone: val('rg_cp'), email: val('rg_ce'), address: val('rg_ca'), hours: val('rg_ch') }); toast('Reglas guardadas'); }
   catch (e) { toast(e.user ? e.message : 'No se pudieron guardar las reglas'); } };
 
 // ============================================================ Empleados

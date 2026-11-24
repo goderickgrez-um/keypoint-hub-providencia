@@ -317,11 +317,35 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 
 **Corrección encontrada en el camino:** dentro de las ventanas, las secciones desplegables («Traducciones») no se abrían porque el clic quedaba tomado por la ventana.
 
+### 5.17 Textos legales, accesibilidad y correos (versión 2.9.0, 24 de noviembre)
+
+**Solicitud.** «Agrega política de privacidad, términos y condiciones, banner de cookies si es necesario, enlace de baja en los correos, navegación con teclado, pon una casilla sin marcar para aceptar los términos y condiciones al crear un usuario, al pie de la página incluir la versión de la app y que fue diseñada por KeyPoint Systems con herramientas de IA, agrega texto alternativo a las imágenes (opción de ingreso del texto alternativo a las imágenes de los banners). Audita los SDK, analítica y el rastreo de ser necesario. Y por último también incluye los datos de contacto del Hub (configurable: por ahora un número de teléfono inventado y el correo keypoint.systems.um@gmail.com).»
+
+**Decisiones.**
+
+- Los textos legales se generan desde un módulo común (`src/core/legal.js`) con el contacto configurado y las preguntas que realmente pide el formulario, en los tres idiomas. Así no quedan desactualizados cuando el Hub cambia el formulario. Se revisó el marco vigente: la Ley 19.628 rige hoy y la Ley 21.719 entra en vigencia el 15 de octubre de 2027, tras el aplazamiento de la Ley 21.855. Quedan como borrador para la Municipalidad.
+- **No se agregó banner de cookies**: la auditoría mostró que la app no usa cookies, analítica ni rastreo, y que lo que guarda en el navegador es estrictamente necesario. El único tercero que podía poner cookies sin que la persona lo pidiera era Google, que ahora se carga solo al tocar «Continuar con Google».
+- La baja de los correos separa **avisos** (se pueden desactivar) de **correos de cuenta** (códigos, verificación, restablecimiento, eliminación de datos, autorización de menores), que se envían siempre. El enlace va firmado con HMAC-SHA-256 usando una clave derivada de la clave de cifrado, para no agregar otra clave que respaldar.
+
+**Tareas incluidas:**
+
+- [x] Política de privacidad y Términos en la app (es, en, pt), versión 1.0, con pantalla propia y ventana desde el registro.
+- [x] Casilla sin marcar en el registro y en el registro asistido; versión y fecha guardadas; se pide a las cuentas que no han aceptado la versión vigente.
+- [x] Contacto del Hub configurable en Reglas, con valores de ejemplo; pantalla de contacto y tarjeta al final de la ayuda.
+- [x] Pie de página con enlaces, contacto, versión y crédito en todas las pantallas.
+- [x] Avisos por correo con pie, enlace de baja, cabeceras `List-Unsubscribe` y página `/api/baja`; opción en Configuración; vista previa en Reglas.
+- [x] Navegación con teclado: saltar al contenido, foco en el título, `aria-current`, Esc en el menú lateral, plano con flechas.
+- [x] Texto alternativo obligatorio para el banner y la imagen del anuncio.
+- [x] Auditoría de SDK, analítica y rastreo (`docs/auditoria-terceros.md`); nodemailer y esbuild actualizados.
+- [x] Pruebas: núcleo (`tools/test-legal.mjs`), navegador (`tools/qa/legales.cjs`) y servidor con migración desde 2.8.0 (`tools/qa/servidor-legal.mjs`), más la repetición de todas las anteriores.
+
+**Correcciones encontradas en el camino:** el título que recibía el foco al cambiar de pantalla lo perdía con el segundo dibujado (la actualización quitaba su `tabindex`); y en la demo, el enlace de baja abierto desde una ventana volvía a la pantalla anterior por el historial de la ventana.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.8.0 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.9.0 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |
@@ -331,7 +355,8 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 | Encargados | Un encargado por espacio | Varios laboratorios por encargado; cada uno ve solo los suyos |
 | Asistencia | Al entrar al Hub | En dos pasos: entrada en recepción y QR del espacio; término confirmado por recepción |
 | Ayuda | Manual y trípticos | Ayuda por pantalla, recorridos y preguntas frecuentes integradas, en español, inglés y portugués |
-| Accesibilidad | Sin revisión formal | WCAG 2 A/AA revisado en todas las pantallas, claro y oscuro |
+| Accesibilidad | Sin revisión formal | WCAG 2 A/AA revisado en todas las pantallas, claro y oscuro; navegación completa con teclado |
+| Privacidad | Sin textos legales | Política y términos versionados, aceptación registrada, baja de avisos por correo, sin cookies ni rastreo |
 | Versión | Sin registro | `package.json`, `CHANGELOG.md` y esta bitácora |
 
 La base de datos pasó por varias versiones sin perder datos: al iniciar, el servidor crea las tablas y columnas nuevas, cifra lo que estaba sin cifrar y traslada los datos al nuevo formato (por ejemplo, los encargados a la tabla `space_managers`).
@@ -347,6 +372,7 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 - **Accesibilidad:** axe-core sin observaciones en las pantallas principales, en modo claro y oscuro.
 - **QA de la versión 2.6.0:** informe completo en `docs/informe-qa.pdf`, con los resultados por área, los defectos corregidos y lo que falta probar en el Hub.
 - **Versión 2.7.0:** pruebas del núcleo, 47 verificaciones en el navegador y 30 contra el servidor real para las funciones nuevas; repetidas las de versiones anteriores, seguridad (34), accesibilidad (98 revisiones), tamaños de pantalla e idiomas. Detalle en la sección 8 de `docs/informe-qa.pdf`.
+- **Versión 2.9.0:** 43 verificaciones del núcleo, 71 en el navegador y 42 contra el servidor real (con migración desde 2.8.0) para las funciones nuevas; repetidas todas las anteriores, accesibilidad (104 revisiones), tamaños, idiomas, seguridad y carga. Detalle en la sección 10 de `docs/informe-qa.pdf`.
 - **Pendiente de verificación en terreno:** la instalación de cada versión en el Acer la hace Roderick; las pruebas con personas usuarias del Hub siguen en curso.
 
 ---
@@ -359,8 +385,9 @@ La base de datos pasó por varias versiones sin perder datos: al iniciar, el ser
 4. Respaldos cifrados fuera del equipo (la base y el archivo `.data-key` juntos).
 5. Prueba con personas que usan lectores de pantalla.
 6. Revisión de seguridad externa antes del uso definitivo.
-7. Etiquetar las versiones en Git (`git tag v2.8.0`) al subir cada entrega.
-8. Revisar con el Hub qué preguntas agregar al formulario antes de abrir el registro masivo: cada pregunta obligatoria nueva se pide a todas las personas ya registradas.
+7. Etiquetar las versiones en Git (`git tag v2.9.0`) al subir cada entrega.
+8. Que la Municipalidad revise la Política de privacidad y los Términos, y reemplazar el teléfono de ejemplo del contacto por el real.
+9. Revisar con el Hub qué preguntas agregar al formulario antes de abrir el registro masivo: cada pregunta obligatoria nueva se pide a todas las personas ya registradas.
 
 ---
 

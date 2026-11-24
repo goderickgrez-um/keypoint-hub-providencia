@@ -1,7 +1,7 @@
 // Conexión con PostgreSQL: carga todas las tablas en memoria y guarda cada cambio en una transacción.
 import pg from 'pg';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createHmac, createDecipheriv, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 // Lee el archivo .env de la carpeta del proyecto (funciona en Windows y Linux).
@@ -32,6 +32,8 @@ let KEY = process.env.DATA_KEY;
 if (!KEY && existsSync(keyFile)) KEY = readFileSync(keyFile, 'utf8').trim();
 if (!KEY) { KEY = randomBytes(32).toString('hex'); writeFileSync(keyFile, KEY + '\n', { mode: 0o600 }); console.warn('Se creó la clave de cifrado en ' + keyFile + '. RESPÁLDALA junto con la base de datos: sin ella no se pueden leer los datos personales.'); }
 const K = Buffer.from(KEY, 'hex'); if (K.length !== 32) throw new Error('DATA_KEY debe tener 64 caracteres hexadecimales');
+/** Clave para firmar los enlaces de baja de los correos (derivada de la clave de cifrado: no hay que configurar otra). */
+export const MAIL_SECRET = createHmac('sha256', K).update('hub-enlace-de-baja').digest('hex');
 const isEnc = v => typeof v === 'string' && v.startsWith('enc:v1:');
 export function encrypt(v) {
   if (v == null || v === '' || isEnc(v)) return v;
