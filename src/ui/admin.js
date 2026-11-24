@@ -196,6 +196,21 @@ actions['file:logo'] = async f => run('config.set', { key: 'logo', value: await 
 actions['logo-reset'] = () => run('config.set', { key: 'logo', value: null }, 'Logo restablecido');
 actions['ap-save'] = () => run('config.setMany', { values: [['system_name', val('ap_name') || DEFAULTS.system_name], ['tagline', val('ap_tag')]] }, 'Identidad guardada');
 
+/** Diagnóstico de conexión (modo con servidor): separa la demora de la red de la del servidor. */
+const ms = x => (x == null || isNaN(x) ? '—' : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(1)} s`);
+function netCard() {
+  if (App.mode !== 'remote' || !App.data.net) return '';
+  const recent = App.data.net.filter(x => x.path === '/api/rpc').slice(-8).reverse(), r = S.netRes;
+  const verdict = r && (r.server > 300 ? 'La demora está en el computador del servidor: revisa que esté enchufado, en modo de alto rendimiento y sin otros programas pesados.'
+    : r.total - r.server > 800 ? 'La demora está en la red: la conexión entre este dispositivo y el servidor (Tailscale Funnel o el internet del Hub). El servidor responde rápido.'
+    : r.total - r.server > 300 ? 'La red es algo lenta, pero aceptable. El servidor responde rápido.' : 'La conexión y el servidor responden bien.');
+  return `<div class="card stack"><h3>Conexión con el servidor</h3><p class="sm mu">Mide cuánto tarda cada pedido en ir y volver, y cuánto de eso es trabajo del servidor. La diferencia es la red.</p>
+    ${r ? `<div class="kpis">${stat('Ida y vuelta', ms(r.total), 'mediana de 5 pedidos')}${stat('Servidor', ms(r.server), 'procesando')}${stat('Red', ms(r.total - r.server), 'internet y Tailscale')}</div><p class="sm">${verdict}</p>` : ''}
+    ${recent.length ? `<details><summary class="sm b">Últimas acciones (${recent.length})</summary>${table(['Acción', 'Total', 'Servidor'], recent.map(x => [esc(x.name || x.path), ms(x.total), ms(x.server)]))}</details>` : ''}
+    ${btn(r ? 'Medir de nuevo' : 'Medir la conexión', 'net-test', { cls: 's plain' })}</div>`;
+}
+actions['net-test'] = async () => { toast('Midiendo…'); try { S.netRes = await App.data.ping(5); go(S.k); } catch (e) { toast(e.message); } };
+
 /** Vista previa de un correo tal como sale: texto + pie con contacto, versión y (en avisos) el enlace de baja. */
 actions['ob-view'] = async id => {
   const o = db().get('outbox', +id || id); if (!o) return;
@@ -234,6 +249,7 @@ screens['a-reglas'] = { roles: ['admin'], render() {
     <div class="card stack"><h3>Contacto del Hub</h3><p class="sm mu">Aparece en el pie de la app, en la ayuda, al final de cada correo y en la política de privacidad (como responsable de los datos). El teléfono que viene de ejemplo es inventado: reemplázalo por el real.</p>
       <div class="form">${field('rg_co', 'Responsable (nombre que verán las personas)', { cls: 'full' })}${field('rg_cp', 'Teléfono', { type: 'tel' })}${field('rg_ce', 'Correo de contacto', { type: 'email' })}${field('rg_ca', 'Dirección (opcional)', { cls: 'full' })}${field('rg_ch', 'Horario de atención (opcional, texto libre)', { cls: 'full', ph: 'Lunes a viernes, 9:00 a 18:00' })}</div></div></div>
     ${btn('Guardar reglas', 'rg-save', { cls: 'block' })}
+    ${netCard()}
     <h2>Últimos correos generados</h2><p class="sm mu">Los avisos llevan al final un enlace para dejar de recibirlos; los correos de cuenta (códigos, restablecimiento) se envían siempre.</p>${table(['Fecha', 'Para', 'Asunto', 'Tipo', 'Estado', ''], out.map(o => [fDT(o.created_at), esc(o.to_email), esc(o.subject), o.kind === 'aviso' ? 'Aviso' : 'Cuenta', o.sent_at ? pill('Enviado', 'ok') : pill(App.mode === 'demo' ? 'Simulado en la demo' : 'En cola', 'warn'), btn('Ver', 'ob-view', { v: o.id, cls: 's plain' })]), 'Aún no se generan correos.')}`;
 } };
 actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).split(':').map(Number); return h * 60 + m; }, hours = {};

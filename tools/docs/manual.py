@@ -183,6 +183,7 @@ body = f"""
 <li><b>Restringir acceso:</b> desde Usuarios, por horas, días o de forma permanente. Recepción verá el aviso al escanear.</li>
 <li><b>Auditoría:</b> registro de las acciones del equipo.</li>
 <li><b>Contacto del Hub</b> (Reglas): responsable, teléfono, correo, dirección y horario. Se muestran en el pie de la app, en la ayuda, en la pantalla de contacto, al final de cada correo y en la Política de privacidad. El teléfono que trae de ejemplo es inventado: reemplázalo por el real.</li>
+<li><b>Conexión con el servidor</b> (Reglas, solo con servidor): el botón <b>Medir la conexión</b> dice cuánto tarda cada pedido en ir y volver, cuánto es trabajo del servidor y cuánto es la red, y sugiere dónde buscar si la app se siente lenta.</li>
 <li><b>Últimos correos</b> (Reglas, abajo): cada correo con su tipo (aviso o cuenta) y el botón <b>Ver</b>, que muestra el texto tal como sale, con su pie y el enlace de baja.</li></ul>
 {shots(('a-apar', 'Apariencia.'), ('a-reglas-2', 'Reglas: dos pasos, pasantía y aforo por piso.'))}
 {shots(('a-reglas-contacto', 'Reglas: contacto del Hub.'), ('a-correo-vista', 'Vista previa de un aviso con su pie y enlace de baja.'))}

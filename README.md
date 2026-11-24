@@ -6,7 +6,7 @@ Proyecto Capstone del equipo **keypoint**: Constanza Martinez, Maite Martinez, C
 
 ## Versión
 
-Versión actual: **2.9.1** (24 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
+Versión actual: **2.9.2** (24 de noviembre de 2026). Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md) y la historia completa del desarrollo en [docs/bitacora-desarrollo.pdf](docs/bitacora-desarrollo.pdf). La versión se cambia solo en `package.json`.
 
 ## Dos formas de usarlo
 

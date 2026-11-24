@@ -13,7 +13,7 @@ class Client {
   async req(path, opt = {}) { const r = await fetch(B + path, { ...opt, headers: { ...(opt.headers || {}), ...(this.tok ? { Authorization: 'Bearer ' + this.tok } : {}) } }); const txt = await r.text(); this.last = txt.length; this.bytes += txt.length; const j = JSON.parse(txt); if (!r.ok) throw Object.assign(new Error(j.error), { status: r.status }); return j; }
   apply(j) { if (j.same) { this.tag = j.tag || this.tag; return 'same'; } if (j.delta) this.db.patch(j.delta); else this.db.load(j.tables); this.uid = j.uid; this.tag = j.tag; return j.delta ? 'delta' : 'full'; }
   async call(name, args) { const j = await this.req('/api/rpc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, args, since: this.tag || undefined }) }); if (j.token) this.tok = j.token; this.kind = j.snap ? this.apply(j.snap) : '-'; return j.result; }
-  async poll() { const j = await this.req('/api/snapshot' + (this.tag ? '?since=' + this.tag : '')); return (this.kind = this.apply(j)); }
+  async poll() { const j = await this.req('/api/snapshot', { headers: this.tag ? { 'X-Hub-Since': this.tag } : {} }); return (this.kind = this.apply(j)); } // igual que la app: la vista va en una cabecera
   async fresh() { const r = await fetch(B + '/api/snapshot', { headers: { Authorization: 'Bearer ' + this.tok } }); const j = await r.json(); return new Store(j.tables); }
 }
 const canon = (db, t) => { const pk = pkOf(t); return db.all(t).map(r => JSON.stringify(r)).sort().join('\n') + '|' + db.all(t).length + '|' + pk; };

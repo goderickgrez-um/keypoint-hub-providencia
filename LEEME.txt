@@ -106,6 +106,10 @@ CUENTAS DE LA DEMO (contraseña: demo1234)
     pública de la app en Reglas (o PUBLIC_APP_URL en .env). Para el
     botón "Cancelar suscripción" de Gmail y Outlook, poner además
     PUBLIC_API_URL con la dirección de Tailscale Funnel.
+  Si la app se siente lenta: Reglas › Conexión con el servidor ›
+    Medir la conexión. Dice si la demora está en la red (Tailscale,
+    internet) o en el computador del servidor. La ventana del
+    servidor también anota los pedidos lentos ([lento] ...).
   Textos legales: la Política de privacidad y los Términos se arman
     solos con el contacto y las preguntas del formulario. Son un
     borrador: debe revisarlos la Municipalidad antes de publicar.

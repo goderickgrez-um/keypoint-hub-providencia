@@ -3,7 +3,7 @@
 import http from 'node:http';
 import { createReadStream, createWriteStream, existsSync, readFileSync, writeFileSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { gzipSync } from 'node:zlib';
+import { gzipSync, brotliCompressSync, constants as Z } from 'node:zlib';
 import { basename, extname, join, normalize, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Store } from '../src/core/store.js';
@@ -152,12 +152,20 @@ function cors(req, res) {
     return;
   }
   res.setHeader('Access-Control-Allow-Origin', o); res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-File-Name'); res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-File-Name, X-Hub-Since'); res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Expose-Headers', 'Server-Timing'); res.setHeader('Timing-Allow-Origin', o);
 }
 const gz = req => /\bgzip\b/.test(req?.headers['accept-encoding'] || '');
+const br = req => /\bbr\b/.test(req?.headers['accept-encoding'] || '');
+const SLOW_MS = +process.env.SLOW_MS || 400;
+/** Respuesta JSON comprimida (brotli si el navegador lo acepta: ~20 % menos que gzip) con el tiempo que tardó el
+ * servidor en la cabecera Server-Timing, para que la app distinga la demora de la red de la del servidor. */
 const json = (res, code, body) => {
   let out = Buffer.from(JSON.stringify(body)); const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SEC };
-  if (out.length > 1024 && gz(res.req)) { out = gzipSync(out, { level: 6 }); h['Content-Encoding'] = 'gzip'; h.Vary = 'Accept-Encoding, Origin'; }
+  if (out.length > 1024 && br(res.req)) { out = brotliCompressSync(out, { params: { [Z.BROTLI_PARAM_QUALITY]: 6, [Z.BROTLI_PARAM_SIZE_HINT]: out.length } }); h['Content-Encoding'] = 'br'; h.Vary = 'Accept-Encoding, Origin'; }
+  else if (out.length > 1024 && gz(res.req)) { out = gzipSync(out, { level: 6 }); h['Content-Encoding'] = 'gzip'; h.Vary = 'Accept-Encoding, Origin'; }
+  const t0 = res.req?.t0, ms = t0 ? performance.now() - t0 : 0;
+  if (t0) { h['Server-Timing'] = `app;dur=${ms.toFixed(1)}`; if (ms > SLOW_MS) console.warn(`[lento] ${res.req.method} ${res.req.url.split('?')[0]}${res.req.rpcName ? ' ' + res.req.rpcName : ''}: ${ms | 0} ms`); }
   res.writeHead(code, h); res.end(out);
 };
 /** Datos de la sesión. La primera vez se envían completos; después, solo las filas que cambiaron.
@@ -200,9 +208,12 @@ const readBody = req => new Promise((ok, ko) => { let n = 0; const ch = []; req.
 async function api(req, res, path) {
   const uid = uidOf(req), ctx = { db, uid, now: new Date(), verifyGoogle, mailSecret: MAIL_SECRET };
   if (path === '/api/baja' && (req.method === 'GET' || req.method === 'POST')) return baja(req, res);
-  if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, new URL(req.url, 'http://x').searchParams.get('since')));
+  // La vista que ya tiene el navegador llega en una cabecera (no en la dirección), así la consulta periódica usa siempre
+  // la misma dirección y el navegador reutiliza el permiso CORS en vez de pedirlo de nuevo en cada consulta.
+  if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, req.headers['x-hub-since'] || new URL(req.url, 'http://x').searchParams.get('since')));
   if (path === '/api/rpc' && req.method === 'POST') {
     let name, args, since; try { ({ name, args, since } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
+    req.rpcName = String(name || '').slice(0, 40);
     const ip = ipOf(req), erase = name === 'user.erase' || name === 'me.closeAccount', auth = String(name).startsWith('auth.') || erase, who = erase ? 'pass:' + uid : auth ? String(args?.ident || args?.id || args?.doc_number || '').toLowerCase().replace(/[.\s-]/g, '') : '';
     if (name === 'auth.logout') { const p = tokenInfo(bearer(req)); if (p?.sid) await commit(() => db.update('sessions', p.sid, { revoked_at: new Date().toISOString() })); return json(res, 200, { result: { ok: true } }); }
     if (auth && blocked(ip, who)) return json(res, 429, { error: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
@@ -264,6 +275,7 @@ function serve(req, res, path) {
 }
 
 http.createServer(async (req, res) => {
+  req.t0 = performance.now();
   const path = new URL(req.url, 'http://x').pathname;
   if (flooding(ipOf(req))) { res.writeHead(429); return res.end(); }
   cors(req, res);

@@ -13,11 +13,15 @@ const store = (v, keep) => { try {
 /** true si la sesión de este dispositivo quedó guardada. */
 export const remembered = () => { try { return !!localStorage.getItem('hub-token'); } catch { return false; } };
 const headers = extra => ({ ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra });
+/** Últimos tiempos medidos (total en el navegador y lo que tardó el servidor), para el diagnóstico de conexión. */
+export const net = [];
 async function http(path, opt = {}) {
-  let r; busy = true;
+  let r; busy = true; const t0 = performance.now();
   try { r = await fetch(base() + path, opt); } catch { busy = false; const e = new Error('Sin conexión con el servidor.'); e.offline = true; throw e; }
   busy = false;
   const j = r.headers.get('content-type')?.includes('json') ? await r.json() : null;
+  const srv = +(/dur=([\d.]+)/.exec(r.headers.get('server-timing') || '')?.[1] ?? NaN);
+  net.push({ path: path.split('?')[0], name: opt.rpc || '', total: performance.now() - t0, server: srv, at: Date.now() }); if (net.length > 40) net.shift();
   if (!r.ok) { const e = new Error(j?.error || 'Algo salió mal. Intenta de nuevo.'); e.user = !!j?.error; if (r.status === 401) { token = null; store(null); } throw e; }
   return j ?? r;
 }
@@ -36,9 +40,13 @@ export const remote = {
   async init(cb) { onChange = cb; token = store(); await this.refresh();
     setInterval(async () => { if (document.hidden || busy) return; if (await this.refresh().catch(() => false)) onChange(); }, 15000); },
   /** Pide los datos solo si cambiaron. Devuelve true cuando hubo cambios. */
-  async refresh() { const j = await http('/api/snapshot' + (tag ? '?since=' + tag : ''), { headers: headers() }); return apply(j); },
+  async refresh() { const j = await http('/api/snapshot', { headers: headers(tag ? { 'X-Hub-Since': tag } : {}) }); return apply(j); },
+  /** Diagnóstico: n consultas a /api/health; devuelve las medianas de ida y vuelta total y del servidor (ms). */
+  async ping(n = 5) { const tot = [], srv = []; for (let i = 0; i < n; i++) { await http('/api/health', { headers: {} }); const x = net.at(-1); tot.push(x.total); srv.push(x.server || 0); }
+    const med = a => a.sort((p, q) => p - q)[a.length >> 1]; return { total: med(tot), server: med(srv), n }; },
+  net,
   async call(name, args) {
-    const j = await http('/api/rpc', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name, args, since: tag || undefined }) });
+    const j = await http('/api/rpc', { method: 'POST', rpc: name, headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name, args, since: tag || undefined }) });
     if (j.token) { token = j.token; store(token, args && 'remember' in args ? !!args.remember : remembered()); }
     if (j.snap) apply(j.snap); else await this.refresh();
     return j.result;

@@ -236,3 +236,19 @@ Se probó cada etapa por separado y luego juntas.
 **Regresión:** sesiones (17), API (8), app publicada contra el servidor sin errores, cuentas (30), seguridad, carga (p95 de 67 ms en escaneos), pruebas 1.3, 1.4, 2.7 y 2.8 en el navegador, recorrido de pantallas, legales (71) y accesibilidad (104 revisiones): todo correcto. `formulario.mjs` sigue en 26 de 28 por las 2 verificaciones de la migración 2.7 → 2.8, que no aplican a una base nueva.
 
 **No verificado:** la mejora sobre Tailscale Funnel real y con varios dispositivos del Hub a la vez. Los tiempos de arriba son de una red simulada.
+
+## 12. Versión 2.9.2: diagnóstico de la lentitud en el Hub
+
+Tras la 2.9.1 se informó que cada acción tardaba 4 a 5 s, contra 0,5 a 1 s con la 2.8.0. Se compararon ambas versiones con el mismo servidor, la misma base y la misma secuencia:
+
+| Medición | 2.8.0 | 2.9.1 |
+|---|---|---|
+| Servidor: escaneo de recepción (mediana) | 25 ms | 4 ms |
+| Servidor: cambio de una usuaria | 9 ms | 6 ms |
+| Navegador: cambiar de pantalla (CPU ×4) | 113 ms | 114 ms |
+| Navegador: escaneo completo (CPU ×4) | 166 ms | 104 ms |
+| Pedidos al servidor por acción (ingreso, escaneo, cambio de opción) | 1 | 1 |
+
+Ninguna parte del código es más lenta que en la 2.8.0, y cada acción sigue siendo un solo pedido. Una demora de 4 a 5 s por acción apunta a la red entre el dispositivo y el servidor (Tailscale Funnel, internet del Hub) o al computador del servidor (batería, ahorro de energía). Por eso la 2.9.2 agrega el diagnóstico de conexión en Reglas y el registro de pedidos lentos, que separan ambas causas en el lugar real.
+
+Pruebas: con la red simulada a 0 ms y a 1 s de latencia, el diagnóstico mide correctamente la ida y vuelta y el tiempo del servidor. Las respuestas llegan con brotli y `Server-Timing`, sin errores de CSP. Repetidas: sincronización (40), sesiones (17), API (8), app contra el servidor, cuentas (30), seguridad, carga (p95 de 44 ms), recorrido de pantallas y legales (71). Todo correcto.

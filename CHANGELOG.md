@@ -18,6 +18,14 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.9.2] · 24 de noviembre de 2026
+### Agregado
+- **Diagnóstico de conexión** (Reglas › Conexión con el servidor): mide la ida y vuelta, cuánto tarda el servidor y cuánto la red, con un veredicto (red, computador del servidor o todo bien), y muestra el tiempo de las últimas acciones. El servidor informa su tiempo en la cabecera `Server-Timing`.
+- El servidor anota en su ventana los pedidos que tardan más de 400 ms (`[lento] …`; umbral configurable con `SLOW_MS`).
+### Rendimiento
+- Respuestas comprimidas con brotli cuando el navegador lo acepta (por HTTPS, como Tailscale Funnel): el ingreso del equipo pasa de 88 KB a 72 KB.
+- La consulta periódica envía la vista que ya tiene en una cabecera y usa siempre la misma dirección, así el navegador reutiliza el permiso CORS y no hace un pedido previo extra cada 15 segundos.
+
 ## [2.9.1] · 24 de noviembre de 2026
 ### Rendimiento (modo con servidor)
 - **Solo viajan los cambios.** Antes, cada acción devolvía todos los datos de la sesión (1,1 MB para el equipo, 88 KB comprimidos) y cada consulta periódica los volvía a bajar si algo había cambiado. Ahora el servidor recuerda la última vista enviada a cada sesión y responde solo las filas nuevas, cambiadas o borradas (alrededor de 1 a 2 KB por acción). La comparación se hace sobre lo que cada persona puede ver, así que es exacta aunque cambie su alcance. Si el servidor no reconoce la vista del navegador (por ejemplo, tras reiniciarse), envía los datos completos como antes.

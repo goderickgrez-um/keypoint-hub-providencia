@@ -356,11 +356,19 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 
 **Resultado.** Guardar Reglas: 12,6 s → 0,3 s. Escanear en recepción: 0,9 s → 0,25 s. Respuesta típica: 1,1 MB → 1 a 2 KB.
 
+### 5.19 Diagnóstico de la lentitud (versión 2.9.2, 24 de noviembre)
+
+**Solicitud.** Con la 2.9.1 la app iba más fluida, pero cada respuesta tardaba 4 a 5 s, contra 0,5 a 1 s con la 2.8.0. «¿Qué otros elementos se pueden optimizar…, manteniendo la seguridad de los datos?»
+
+**Diagnóstico (medido).** Se montaron la 2.8.0 y la 2.9.1 lado a lado con la misma base. El servidor de la 2.9.1 responde igual o más rápido (4 a 8 ms por acción), el navegador dibuja igual de rápido y cada acción sigue siendo un solo pedido. La diferencia no está en el código, sino en el camino entre el dispositivo y el servidor o en el computador del servidor, que no se pueden medir desde aquí.
+
+**Decisiones.** Medir en el lugar real: diagnóstico de conexión en Reglas, cabecera `Server-Timing` (expone solo duraciones) y registro de pedidos lentos en la ventana del servidor. Optimizaciones que ayudan con latencia alta: brotli y consulta periódica con la vista en una cabecera (sin pedido previo de CORS). No se guardan datos personales en el dispositivo para acelerar el ingreso: sería más rápido, pero dejaría datos de otras personas en los equipos de recepción.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.9.1 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.9.2 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |
