@@ -808,6 +808,12 @@ export const SERVICES = {
     if (want.length && want.join() !== prev.join()) notify(ctx, u.id, 'Laboratorios a tu cargo', names);
     audit(ctx, 'guarda empleado', 'users', u.id, (valid.join(', ') || 'sin credenciales') + (names ? ' · ' + names : ''));
   },
+  /** Varias claves en una sola operación (todo o nada). Pantallas como Reglas guardan así en una sola llamada. */
+  'config.setMany'(ctx, { values }) {
+    need(ctx); if (!Array.isArray(values) || !values.length || values.length > 60) fail('Nada que guardar');
+    for (const [key, value] of values) SERVICES['config.set'](ctx, { key, value });
+    return { ok: true };
+  },
   'config.set'(ctx, { key, value }) {
     need(ctx);
     if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key) || key === 'reg_form') fail('Configuración desconocida');

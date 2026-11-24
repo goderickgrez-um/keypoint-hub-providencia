@@ -22,9 +22,12 @@ async function http(path, opt = {}) {
   return j ?? r;
 }
 
+/** Aplica la respuesta del servidor: sin cambios, solo las filas que cambiaron (delta) o los datos completos. */
 function apply(j) {
-  if (j.same) return false;
-  App.db.load(j.tables); App.occ = j.occ; App.uid = j.uid || null; tag = j.tag || '';
+  if (j.occ) App.occ = j.occ;
+  if (j.same) { tag = j.tag || tag; return false; }
+  if (j.delta) App.db.patch(j.delta); else App.db.load(j.tables);
+  App.uid = j.uid || null; tag = j.tag || '';
   return true;
 }
 
@@ -35,7 +38,7 @@ export const remote = {
   /** Pide los datos solo si cambiaron. Devuelve true cuando hubo cambios. */
   async refresh() { const j = await http('/api/snapshot' + (tag ? '?since=' + tag : ''), { headers: headers() }); return apply(j); },
   async call(name, args) {
-    const j = await http('/api/rpc', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name, args }) });
+    const j = await http('/api/rpc', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ name, args, since: tag || undefined }) });
     if (j.token) { token = j.token; store(token, args && 'remember' in args ? !!args.remember : remembered()); }
     if (j.snap) apply(j.snap); else await this.refresh();
     return j.result;

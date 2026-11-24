@@ -194,7 +194,7 @@ for (const [k] of TOKENS) actions['th-set:' + k] = v => { const mode = S.thMode 
 actions['th-reset'] = () => saveTheme({ ...THEME[S.thMode || themeMode()] });
 actions['file:logo'] = async f => run('config.set', { key: 'logo', value: await readImage(f, 256) }, 'Logo actualizado');
 actions['logo-reset'] = () => run('config.set', { key: 'logo', value: null }, 'Logo restablecido');
-actions['ap-save'] = async () => { await run('config.set', { key: 'system_name', value: val('ap_name') || DEFAULTS.system_name }); await run('config.set', { key: 'tagline', value: val('ap_tag') }, 'Identidad guardada'); };
+actions['ap-save'] = () => run('config.setMany', { values: [['system_name', val('ap_name') || DEFAULTS.system_name], ['tagline', val('ap_tag')]] }, 'Identidad guardada');
 
 /** Vista previa de un correo tal como sale: texto + pie con contacto, versión y (en avisos) el enlace de baja. */
 actions['ob-view'] = async id => {
@@ -238,12 +238,14 @@ screens['a-reglas'] = { roles: ['admin'], render() {
 } };
 actions['rg-save'] = async () => { const mins = v => { const [h, m] = String(v).split(':').map(Number); return h * 60 + m; }, hours = {};
   for (let d = 0; d < 7; d++) if (val('rg_o' + d) && val('rg_c' + d)) { hours[d] = [mins(val('rg_o' + d)), mins(val('rg_c' + d))]; if (hours[d][1] <= hours[d][0]) return toast(`Revisa el horario del ${WEEKDAYS[d].toLowerCase()}`); }
-  const set = (key, value) => App.data.call('config.set', { key, value });
-  try { await set('hours', hours); for (const [k] of NUM) await set(k, Math.max(0, +val('rg_' + k) || 0));
-    await set('floor_capacity', Object.fromEntries(Q.floorsOf(db()).map(f => [f, +val('rg_f' + f) || 0]))); await set('release_room_without_host', !!val('rg_host')); await set('default_zone', val('rg_zone') ? +val('rg_zone') : null); await set('two_step', !!val('rg_two')); await set('finish_window_min', Math.min(60, Math.max(1, +val('rg_fw') || 5))); await set('intern_space', val('rg_intern') ? +val('rg_intern') : null);
-    if (val('rg_url') && !/^https:\/\/[^\s]+$/.test(val('rg_url'))) return toast('La dirección pública debe empezar con https://'); await set('public_url', val('rg_url').trim());
-    await set('mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }); await set('google_client_id', val('rg_g').trim()); await set('microsoft_client_id', val('rg_ms').trim());
-    await set('hub_contact', { owner: val('rg_co'), phone: val('rg_cp'), email: val('rg_ce'), address: val('rg_ca'), hours: val('rg_ch') }); toast('Reglas guardadas'); }
+  if (val('rg_url') && !/^https:\/\/[^\s]+$/.test(val('rg_url'))) return toast('La dirección pública debe empezar con https://');
+  // Todo en una sola llamada (antes eran unas 20): se guarda completo o no se guarda nada.
+  const values = [['hours', hours], ...NUM.map(([k]) => [k, Math.max(0, +val('rg_' + k) || 0)]),
+    ['floor_capacity', Object.fromEntries(Q.floorsOf(db()).map(f => [f, +val('rg_f' + f) || 0]))], ['release_room_without_host', !!val('rg_host')], ['default_zone', val('rg_zone') ? +val('rg_zone') : null],
+    ['two_step', !!val('rg_two')], ['finish_window_min', Math.min(60, Math.max(1, +val('rg_fw') || 5))], ['intern_space', val('rg_intern') ? +val('rg_intern') : null], ['public_url', val('rg_url').trim()],
+    ['mail', { host: val('rg_mh'), port: +val('rg_mp') || 465, user: val('rg_mu'), from: val('rg_mf') }], ['google_client_id', val('rg_g').trim()], ['microsoft_client_id', val('rg_ms').trim()],
+    ['hub_contact', { owner: val('rg_co'), phone: val('rg_cp'), email: val('rg_ce'), address: val('rg_ca'), hours: val('rg_ch') }]];
+  try { await App.data.call('config.setMany', { values }); toast('Reglas guardadas'); }
   catch (e) { toast(e.user ? e.message : 'No se pudieron guardar las reglas'); } };
 
 // ============================================================ Empleados

@@ -7,6 +7,7 @@ import { gzipSync } from 'node:zlib';
 import { basename, extname, join, normalize, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Store } from '../src/core/store.js';
+import { pkOf } from '../src/core/schema.js';
 import { call, snapshot, tick } from '../src/core/services.js';
 import * as Q from '../src/core/queries.js';
 import { loadAll, persist, createSchema, isEmpty, pool, MAIL_SECRET, ROOT as root } from './db.mjs';
@@ -159,20 +160,40 @@ const json = (res, code, body) => {
   if (out.length > 1024 && gz(res.req)) { out = gzipSync(out, { level: 6 }); h['Content-Encoding'] = 'gzip'; h.Vary = 'Accept-Encoding, Origin'; }
   res.writeHead(code, h); res.end(out);
 };
-/** Datos de la sesión más una huella: si nada cambió desde la última consulta, se responde solo "sin cambios". */
-const views = new Map();
+/** Datos de la sesión. La primera vez se envían completos; después, solo las filas que cambiaron.
+ * El servidor recuerda las últimas vistas que envió a cada sesión (como filas en texto) y compara la nueva
+ * con la que tiene el navegador (since = número de vista). Así una acción típica viaja en unos pocos KB en vez de
+ * repetir todos los datos (más de 1 MB para el equipo), y la comparación es exacta aunque cambie qué puede ver cada uno. */
+const views = new Map(); let BUILD = 0;
+const KEEP = 3; // vistas recordadas por sesión (varios dispositivos de la misma cuenta)
+function build(ctx, uid) {
+  const s = { ...snapshot(ctx), uid }, cut = Date.now() - 100 * 864e5, t = s.tables;
+  if (t.visits) t.visits = t.visits.filter(v => +new Date(v.in_at) > cut);
+  if (t.reservations) t.reservations = t.reservations.filter(r => +new Date(r.end_at) > cut);
+  if (t.audit_log) t.audit_log = t.audit_log.slice(-300);
+  const rows = {}; for (const k in t) { const pk = pkOf(k), m = new Map(); for (const r of t[k]) m.set(r[pk], JSON.stringify(r)); rows[k] = m; }
+  return { id: ++BUILD, v: VERSION, at: Date.now(), s, rows };
+}
 function view(ctx, uid, since) {
-  const key = uid || '-', c = views.get(key);
-  if (!(c && c.v === VERSION && Date.now() - c.at < 30000)) {
-    const s = { ...snapshot(ctx), uid }, cut = Date.now() - 100 * 864e5, t = s.tables;
-    if (t.visits) t.visits = t.visits.filter(v => +new Date(v.in_at) > cut);
-    if (t.reservations) t.reservations = t.reservations.filter(r => +new Date(r.end_at) > cut);
-    if (t.audit_log) t.audit_log = t.audit_log.slice(-300);
-    if (views.size > 500) views.clear();
-    views.set(key, { v: VERSION, at: Date.now(), s, tag: createHash('sha1').update(JSON.stringify(s)).digest('base64url').slice(0, 16) });
+  const key = uid || '-'; let list = views.get(key);
+  if (!list || !(list[0].v === VERSION && Date.now() - list[0].at < 30000)) {
+    if (!list) { if (views.size >= 300) views.delete(views.keys().next().value); list = []; views.set(key, list); }
+    list.unshift(build(ctx, uid)); list.length = Math.min(list.length, KEEP);
   }
-  const { s, tag } = views.get(key);
-  return since === tag ? { same: true, tag } : { ...s, tag };
+  const cur = list[0], { s } = cur, tag = String(cur.id);
+  if (since === tag) return { same: true, tag, occ: s.occ };
+  const old = since && list.find(x => String(x.id) === since);
+  if (!old) return { ...s, tag };
+  const delta = {};
+  for (const t in cur.rows) {
+    const a = old.rows[t], b = cur.rows[t], put = [], del = [];
+    if (!a) { delta[t] = { all: s.tables[t] }; continue; }
+    for (const [id, j] of b) if (a.get(id) !== j) put.push(JSON.parse(j));
+    for (const id of a.keys()) if (!b.has(id)) del.push(id);
+    if (put.length || del.length) delta[t] = { put, del };
+  }
+  for (const t in old.rows) if (!cur.rows[t]) delta[t] = { all: [] };
+  return Object.keys(delta).length ? { delta, occ: s.occ, uid: s.uid, tag } : { same: true, tag, occ: s.occ };
 }
 const readBody = req => new Promise((ok, ko) => { let n = 0; const ch = []; req.on('data', c => { n += c.length; if (n > 30 * 1048576) { ko(Object.assign(new Error('Solicitud demasiado grande'), { user: true })); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch).toString('utf8'))); req.on('error', ko); });
 
@@ -181,7 +202,7 @@ async function api(req, res, path) {
   if (path === '/api/baja' && (req.method === 'GET' || req.method === 'POST')) return baja(req, res);
   if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, new URL(req.url, 'http://x').searchParams.get('since')));
   if (path === '/api/rpc' && req.method === 'POST') {
-    let name, args; try { ({ name, args } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
+    let name, args, since; try { ({ name, args, since } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
     const ip = ipOf(req), erase = name === 'user.erase' || name === 'me.closeAccount', auth = String(name).startsWith('auth.') || erase, who = erase ? 'pass:' + uid : auth ? String(args?.ident || args?.id || args?.doc_number || '').toLowerCase().replace(/[.\s-]/g, '') : '';
     if (name === 'auth.logout') { const p = tokenInfo(bearer(req)); if (p?.sid) await commit(() => db.update('sessions', p.sid, { revoked_at: new Date().toISOString() })); return json(res, 200, { result: { ok: true } }); }
     if (auth && blocked(ip, who)) return json(res, 429, { error: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
@@ -197,7 +218,7 @@ async function api(req, res, path) {
       if (result) { delete result.demo_code; if (result.session) result.session = true; }
       if (erase && result?.storage) { for (const k of result.storage) try { unlinkSync(join(UPLOADS, basename(k))); } catch { /* ya no estaba */ } delete result.storage; }
       const nuid = token ? verify(token) : uid;
-      const out = { result, token, snap: view({ db, uid: nuid, now: new Date() }, nuid) };
+      const out = { result, token, snap: view({ db, uid: nuid, now: new Date() }, nuid, token ? null : (typeof since === 'string' ? since : null)) };
       json(res, 200, out);
       if (db.where('outbox', o => !o.sent_at).length) sendMail().catch(() => {}); // códigos y avisos salen de inmediato
       return;

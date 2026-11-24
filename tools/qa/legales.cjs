@@ -25,7 +25,7 @@ const IMG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   // ---- Pie de página
   const foot = await p.innerText('footer.foot');
   ok(/Privacidad/.test(foot) && /Términos/.test(foot) && /Contacto/.test(foot), 'pie en el ingreso: enlaces legales y contacto');
-  ok(/versión 2\.9\.0/.test(foot) && /Diseñada por KeyPoint Systems con herramientas de IA/.test(foot), 'pie: versión 2.9.0 y créditos');
+  ok(/versión \d+\.\d+\.\d+ ·/.test(foot) && /Diseñada por KeyPoint Systems con herramientas de IA/.test(foot), 'pie: versión actual y créditos');
   ok(/keypoint\.systems\.um@gmail\.com/.test(foot) && /\+56 2 2345 6789/.test(foot), 'pie: correo y teléfono del Hub');
   ok(!(await p.$('script[src*="accounts.google.com"]')), 'Google no se carga al abrir la app');
 
@@ -118,6 +118,10 @@ const IMG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   // genera un aviso para ella
   await logout(); await login('roderick.grez@mayor.cl');
   await go('a-reglas');
+  // genera un aviso por correo para Camila (premio de horas) para que aparezca entre los últimos correos
+  await go('a-husr'); await p.fill('#f-usr_q', 'Camila'); await W(500); const cid = await p.evaluate(() => [...document.querySelectorAll('[data-a="usr-open"]')].map(b => b.dataset.v).find(Boolean));
+  if (cid) { await p.click(`[data-a="usr-open"][data-v="${cid}"]`); await W(500); await p.click('[data-a="adj-ask"][data-v="premio"]').catch(() => {}); await W(300); if (await p.$('#f-aj_reason')) { await p.fill('#f-aj_reason', 'Prueba de aviso'); await p.click('[data-a="adj-ok"]'); await W(600); await noToast(); } }
+  await go('a-reglas');
   const av = await p.$$eval('table tr', rows => rows.map(r => r.innerText)); ok(av.some(r => /Aviso/.test(r)) && av.some(r => /Cuenta/.test(r)), 'Últimos correos: distingue avisos y correos de cuenta');
   const vb = await p.$('tr:has-text("Aviso") [data-a="ob-view"]'); await vb.click(); await W(500);
   const pvw = await p.innerText('.modal .mailpv');
@@ -156,7 +160,7 @@ const IMG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   await go('u-login'); await p.fill('#f-l_ident', to); await p.fill('#f-l_pass', 'demo1234'); await p.click('[data-a="login"]'); await W(900); await go('u-config'); ok(!(await p.isChecked('[data-a="notices"]')), `después de la baja, Configuración muestra los avisos desactivados (${to})`); await p.check('[data-a="notices"]'); await W(300); await logout();
 
   // ---- Idiomas
-  for (const [L, rx, doc] of [['en', /Privacy.*Terms.*Contact.*version 2\.9\.0.*Designed by KeyPoint Systems with AI tools/s, /Privacy policy/], ['pt', /Privacidade.*Termos.*Contato.*versão 2\.9\.0.*Desenvolvida pela KeyPoint Systems com ferramentas de IA/s, /Política de privacidade/]]) {
+  for (const [L, rx, doc] of [['en', /Privacy.*Terms.*Contact.*version \d+\.\d+\.\d+.*Designed by KeyPoint Systems with AI tools/s, /Privacy policy/], ['pt', /Privacidade.*Termos.*Contato.*versão \d+\.\d+\.\d+.*Desenvolvida pela KeyPoint Systems com ferramentas de IA/s, /Política de privacidade/]]) {
     const c2 = await b.newContext({ viewport: { width: 390, height: 800 } }); await c2.addInitScript(l => { try { localStorage.setItem('hub-lang', l); } catch {} }, L);
     const q = await c2.newPage(); q.on('pageerror', e => errs.push(L + ': ' + e.message)); await q.goto(URL0); await q.waitForSelector('.login'); await q.waitForTimeout(500);
     ok(rx.test(await q.innerText('footer.foot')), `pie en ${L}`);

@@ -18,6 +18,15 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.9.1] · 24 de noviembre de 2026
+### Rendimiento (modo con servidor)
+- **Solo viajan los cambios.** Antes, cada acción devolvía todos los datos de la sesión (1,1 MB para el equipo, 88 KB comprimidos) y cada consulta periódica los volvía a bajar si algo había cambiado. Ahora el servidor recuerda la última vista enviada a cada sesión y responde solo las filas nuevas, cambiadas o borradas (alrededor de 1 a 2 KB por acción). La comparación se hace sobre lo que cada persona puede ver, así que es exacta aunque cambie su alcance. Si el servidor no reconoce la vista del navegador (por ejemplo, tras reiniciarse), envía los datos completos como antes.
+- **Reglas y Apariencia guardan en una sola llamada** (`config.setMany`), en vez de unas 20 seguidas. Además ahora es todo o nada: si un dato es inválido no se guarda ninguno.
+- Medición con un teléfono simulado (CPU 4 veces más lenta) y red de 150 ms / 3 Mbps: guardar Reglas pasó de 12,6 s a 0,3 s; escanear en recepción, de 0,9 s a 0,25 s. El ingreso sigue cargando los datos completos una vez (0,9 s).
+- Prueba nueva: `tools/qa/sincronizacion.mjs` (los datos armados con cambios son idénticos a una carga completa, para cuatro roles y siete tipos de acción).
+### Corregido
+- Publicación en GitHub Pages: el flujo ahora tiene dos trabajos (`build` y `deploy`) y reintenta una vez, por una falla intermitente de GitHub al buscar el sitio recién subido.
+
 ## [2.9.0] · 24 de noviembre de 2026
 ### Agregado
 - **Política de privacidad y Términos y condiciones** dentro de la app, en español, inglés y portugués (versión 1.0). Se arman con el contacto del Hub y las preguntas que realmente pide el formulario. Citan la Ley 19.628 vigente y la Ley 21.719, que rige desde el 15 de octubre de 2027. Son un **borrador**: debe revisarlos la Municipalidad. `npm run docs:legal` genera `docs/politica-privacidad.md` y `docs/terminos-condiciones.md`.

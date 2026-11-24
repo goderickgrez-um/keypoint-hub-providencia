@@ -442,4 +442,45 @@ h1 + p { font-size: 10.5pt; }
 </tr>
 </tbody>
 </table>
-<p><strong>No verificado:</strong> el envío real por Gmail (los correos se revisaron tal como los arma el servidor, sin pasar por SMTP) y cómo muestran Gmail y Outlook el botón «Cancelar suscripción», que depende de su reputación del remitente; lectores de pantalla reales (NVDA, VoiceOver) con el teclado; la revisión jurídica de los textos legales, que corresponde a la Municipalidad.</p></body></html>
+<p><strong>No verificado:</strong> el envío real por Gmail (los correos se revisaron tal como los arma el servidor, sin pasar por SMTP) y cómo muestran Gmail y Outlook el botón «Cancelar suscripción», que depende de su reputación del remitente; lectores de pantalla reales (NVDA, VoiceOver) con el teclado; la revisión jurídica de los textos legales, que corresponde a la Municipalidad.</p>
+<h2>11. Pruebas de la versión 2.9.1: rendimiento con el servidor</h2>
+<p><strong>Medición (antes → después)</strong> con el servidor real, PostgreSQL y datos de ejemplo; teléfono simulado con la CPU 4 veces más lenta y red de 150 ms y 3 Mbps:</p>
+<table>
+<thead>
+<tr>
+<th>Acción</th>
+<th>2.9.0</th>
+<th>2.9.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guardar Reglas</td>
+<td>12,6 s</td>
+<td>0,34 s</td>
+</tr>
+<tr>
+<td>Recepción escanea un RUT</td>
+<td>0,86 s</td>
+<td>0,25 s</td>
+</tr>
+<tr>
+<td>Usuaria cambia una opción</td>
+<td>0,43 s</td>
+<td>0,38 s</td>
+</tr>
+<tr>
+<td>Datos que devuelve una acción del equipo</td>
+<td>1,1 MB (88 KB comprimidos)</td>
+<td>1 a 2 KB</td>
+</tr>
+<tr>
+<td>Ingreso (carga completa, una vez)</td>
+<td>0,9 s</td>
+<td>0,9 s</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exactitud</strong> (<code>tools/qa/sincronizacion.mjs</code>, 40 verificaciones): administración, recepción, una usuaria y una analista quedan conectadas. Después de cada una de siete acciones (escaneo, ajuste de horas, cambio de perfil, Reglas, crear y borrar un evento, publicar y despublicar), los datos que arma cada una aplicando solo los cambios son idénticos, tabla por tabla, a pedir todo de nuevo. También se probó que una etiqueta desconocida recibe los datos completos, que cerrar sesión deja la vista pública y que Reglas con un dato inválido no guarda nada.</p>
+<p><strong>Regresión:</strong> sesiones (17), API (8), app publicada contra el servidor sin errores, cuentas (30), seguridad, carga (p95 de 67 ms en escaneos), pruebas 1.3, 1.4, 2.7 y 2.8 en el navegador, recorrido de pantallas, legales (71) y accesibilidad (104 revisiones): todo correcto. <code>formulario.mjs</code> sigue en 26 de 28 por las 2 verificaciones de la migración 2.7 → 2.8, que no aplican a una base nueva.</p>
+<p><strong>No verificado:</strong> la mejora sobre Tailscale Funnel real y con varios dispositivos del Hub a la vez. Los tiempos de arriba son de una red simulada.</p></body></html>

@@ -13,6 +13,20 @@ export class Store {
     return this;
   }
   dump() { return this.d; }
+  /** Aplica cambios recibidos del servidor sin registrarlos: { tabla: { put: [filas], del: [ids] } } o { tabla: { all: [filas] } }. */
+  patch(delta) {
+    for (const t in delta) {
+      if (!TABLES[t]) continue;
+      const x = delta[t], pk = pkOf(t);
+      if (x.all) { this.d[t] = x.all.map(r => ({ ...r })); delete this.ix[t]; delete this.seq[t]; continue; }
+      if (x.del?.length) { const gone = new Set(x.del); this.d[t] = this.d[t].filter(r => !gone.has(r[pk])); }
+      if (x.put?.length) { const at = new Map(this.d[t].map((r, i) => [r[pk], i]));
+        for (const r of x.put) { const i = at.get(r[pk]); if (i == null) { at.set(r[pk], this.d[t].length); this.d[t].push({ ...r }); } else this.d[t][i] = { ...r }; } }
+      delete this.ix[t]; delete this.seq[t];
+    }
+    this.log = []; this.undo = []; this.rev++;
+    return this;
+  }
 
   all(t) { return this.d[t]; }
   /** Búsqueda por llave primaria con índice (O(1)); el índice se arma la primera vez que se usa. */

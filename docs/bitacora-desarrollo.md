@@ -341,11 +341,26 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 
 **Correcciones encontradas en el camino:** el título que recibía el foco al cambiar de pantalla lo perdía con el segundo dibujado (la actualización quitaba su `tabindex`); y en la demo, el enlace de baja abierto desde una ventana volvía a la pantalla anterior por el historial de la ventana.
 
+### 5.18 Rendimiento con el servidor (versión 2.9.1, 24 de noviembre)
+
+**Solicitud.** Con la 2.9.0 publicada, el sistema se sentía lento al usar el servidor. «Adelante, optimiza el sistema.»
+
+**Diagnóstico (medido).** El servidor respondía en 25 a 50 ms; la demora estaba en lo que viajaba. Cada acción devolvía todos los datos visibles para la sesión (1,1 MB para el equipo, 88 KB comprimidos; la mitad, visitas y reservas de 100 días), y guardar Reglas hacía unas 20 llamadas seguidas. Con un teléfono y una red lenta simulados, guardar Reglas tardaba 12,6 s.
+
+**Decisiones.**
+
+- El servidor recuerda las últimas tres vistas enviadas a cada sesión, como filas en texto, y responde la diferencia (filas nuevas o cambiadas e identificadores borrados). Se descartó enviar «las filas tocadas por la operación» porque lo que ve cada persona depende de relaciones (por ejemplo, una invitación hace visible a otra persona); comparar la vista completa es exacto en todos los casos.
+- Si el servidor no reconoce la vista del navegador, manda todo, igual que antes: no hay estado que pueda quedar inconsistente.
+- `config.setMany` guarda varias claves en una operación (todo o nada).
+- No se recortó el historial de visitas del equipo a 30 días, como se había planteado: Datos lo usa para periodos largos. Con la sincronización por cambios, ese historial viaja una sola vez al entrar.
+
+**Resultado.** Guardar Reglas: 12,6 s → 0,3 s. Escanear en recepción: 0,9 s → 0,25 s. Respuesta típica: 1,1 MB → 1 a 2 KB.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.9.0 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.9.1 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |

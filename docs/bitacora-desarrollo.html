@@ -459,6 +459,17 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <li class="done">Pruebas: núcleo (<code>tools/test-legal.mjs</code>), navegador (<code>tools/qa/legales.cjs</code>) y servidor con migración desde 2.8.0 (<code>tools/qa/servidor-legal.mjs</code>), más la repetición de todas las anteriores.</li>
 </ul>
 <p><strong>Correcciones encontradas en el camino:</strong> el título que recibía el foco al cambiar de pantalla lo perdía con el segundo dibujado (la actualización quitaba su <code>tabindex</code>); y en la demo, el enlace de baja abierto desde una ventana volvía a la pantalla anterior por el historial de la ventana.</p>
+<h3>5.18 Rendimiento con el servidor (versión 2.9.1, 24 de noviembre)</h3>
+<p><strong>Solicitud.</strong> Con la 2.9.0 publicada, el sistema se sentía lento al usar el servidor. «Adelante, optimiza el sistema.»</p>
+<p><strong>Diagnóstico (medido).</strong> El servidor respondía en 25 a 50 ms; la demora estaba en lo que viajaba. Cada acción devolvía todos los datos visibles para la sesión (1,1 MB para el equipo, 88 KB comprimidos; la mitad, visitas y reservas de 100 días), y guardar Reglas hacía unas 20 llamadas seguidas. Con un teléfono y una red lenta simulados, guardar Reglas tardaba 12,6 s.</p>
+<p><strong>Decisiones.</strong></p>
+<ul>
+<li>El servidor recuerda las últimas tres vistas enviadas a cada sesión, como filas en texto, y responde la diferencia (filas nuevas o cambiadas e identificadores borrados). Se descartó enviar «las filas tocadas por la operación» porque lo que ve cada persona depende de relaciones (por ejemplo, una invitación hace visible a otra persona); comparar la vista completa es exacto en todos los casos.</li>
+<li>Si el servidor no reconoce la vista del navegador, manda todo, igual que antes: no hay estado que pueda quedar inconsistente.</li>
+<li><code>config.setMany</code> guarda varias claves en una operación (todo o nada).</li>
+<li>No se recortó el historial de visitas del equipo a 30 días, como se había planteado: Datos lo usa para periodos largos. Con la sincronización por cambios, ese historial viaja una sola vez al entrar.</li>
+</ul>
+<p><strong>Resultado.</strong> Guardar Reglas: 12,6 s → 0,3 s. Escanear en recepción: 0,9 s → 0,25 s. Respuesta típica: 1,1 MB → 1 a 2 KB.</p>
 <hr />
 <h2>6. Evolución técnica</h2>
 <table>
@@ -466,7 +477,7 @@ Periodo: octubre a noviembre de 2026 · Versión del sistema documentada: <stron
 <tr>
 <th>Aspecto</th>
 <th>Primera entrega (1.0.0)</th>
-<th>Versión 2.9.0</th>
+<th>Versión 2.9.1</th>
 </tr>
 </thead>
 <tbody>

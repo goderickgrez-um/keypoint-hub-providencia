@@ -218,3 +218,21 @@ Se probó cada etapa por separado y luego juntas.
 | Carga: 50 sesiones simultáneas (1000 pedidos), escaneos y datos de administración | 0 errores; p95 de 274 ms (sesiones), 46 ms (escaneos) y 35 ms (datos) |
 
 **No verificado:** el envío real por Gmail (los correos se revisaron tal como los arma el servidor, sin pasar por SMTP) y cómo muestran Gmail y Outlook el botón «Cancelar suscripción», que depende de su reputación del remitente; lectores de pantalla reales (NVDA, VoiceOver) con el teclado; la revisión jurídica de los textos legales, que corresponde a la Municipalidad.
+
+## 11. Pruebas de la versión 2.9.1: rendimiento con el servidor
+
+**Medición (antes → después)** con el servidor real, PostgreSQL y datos de ejemplo; teléfono simulado con la CPU 4 veces más lenta y red de 150 ms y 3 Mbps:
+
+| Acción | 2.9.0 | 2.9.1 |
+|---|---|---|
+| Guardar Reglas | 12,6 s | 0,34 s |
+| Recepción escanea un RUT | 0,86 s | 0,25 s |
+| Usuaria cambia una opción | 0,43 s | 0,38 s |
+| Datos que devuelve una acción del equipo | 1,1 MB (88 KB comprimidos) | 1 a 2 KB |
+| Ingreso (carga completa, una vez) | 0,9 s | 0,9 s |
+
+**Exactitud** (`tools/qa/sincronizacion.mjs`, 40 verificaciones): administración, recepción, una usuaria y una analista quedan conectadas. Después de cada una de siete acciones (escaneo, ajuste de horas, cambio de perfil, Reglas, crear y borrar un evento, publicar y despublicar), los datos que arma cada una aplicando solo los cambios son idénticos, tabla por tabla, a pedir todo de nuevo. También se probó que una etiqueta desconocida recibe los datos completos, que cerrar sesión deja la vista pública y que Reglas con un dato inválido no guarda nada.
+
+**Regresión:** sesiones (17), API (8), app publicada contra el servidor sin errores, cuentas (30), seguridad, carga (p95 de 67 ms en escaneos), pruebas 1.3, 1.4, 2.7 y 2.8 en el navegador, recorrido de pantallas, legales (71) y accesibilidad (104 revisiones): todo correcto. `formulario.mjs` sigue en 26 de 28 por las 2 verificaciones de la migración 2.7 → 2.8, que no aplican a una base nueva.
+
+**No verificado:** la mejora sobre Tailscale Funnel real y con varios dispositivos del Hub a la vez. Los tiempos de arriba son de una red simulada.
