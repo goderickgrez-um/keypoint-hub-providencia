@@ -364,11 +364,24 @@ También se explicó cómo reiniciar la base de demostración: `npm run db:init 
 
 **Decisiones.** Medir en el lugar real: diagnóstico de conexión en Reglas, cabecera `Server-Timing` (expone solo duraciones) y registro de pedidos lentos en la ventana del servidor. Optimizaciones que ayudan con latencia alta: brotli y consulta periódica con la vista en una cabecera (sin pedido previo de CORS). No se guardan datos personales en el dispositivo para acelerar el ingreso: sería más rápido, pero dejaría datos de otras personas en los equipos de recepción.
 
+### 5.20 Carga rápida (versión 2.9.3, 26 de noviembre)
+
+**Solicitud.** Con el diagnóstico de conexión, la ida y vuelta al servidor medía 355 ms: «la red y Tailscale» eran la causa. La pantalla de ingreso tardaba unos 4 s. «Incluye todas las mejoras que habíamos considerado para la versión 2.9.3»: ingreso del equipo en dos pasos, respuesta inmediata y una pantalla de ingreso que no espere al servidor.
+
+**Hallazgo.** 355 ms por viaje no explicaban 4 s. La causa estaba en las imágenes: fotos, banners, anuncios y diplomas se guardaban como data: URL y viajaban dentro de los datos, incluso en la vista pública del ingreso. Por Funnel, cuyo ancho de banda limita Tailscale, eso pesaba más que todo lo demás. Los datos de ejemplo no tenían imágenes, por eso las mediciones anteriores no lo mostraron.
+
+**Decisiones.**
+
+- Las imágenes se sirven aparte, con una dirección firmada por contenido (HMAC) y caché permanente del navegador. No se cambió cómo se guardan en la base, así que no hay migración.
+- La pantalla de ingreso usa la vista pública guardada en el dispositivo. No se guardan datos personales para acelerar el ingreso con sesión: en su lugar se muestra «Cargando tus datos…».
+- El equipo recibe primero los dos últimos días y luego el historial como diferencia (aprovecha la sincronización de la 2.9.1).
+- La consulta pantalla por pantalla, que se evaluó el 25 de noviembre, se descartó: con latencia alta, más viajes empeoran la espera.
+
 ---
 
 ## 6. Evolución técnica
 
-| Aspecto | Primera entrega (1.0.0) | Versión 2.9.2 |
+| Aspecto | Primera entrega (1.0.0) | Versión 2.9.3 |
 |---|---|---|
 | Datos | Demostración en el navegador | PostgreSQL en el servidor; la demostración se mantiene |
 | Lógica | Núcleo compartido entre navegador y servidor | El mismo núcleo, con permisos revisados en el servidor y vistas filtradas por rol |

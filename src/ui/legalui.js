@@ -71,7 +71,8 @@ export function readBaja() {
 export const noticesCard = () => { const u = me(); if (!u?.email) return '';
   return `<div class="card stack"><h3>${t('Avisos por correo')}</h3><label class="ck"><input type="checkbox" data-a="notices" ${u.email_notices !== false ? 'checked' : ''}><span>${t('Recibir por correo los avisos de reservas, eventos, horas y archivos')}</span></label>
     <p class="sm mu">${t('Los códigos de acceso y los mensajes necesarios para tu cuenta se envían siempre.')}</p></div>`; };
-actions.notices = async (_, el) => { const on = el.checked, r = await run('me.update', { email_notices: on }); if (r) toast(t(on ? 'Recibirás los avisos por correo' : 'Ya no recibirás avisos por correo')); };
+// Respuesta inmediata: el aviso sale al tocar; si el servidor no lo guarda, la casilla vuelve atrás y se explica por qué.
+actions.notices = async (_, el) => { const on = el.checked; toast(t(on ? 'Recibirás los avisos por correo' : 'Ya no recibirás avisos por correo')); if (!(await run('me.update', { email_notices: on }))) el.checked = !on; };
 
 /** Pide aceptar los términos vigentes a quien aceptó una versión anterior (o ninguna). */
 export const needsTerms = u => !!u && u.terms_version !== LEGAL.LEGAL_VERSION;

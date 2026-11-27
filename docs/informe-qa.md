@@ -252,3 +252,31 @@ Tras la 2.9.1 se informó que cada acción tardaba 4 a 5 s, contra 0,5 a 1 s con
 Ninguna parte del código es más lenta que en la 2.8.0, y cada acción sigue siendo un solo pedido. Una demora de 4 a 5 s por acción apunta a la red entre el dispositivo y el servidor (Tailscale Funnel, internet del Hub) o al computador del servidor (batería, ahorro de energía). Por eso la 2.9.2 agrega el diagnóstico de conexión en Reglas y el registro de pedidos lentos, que separan ambas causas en el lugar real.
 
 Pruebas: con la red simulada a 0 ms y a 1 s de latencia, el diagnóstico mide correctamente la ida y vuelta y el tiempo del servidor. Las respuestas llegan con brotli y `Server-Timing`, sin errores de CSP. Repetidas: sincronización (40), sesiones (17), API (8), app contra el servidor, cuentas (30), seguridad, carga (p95 de 44 ms), recorrido de pantallas y legales (71). Todo correcto.
+
+## 13. Versión 2.9.3: carga rápida
+
+**Tamaños comprimidos** con el servidor real, tres eventos con banner e imagen del anuncio, y tres fotos de perfil:
+
+| Vista | 2.9.2 | 2.9.3 |
+|---|---|---|
+| Pantalla de ingreso (pública) | 131 KB | 5 KB |
+| Usuaria | 167 KB | 13 KB |
+| Equipo al entrar | 228 KB | 26 KB (luego el historial, 49 KB, por detrás) |
+
+En el Hub real la diferencia crece con cada banner y cada foto: antes todos viajaban en cada ingreso, ahora cada imagen se baja una vez y queda en la caché del navegador.
+
+**Servidor** (`carga-inicial.mjs`, 15 verificaciones): la imagen se descarga aparte y es idéntica byte a byte; va con caché privada permanente, `nosniff` y CSP cerrada. Una dirección inventada o con «..» responde 404. Una usuaria no recibe direcciones de fotos de otras personas. La vista liviana más el historial es idéntica a la vista completa, tabla por tabla.
+
+**Navegador con red lenta simulada** (`carga-rapida.cjs`, 13 verificaciones, a 400 ms y a 1 s por tramo):
+- Primera visita: «Conectando con el Hub…».
+- Segunda visita: el ingreso aparece antes de que responda el servidor.
+- La vista guardada no contiene personas ni fotos.
+- Con 1 s por tramo, el panel del equipo aparece a los 1,2 s y el historial llega 1,1 s después; Datos avisa mientras tanto.
+- Con la red lenta se ve la barra de trabajo y el lector de pantalla recibe «Guardando…».
+- Los avisos por correo confirman en 30 ms.
+- Al recargar con sesión aparece «Cargando tus datos…» en 0,1 s.
+- Sin errores de JavaScript.
+
+**Regresión:** sincronización (41), sesiones (17), API (8), app contra el servidor sin bloqueos de CSP, cuentas (30), seguridad, carga (p95 de 48 ms), pruebas 1.3, 1.4, 2.7 y 2.8, recorrido de pantallas, legales (71) y accesibilidad (104 revisiones). Todo correcto.
+
+**No verificado:** los tiempos sobre Tailscale real y la primera visita desde GitHub Pages, que comprime y guarda en caché la app (el servidor de prueba no lo hace).

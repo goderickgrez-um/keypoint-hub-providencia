@@ -151,6 +151,9 @@ window.addEventListener('online', () => { App.data.tick(); flushQueue(); });
   if (typeof window.HUB_CONFIG === 'string') window.HUB_CONFIG = { api };
   App.mode = api != null && location.protocol !== 'file:' ? 'remote' : 'demo';
   App.data = App.mode === 'remote' ? remote : local;
+  // Mientras llegan los datos del servidor se ve el logo y qué se está haciendo, nunca una pantalla en blanco.
+  if (App.mode === 'remote') { App.t = t; let tk = null; try { tk = localStorage.getItem('hub-token') || sessionStorage.getItem('hub-token'); } catch { /* bloqueado */ }
+    document.getElementById('app').innerHTML = `<main class="wrap"><div class="login stack c boot" style="align-items:center" role="status"><img class="logo" src="${logoSrc()}" alt=""><p class="mu"><span class="spin" aria-hidden="true"></span> ${t(tk ? 'Cargando tus datos…' : 'Conectando con el Hub…')}</p></div></main>`; }
   try { await App.data.init(render); }
   catch (e) { console.error(e);
     if (App.mode === 'remote') { document.getElementById('app').innerHTML = `<main class="wrap"><div class="login stack c" style="align-items:center"><img class="logo" src="${logoSrc()}" alt=""><h1>${t('El sistema no está disponible')}</h1><p class="mu">${t('No pudimos conectar con el servidor del Hub. Revisa tu conexión a internet o intenta de nuevo en unos minutos.')}</p><button class="btn" data-a="reload">${t('Reintentar')}</button><p class="sm mu">${esc(api)}</p></div></main>`; return; } }

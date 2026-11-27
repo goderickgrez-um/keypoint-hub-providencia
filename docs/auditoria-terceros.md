@@ -53,6 +53,7 @@ El ID de cliente de Microsoft que aparece en Reglas está reservado para una ver
 | `hub-lang` | localStorage | Idioma elegido | Al cambiarlo |
 | `hub-tour-*` | localStorage | Guías de pantalla ya vistas | Al borrar los datos del navegador |
 | `hub-queue` | localStorage | Acciones hechas sin conexión (recepción) | Al volver la conexión y enviarlas |
+| `hub-public-v1` | localStorage | Vista pública del Hub (nombre, contacto, formulario, eventos publicados) para mostrar el ingreso al instante; sin datos personales | Se reemplaza en cada visita |
 | `keypoint-hub` | IndexedDB | Solo en la demo: los datos de ejemplo | Al reiniciar la demo |
 | Caché del service worker | Cache Storage | Archivos de la app para abrirla sin conexión | Con cada versión nueva |
 

@@ -18,7 +18,7 @@ await cp(P('assets'), P('web/assets'), { recursive: true });
 
 // Política de seguridad de contenido para GitHub Pages: permite conectarse solo al servidor indicado en config.web.js.
 const cfgTxt = await readFile(P('config.web.js'), 'utf8'), apiOrigin = (() => { const m = /^\s*window\.HUB_CONFIG\s*=\s*(?:\{[^}]*api\s*:\s*)?["']([^"']+)["']/m.exec(cfgTxt); try { return m ? new URL(m[1]).origin : ''; } catch { return ''; } })();
-const CSP = `default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' ${apiOrigin} https://accounts.google.com; frame-src https://accounts.google.com; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'`.replace('  ', ' ');
+const CSP = `default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: ${apiOrigin} https://*.googleusercontent.com; connect-src 'self' ${apiOrigin} https://accounts.google.com; frame-src https://accounts.google.com; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'`.replace('  ', ' ');
 const page = (title, manifest, start) => `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">

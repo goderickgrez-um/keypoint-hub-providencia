@@ -152,7 +152,7 @@ function cors(req, res) {
     return;
   }
   res.setHeader('Access-Control-Allow-Origin', o); res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-File-Name, X-Hub-Since'); res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-File-Name, X-Hub-Since, X-Hub-Lite'); res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('Access-Control-Expose-Headers', 'Server-Timing'); res.setHeader('Timing-Allow-Origin', o);
 }
 const gz = req => /\bgzip\b/.test(req?.headers['accept-encoding'] || '');
@@ -166,7 +166,7 @@ const json = (res, code, body) => {
   else if (out.length > 1024 && gz(res.req)) { out = gzipSync(out, { level: 6 }); h['Content-Encoding'] = 'gzip'; h.Vary = 'Accept-Encoding, Origin'; }
   const t0 = res.req?.t0, ms = t0 ? performance.now() - t0 : 0;
   if (t0) { h['Server-Timing'] = `app;dur=${ms.toFixed(1)}`; if (ms > SLOW_MS) console.warn(`[lento] ${res.req.method} ${res.req.url.split('?')[0]}${res.req.rpcName ? ' ' + res.req.rpcName : ''}: ${ms | 0} ms`); }
-  res.writeHead(code, h); res.end(out);
+  h['Content-Length'] = out.length; res.writeHead(code, h); res.end(out);
 };
 /** Datos de la sesión. La primera vez se envían completos; después, solo las filas que cambiaron.
  * El servidor recuerda las últimas vistas que envió a cada sesión (como filas en texto) y compara la nueva
@@ -174,24 +174,55 @@ const json = (res, code, body) => {
  * repetir todos los datos (más de 1 MB para el equipo), y la comparación es exacta aunque cambie qué puede ver cada uno. */
 const views = new Map(); let BUILD = 0;
 const KEEP = 3; // vistas recordadas por sesión (varios dispositivos de la misma cuenta)
-function build(ctx, uid) {
-  const s = { ...snapshot(ctx), uid }, cut = Date.now() - 100 * 864e5, t = s.tables;
-  if (t.visits) t.visits = t.visits.filter(v => +new Date(v.in_at) > cut);
-  if (t.reservations) t.reservations = t.reservations.filter(r => +new Date(r.end_at) > cut);
-  if (t.audit_log) t.audit_log = t.audit_log.slice(-300);
-  const rows = {}; for (const k in t) { const pk = pkOf(k), m = new Map(); for (const r of t[k]) m.set(r[pk], JSON.stringify(r)); rows[k] = m; }
-  return { id: ++BUILD, v: VERSION, at: Date.now(), s, rows };
+// ---- Imágenes y archivos grandes fuera de los datos (2.9.3)
+// Las fotos, banners, anuncios y diplomas se guardan como data: URL en la base. Enviarlos dentro de los datos
+// hacía que cada ingreso bajara varios MB por Tailscale. Ahora los datos llevan una dirección /api/blob/<firma>
+// y el navegador baja cada imagen aparte, una vez, y la guarda en su caché. La firma es un HMAC del contenido
+// con una clave del servidor: no se puede adivinar ni confirmar si existe una imagen conocida, y cambia si cambia
+// la imagen. Solo la conoce quien recibió la fila en su vista (las mismas reglas de siempre).
+const BLOB_FIELDS = { users: ['photo'], events: ['banner_img', 'poster_img'], user_certs: ['diploma'] };
+const BLOB_KEY = createHmac('sha256', MAIL_SECRET).update('hub-blob').digest();
+const blobs = new Map(), blobMemo = new Map(); let blobBytes = 0;
+function blobRef(t, id, f, v) {
+  if (typeof v !== 'string' || !v.startsWith('data:') || v.length < 4096) return v;
+  const mk = `${t}:${id}:${f}`, memo = blobMemo.get(mk);
+  if (memo && memo.v === v) return memo.ref;
+  const m = /^data:([\w/+.-]+);base64,/.exec(v); if (!m) return v;
+  const h = createHmac('sha256', BLOB_KEY).update(v).digest('base64url').slice(0, 32), ext = { 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' }[m[1]] || 'jpg';
+  const ref = `/api/blob/${h}.${ext}`;
+  if (!blobs.has(h)) { const buf = Buffer.from(v.slice(m[0].length), 'base64'); blobs.set(h, { mime: m[1], buf }); blobBytes += buf.length;
+    while (blobBytes > 300e6 && blobs.size > 1) { const [k, x] = blobs.entries().next().value; blobs.delete(k); blobBytes -= x.buf.length; } }
+  blobMemo.set(mk, { v, ref });
+  return ref;
 }
-function view(ctx, uid, since) {
+function blobify(t) {
+  for (const k in BLOB_FIELDS) if (t[k]) t[k] = t[k].map(r => { let o = r; for (const f of BLOB_FIELDS[k]) { const v = blobRef(k, r[pkOf(k)], f, r[f]); if (v !== r[f]) { if (o === r) o = { ...r }; o[f] = v; } } return o; });
+}
+/** Vista liviana para la primera pantalla del equipo: el historial (visitas y reservas pasadas, auditoría) llega
+ * enseguida en un segundo pedido, como diferencia sobre esta vista. */
+const LITE_DAYS = 2;
+function build(ctx, uid, lite = false) {
+  const s = { ...snapshot(ctx), uid }, cut = Date.now() - (lite ? LITE_DAYS : 100) * 864e5, t = s.tables;
+  if (t.visits) t.visits = t.visits.filter(v => +new Date(v.in_at) > cut || !v.out_at);
+  if (t.reservations) t.reservations = t.reservations.filter(r => +new Date(r.end_at) > cut);
+  if (t.audit_log) t.audit_log = lite ? [] : t.audit_log.slice(-300);
+  blobify(t);
+  if (lite) s.partial = true;
+  const rows = {}; for (const k in t) { const pk = pkOf(k), m = new Map(); for (const r of t[k]) m.set(r[pk], JSON.stringify(r)); rows[k] = m; }
+  return { id: ++BUILD, v: VERSION, at: Date.now(), lite, s, rows };
+}
+function view(ctx, uid, since, lite = false) {
   const key = uid || '-'; let list = views.get(key);
-  if (!list || !(list[0].v === VERSION && Date.now() - list[0].at < 30000)) {
+  lite = lite && !!uid && !since; // solo al entrar (sin vista previa) y con sesión
+  if (!list || !(list[0].v === VERSION && Date.now() - list[0].at < 30000 && list[0].lite === lite)) {
     if (!list) { if (views.size >= 300) views.delete(views.keys().next().value); list = []; views.set(key, list); }
-    list.unshift(build(ctx, uid)); list.length = Math.min(list.length, KEEP);
+    list.unshift(build(ctx, uid, lite)); list.length = Math.min(list.length, KEEP);
   }
   const cur = list[0], { s } = cur, tag = String(cur.id);
   if (since === tag) return { same: true, tag, occ: s.occ };
   const old = since && list.find(x => String(x.id) === since);
   if (!old) return { ...s, tag };
+  // (una vista liviana anterior sirve de base: la diferencia trae justo el historial que faltaba)
   const delta = {};
   for (const t in cur.rows) {
     const a = old.rows[t], b = cur.rows[t], put = [], del = [];
@@ -201,7 +232,7 @@ function view(ctx, uid, since) {
     if (put.length || del.length) delta[t] = { put, del };
   }
   for (const t in old.rows) if (!cur.rows[t]) delta[t] = { all: [] };
-  return Object.keys(delta).length ? { delta, occ: s.occ, uid: s.uid, tag } : { same: true, tag, occ: s.occ };
+  return Object.keys(delta).length ? { delta, occ: s.occ, uid: s.uid, tag } : { same: true, tag, occ: s.occ }; // las diferencias nunca son livianas
 }
 const readBody = req => new Promise((ok, ko) => { let n = 0; const ch = []; req.on('data', c => { n += c.length; if (n > 30 * 1048576) { ko(Object.assign(new Error('Solicitud demasiado grande'), { user: true })); req.destroy(); } else ch.push(c); }); req.on('end', () => ok(Buffer.concat(ch).toString('utf8'))); req.on('error', ko); });
 
@@ -210,7 +241,7 @@ async function api(req, res, path) {
   if (path === '/api/baja' && (req.method === 'GET' || req.method === 'POST')) return baja(req, res);
   // La vista que ya tiene el navegador llega en una cabecera (no en la dirección), así la consulta periódica usa siempre
   // la misma dirección y el navegador reutiliza el permiso CORS en vez de pedirlo de nuevo en cada consulta.
-  if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, req.headers['x-hub-since'] || new URL(req.url, 'http://x').searchParams.get('since')));
+  if (path === '/api/snapshot' && req.method === 'GET') return json(res, 200, view(ctx, uid, req.headers['x-hub-since'] || new URL(req.url, 'http://x').searchParams.get('since'), req.headers['x-hub-lite'] === '1'));
   if (path === '/api/rpc' && req.method === 'POST') {
     let name, args, since; try { ({ name, args, since } = JSON.parse(await readBody(req) || '{}')); } catch { return json(res, 400, { error: 'Solicitud no válida' }); }
     req.rpcName = String(name || '').slice(0, 40);
@@ -229,7 +260,7 @@ async function api(req, res, path) {
       if (result) { delete result.demo_code; if (result.session) result.session = true; }
       if (erase && result?.storage) { for (const k of result.storage) try { unlinkSync(join(UPLOADS, basename(k))); } catch { /* ya no estaba */ } delete result.storage; }
       const nuid = token ? verify(token) : uid;
-      const out = { result, token, snap: view({ db, uid: nuid, now: new Date() }, nuid, token ? null : (typeof since === 'string' ? since : null)) };
+      const out = { result, token, snap: view({ db, uid: nuid, now: new Date() }, nuid, token ? null : (typeof since === 'string' ? since : null), !!token) }; // al entrar: vista liviana
       json(res, 200, out);
       if (db.where('outbox', o => !o.sent_at).length) sendMail().catch(() => {}); // códigos y avisos salen de inmediato
       return;
@@ -256,6 +287,12 @@ async function api(req, res, path) {
     return createReadStream(p).pipe(res);
   }
   if (path === '/api/health') return json(res, 200, { ok: true, version: APP_VERSION });
+  if (path.startsWith('/api/blob/') && req.method === 'GET') {
+    const b = blobs.get(path.slice(10).replace(/\.\w+$/, ''));
+    if (!b) { res.writeHead(404, { 'Cache-Control': 'no-store', ...SEC }); return res.end(); }
+    res.writeHead(200, { 'Content-Type': b.mime, 'Content-Length': b.buf.length, 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'", 'Cross-Origin-Resource-Policy': 'cross-origin', ...SEC });
+    return res.end(b.buf);
+  }
   json(res, 404, { error: 'Ruta desconocida' });
 }
 

@@ -18,6 +18,14 @@ Se sigue el versionado semántico (`MAYOR.MENOR.PARCHE`):
 | «v1.3» | 2.4.0 |
 | «v1.4» | 2.5.0 |
 
+## [2.9.3] · 26 de noviembre de 2026
+### Rendimiento (modo con servidor)
+- **Imágenes fuera de los datos.** Las fotos de perfil, los banners, las imágenes de los anuncios y los diplomas iban dentro de los datos, y cada ingreso los bajaba por Tailscale (hasta varios MB). Ahora los datos llevan una dirección `/api/blob/<firma>` y el navegador baja cada imagen aparte, una sola vez, y la guarda en su caché. La firma es un HMAC del contenido con una clave del servidor: no se puede adivinar, y solo la conoce quien ya podía ver esa fila. Con tres eventos con imagen y tres fotos de ejemplo, la pantalla de ingreso pasó de 131 KB a 5 KB; la vista de una usuaria, de 167 KB a 13 KB, y la del equipo, de 228 KB a 74 KB.
+- **Pantalla de ingreso al instante.** La vista pública (nombre del Hub, contacto, formulario y eventos, sin datos personales) se guarda en el dispositivo; el ingreso se dibuja sin esperar al servidor y se actualiza por detrás. La primera visita muestra «Conectando con el Hub…» y, con sesión guardada, «Cargando tus datos…», en vez de una pantalla en blanco.
+- **Ingreso del equipo en dos pasos.** Primero llegan los datos de los últimos dos días (26 KB comprimidos en vez de 74 KB); el historial de 100 días y la auditoría llegan enseguida como diferencia. Datos, Auditoría y Detalle de uso avisan «Cargando el historial…» mientras tanto.
+- **Respuesta inmediata.** Una barra arriba (y «Guardando…» para lectores de pantalla) aparece cuando una acción tarda más de 150 ms. Activar o desactivar los avisos por correo y cambiar el idioma responden al tocar; si el servidor rechaza el cambio, se deshace con un aviso.
+- Pruebas nuevas: `tools/qa/carga-inicial.mjs` (servidor) y `tools/qa/carga-rapida.cjs` (navegador con red lenta simulada).
+
 ## [2.9.2] · 24 de noviembre de 2026
 ### Agregado
 - **Diagnóstico de conexión** (Reglas › Conexión con el servidor): mide la ida y vuelta, cuánto tarda el servidor y cuánto la red, con un veredicto (red, computador del servidor o todo bien), y muestra el tiempo de las últimas acciones. El servidor informa su tiempo en la cabecera `Server-Timing`.

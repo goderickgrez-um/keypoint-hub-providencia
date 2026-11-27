@@ -184,3 +184,13 @@ main.wrap:focus { outline: none; } main h1[tabindex="-1"]:focus { outline: none;
 .modal .legal { max-height: none; }
 
 .mailpv{white-space:pre-wrap;word-break:break-word;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--bg2,rgba(127,127,127,.08));padding:12px;border-radius:10px;max-height:50vh;overflow:auto}
+
+/* 2.9.3: carga y trabajo en curso */
+.boot{min-height:60vh;justify-content:center}
+.spin{display:inline-block;width:1em;height:1em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+html[data-busy] body::before{content:"";position:fixed;inset:0 0 auto;height:3px;z-index:9999;background:linear-gradient(90deg,transparent,var(--ac,#2bb3a8),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:busy 1s ease-in-out infinite}
+html[data-busy] [data-a]{cursor:progress}
+@keyframes busy{from{background-position:-40% 0}to{background-position:140% 0}}
+@media (prefers-reduced-motion:reduce){.spin,html[data-busy] body::before{animation-duration:3s}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

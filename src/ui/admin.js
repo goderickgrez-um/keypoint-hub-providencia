@@ -196,6 +196,8 @@ actions['file:logo'] = async f => run('config.set', { key: 'logo', value: await 
 actions['logo-reset'] = () => run('config.set', { key: 'logo', value: null }, 'Logo restablecido');
 actions['ap-save'] = () => run('config.setMany', { values: [['system_name', val('ap_name') || DEFAULTS.system_name], ['tagline', val('ap_tag')]] }, 'Identidad guardada');
 
+/** Aviso mientras llega el historial (primeros segundos después de entrar con servidor). */
+const partialNote = () => (App.partial ? `<p class="sm mu" role="status"><span class="spin" aria-hidden="true"></span> Cargando el historial…</p>` : '');
 /** Diagnóstico de conexión (modo con servidor): separa la demora de la red de la del servidor. */
 const ms = x => (x == null || isNaN(x) ? '—' : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(1)} s`);
 function netCard() {
@@ -313,7 +315,7 @@ actions['emp-add'] = async () => { const roles = Object.keys(ROLES).filter(k => 
 screens['a-datos'] = { roles: ['admin', 'analista'], render() {
   const [from, to] = rangeOf(), st = memo('stats' + from + to, () => Q.stats(db(), from, to)), floor = S.planFloor || 1, max = Math.max(1, ...st.bySpace.map(b => b.value));
   const byId = Object.fromEntries(db().all('spaces').map(s => { const v = st.bySpace.find(b => b.label === s.name)?.value || 0; return [s.id, { v: v / max, text: fmtN(v) + ' usos' }]; }));
-  return `<div class="head"><h1>Datos</h1>${myRoles().includes('analista') ? btn('Descargar datos', 'data-export', { cls: 's', icon: 'down' }) : ''}</div>${rangeBar()}
+  return `<div class="head"><h1>Datos</h1>${myRoles().includes('analista') ? btn('Descargar datos', 'data-export', { cls: 's', icon: 'down' }) : ''}</div>${partialNote()}${rangeBar()}
     <p class="sm mu">${fDate(from)} – ${fDate(to)}. Para el análisis se usan solo ${esc(statVars(true))}, sin nombres ni RUT.</p>
     <div class="kpis">${stat('Visitas en el periodo', fmtN(st.visits), `${fmtN(st.uniqueVisitors)} personas distintas`)}${stat('Usuarios registrados', fmtN(st.users), `${st.minors} menores de edad`)}${stat('Edad promedio', st.avgAge ?? '—', 'años')}${st.shown.reduced_mobility ? stat('Movilidad reducida', fmtN(st.mobility), `${Math.round(st.mobility / Math.max(1, st.users) * 100)} % de los usuarios`) : ''}${stat('Inasistencias', fmtN(st.noShows), 'reservas sin llegar')}</div>
     <div class="grid"><div class="card stack"><h3>Visitas por espacio</h3>${barsH(st.bySpace, { id: 'bySpace' })}</div><div class="card stack"><h3>Horas de uso por laboratorio y sala</h3>${barsH(st.hours, { id: 'hours', unit: ' h' })}</div></div>
@@ -427,5 +429,5 @@ actions['file:imp'] = async f => { const txt = await readText(f); S.impRows = tx
 actions['imp-go'] = async () => { const r = await run('import.stats', { rows: S.impRows, source: val('im_src', 'Power BI') }); if (r) { S.impDone = r; S.impRows = null; go(S.k); } };
 
 // ============================================================ Auditoría
-screens['a-audit'] = { roles: ['admin'], render: () => `<h1>Auditoría</h1><p class="mu">Acciones del equipo sobre perfiles, reservas, espacios y configuración.</p>
+screens['a-audit'] = { roles: ['admin'], render: () => `<h1>Auditoría</h1>${partialNote()}<p class="mu">Acciones del equipo sobre perfiles, reservas, espacios y configuración.</p>
   ${table(['Fecha', 'Quién', 'Acción', 'Sobre', 'Detalle'], [...db().all('audit_log')].sort((a, b) => T(b.at) - T(a.at)).slice(0, 120).map(a => [fDT(a.at), esc(uname(a.actor_id)), esc(a.action), esc([a.entity, a.entity_id].filter(Boolean).join(' ')), `<span class="sm">${esc(a.detail || '')}</span>`]))}` };

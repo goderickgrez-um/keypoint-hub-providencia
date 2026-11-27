@@ -365,6 +365,11 @@ const L = [
   ['Para seguir, acepta los Términos y condiciones y la Política de privacidad', 'To continue, accept the Terms and conditions and the Privacy policy', 'Para continuar, aceite os Termos e condições e a Política de privacidade'],
   ['Debes aceptar los Términos y condiciones y la Política de privacidad', 'You must accept the Terms and conditions and the Privacy policy', 'Você deve aceitar os Termos e condições e a Política de privacidade'],
   ['Los términos cambiaron. Vuelve a abrirlos', 'The terms changed. Open them again', 'Os termos mudaram. Abra-os novamente'],
+  // 2.9.3 · carga
+  ['Cargando tus datos…', 'Loading your data…', 'Carregando seus dados…'],
+  ['Conectando con el Hub…', 'Connecting to the Hub…', 'Conectando ao Hub…'],
+  ['Guardando…', 'Saving…', 'Salvando…'],
+  ['No se pudo descargar el diploma', 'Could not download the diploma', 'Não foi possível baixar o diploma'],
 ];
 export const EN = Object.fromEntries(L.map(([es, en]) => [es, en]));
 export const PT = Object.fromEntries(L.map(([es, , pt]) => [es, pt]));

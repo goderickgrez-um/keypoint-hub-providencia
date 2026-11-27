@@ -84,7 +84,7 @@ screens['a-ahora'] = { roles: ALL, render() {
 screens['a-uso'] = { roles: ALL, render() {
   const day = val('uso_day', R.dayKey(new Date())), d = new Date(day + 'T12:00:00'), spaces = can('recepcion', 'analista') ? db().where('spaces', s => s.active) : mySpaces();
   const res = todayRes(d), visits = db().where('visits', v => R.dayKey(v.in_at) === day).sort((a, b) => T(a.in_at) - T(b.in_at)), booked = new Set(res.filter(r => r.attended_at).map(r => r.user_id));
-  return `<h1>Detalle de uso</h1>${field('uso_day', 'Día', { type: 'date', value: day, live: true })}
+  return `<h1>Detalle de uso</h1>${App.partial && day !== R.dayKey(new Date()) ? `<p class="sm mu" role="status"><span class="spin" aria-hidden="true"></span> Cargando el historial…</p>` : ''}${field('uso_day', 'Día', { type: 'date', value: day, live: true })}
     ${spaces.filter(s => s.mode === 'reserva').map(sp => { const rows = res.filter(r => r.space_id === sp.id); return `<h2>${esc(sp.name)}</h2>${table(['Equipo', 'Persona', 'Horario', 'Estado', 'Tiempo real'], rows.map(r => {
       const gs = db().where('reservation_guests', g => g.reservation_id === r.id).map(g => esc(uname(g.user_id)) + (g.attended ? ' ✓' : ''));
       return [esc(rname(r.resource_id) || (r.title || 'Sala completa')), `<b>${esc(uname(r.user_id))}</b>${gs.length ? `<br><span class="sm mu">${gs.join(', ')}</span>` : ''}`, `${fTime(r.start_at)} – ${fTime(r.end_at)}`, stPill(r.status), r.real_min != null ? R.dur(r.real_min) : '']; }), 'Sin reservas este día.')}`; }).join('')}

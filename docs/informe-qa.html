@@ -523,4 +523,45 @@ h1 + p { font-size: 10.5pt; }
 </tbody>
 </table>
 <p>Ninguna parte del código es más lenta que en la 2.8.0, y cada acción sigue siendo un solo pedido. Una demora de 4 a 5 s por acción apunta a la red entre el dispositivo y el servidor (Tailscale Funnel, internet del Hub) o al computador del servidor (batería, ahorro de energía). Por eso la 2.9.2 agrega el diagnóstico de conexión en Reglas y el registro de pedidos lentos, que separan ambas causas en el lugar real.</p>
-<p>Pruebas: con la red simulada a 0 ms y a 1 s de latencia, el diagnóstico mide correctamente la ida y vuelta y el tiempo del servidor. Las respuestas llegan con brotli y <code>Server-Timing</code>, sin errores de CSP. Repetidas: sincronización (40), sesiones (17), API (8), app contra el servidor, cuentas (30), seguridad, carga (p95 de 44 ms), recorrido de pantallas y legales (71). Todo correcto.</p></body></html>
+<p>Pruebas: con la red simulada a 0 ms y a 1 s de latencia, el diagnóstico mide correctamente la ida y vuelta y el tiempo del servidor. Las respuestas llegan con brotli y <code>Server-Timing</code>, sin errores de CSP. Repetidas: sincronización (40), sesiones (17), API (8), app contra el servidor, cuentas (30), seguridad, carga (p95 de 44 ms), recorrido de pantallas y legales (71). Todo correcto.</p>
+<h2>13. Versión 2.9.3: carga rápida</h2>
+<p><strong>Tamaños comprimidos</strong> con el servidor real, tres eventos con banner e imagen del anuncio, y tres fotos de perfil:</p>
+<table>
+<thead>
+<tr>
+<th>Vista</th>
+<th>2.9.2</th>
+<th>2.9.3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pantalla de ingreso (pública)</td>
+<td>131 KB</td>
+<td>5 KB</td>
+</tr>
+<tr>
+<td>Usuaria</td>
+<td>167 KB</td>
+<td>13 KB</td>
+</tr>
+<tr>
+<td>Equipo al entrar</td>
+<td>228 KB</td>
+<td>26 KB (luego el historial, 49 KB, por detrás)</td>
+</tr>
+</tbody>
+</table>
+<p>En el Hub real la diferencia crece con cada banner y cada foto: antes todos viajaban en cada ingreso, ahora cada imagen se baja una vez y queda en la caché del navegador.</p>
+<p><strong>Servidor</strong> (<code>carga-inicial.mjs</code>, 15 verificaciones): la imagen se descarga aparte y es idéntica byte a byte; va con caché privada permanente, <code>nosniff</code> y CSP cerrada. Una dirección inventada o con «..» responde 404. Una usuaria no recibe direcciones de fotos de otras personas. La vista liviana más el historial es idéntica a la vista completa, tabla por tabla.</p>
+<p><strong>Navegador con red lenta simulada</strong> (<code>carga-rapida.cjs</code>, 13 verificaciones, a 400 ms y a 1 s por tramo):
+- Primera visita: «Conectando con el Hub…».
+- Segunda visita: el ingreso aparece antes de que responda el servidor.
+- La vista guardada no contiene personas ni fotos.
+- Con 1 s por tramo, el panel del equipo aparece a los 1,2 s y el historial llega 1,1 s después; Datos avisa mientras tanto.
+- Con la red lenta se ve la barra de trabajo y el lector de pantalla recibe «Guardando…».
+- Los avisos por correo confirman en 30 ms.
+- Al recargar con sesión aparece «Cargando tus datos…» en 0,1 s.
+- Sin errores de JavaScript.</p>
+<p><strong>Regresión:</strong> sincronización (41), sesiones (17), API (8), app contra el servidor sin bloqueos de CSP, cuentas (30), seguridad, carga (p95 de 48 ms), pruebas 1.3, 1.4, 2.7 y 2.8, recorrido de pantallas, legales (71) y accesibilidad (104 revisiones). Todo correcto.</p>
+<p><strong>No verificado:</strong> los tiempos sobre Tailscale real y la primera visita desde GitHub Pages, que comprime y guarda en caché la app (el servidor de prueba no lo hace).</p></body></html>

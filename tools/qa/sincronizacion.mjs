@@ -27,6 +27,8 @@ const adm = new Client('administración'), rec = new Client('recepción'), cam =
 await login(adm, 'roderick.grez@mayor.cl'); const full = adm.last; ok(adm.kind === 'full', `al entrar llegan los datos completos (${kb(full)})`);
 await login(rec, 'marta.pizarro@ejemplo.cl'); await login(cam, 'camila.rojas@ejemplo.cl'); await login(ana, 'ignacio.vera@ejemplo.cl');
 const camId = cam.uid, sp = adm.db.find('spaces', s => s.monthly_hours > 0);
+for (const c of [adm, rec, cam, ana]) await c.poll(); // 2.9.3: al entrar llega una vista liviana; esta primera consulta trae el historial
+ok([adm, rec, cam, ana].every(c => c.kind === 'delta'), 'después de entrar, la primera consulta trae el historial como diferencia');
 for (const c of [adm, rec, cam, ana]) await c.poll();
 ok([adm, rec, cam, ana].every(c => c.kind === 'same'), 'sin cambios, la consulta periódica responde «sin cambios»');
 

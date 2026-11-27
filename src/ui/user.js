@@ -42,7 +42,7 @@ screens['u-login'] = { open: true, render() {
       <button class="btn s plain" data-a="demo-reset">${t('Restablecer datos de ejemplo')}</button></div>` : ''}
     <div class="c">${seg('lang', getLang(), Object.entries(LANGS))}</div></div>`;
 } };
-actions.lang = v => { setLang(v); if (me()) run('me.update', { lang: v }); else go(S.k); };
+actions.lang = v => { setLang(v); go(S.k); if (me()) run('me.update', { lang: v }); }; // el idioma cambia al tiro; se guarda por detrás
 actions['login-mode'] = () => { S.loginMode = S.loginMode === 'code' ? 'pass' : 'code'; S.codeSent = false; S.demoCode = null; go(S.k); };
 /** Mantener la sesión: marcado por defecto. */
 export const keepLogin = () => val('l_keep', true) !== false;
@@ -348,7 +348,8 @@ screens['u-cert'] = { tab: 'u-reservar', render() {
 actions['cert-enroll'] = v => { const [id, on] = v.split(':'); S.modal = null; run('cert.enroll', { session_id: +id, cancel: on === '0' }, on === '1' ? 'Inscripción lista' : 'Inscripción cancelada'); };
 /** Diploma: el que subió el encargado o, si no hay, uno generado por el sistema en PDF. */
 actions.diploma = async id => { const c = db().get('user_certs', +id); if (!c) return;
-  if (c.diploma) return download('diploma-' + c.id + (c.diploma.startsWith('data:application/pdf') ? '.pdf' : '.jpg'), c.diploma);
+  if (c.diploma && c.diploma.startsWith('data:')) return download('diploma-' + c.id + (c.diploma.startsWith('data:application/pdf') ? '.pdf' : '.jpg'), c.diploma);
+  if (c.diploma) { try { toast(t('Preparando tu diploma…')); const b = await App.data.blob(c.diploma); download('diploma-' + c.id + (/pdf/.test(b.type) ? '.pdf' : '.jpg'), b); } catch { toast(t('No se pudo descargar el diploma')); } return; } // con servidor el diploma llega aparte
   toast(t('Preparando tu diploma…'));
   try { const name = (db().get('certifications', c.certification_id)?.name || 'certificacion').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').toLowerCase();
     download(`diploma-${name}.pdf`, await diplomaPdf(c, logoSrc())); toast(t('Diploma descargado')); } catch (e) { console.error(e); toast(t('No se pudo generar el diploma')); } };
